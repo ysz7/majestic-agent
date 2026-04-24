@@ -60,6 +60,7 @@ COMMANDS: dict[str, str] = {
     "/rss":            "manage RSS feeds (/rss list | add <url> | remove <N>)",
     "/model":          "switch LLM provider/model without restart",
     "/stop":           "stop a running agent loop (or press Ctrl+C)",
+    "/skills":         "list saved skills",
     "/memory":         "view persistent memory",
     "/forget":         "remove memory entries by keyword (/forget <topic>)",
     "/stats":          "knowledge base statistics",
@@ -863,6 +864,58 @@ def cmd_search(query: str):
     print()
 
 
+def cmd_skills():
+    try:
+        from majestic.skills.store import list_skills
+        skills = list_skills()
+    except Exception as _e:
+        print(f"  {Y}Skills unavailable: {_e}{R}\n")
+        return
+    if not skills:
+        print(f"\n  {DIM}No skills saved yet. Skills are created automatically after complex multi-tool tasks.{R}\n")
+        return
+    print(f"\n  {B}Skills{R}  {DIM}({len(skills)} saved){R}\n")
+    for s in skills:
+        name  = s.get("name", "?")
+        desc  = s.get("description", "")
+        uses  = s.get("usage_count", 0)
+        print(f"  {C}/{name:<24}{R}  {desc}  {DIM}(used {uses}×){R}")
+    print()
+
+
+def _skill_names() -> list[str]:
+    try:
+        from majestic.skills.store import list_skills
+        return [s.get("name", "") for s in list_skills()]
+    except Exception:
+        return []
+
+
+def _run_skill(name: str, args: str, session_id, history) -> str:
+    from majestic.skills.store import load_skill, increment_usage
+    from majestic.skills.nudge import maybe_improve
+
+    skill = load_skill(name)
+    if not skill:
+        print(f"  {Y}Skill not found: {name}{R}\n")
+        return ""
+
+    body = skill["body"]
+    user_input = (
+        f"Execute skill '{name}'" + (f": {args}" if args else "") +
+        f"\n\nSkill instructions:\n{body}"
+    )
+
+    count = increment_usage(name)
+    answer = _run_agent(user_input, session_id, history)
+
+    # Improve skill every 3rd use (background)
+    if answer and count % 3 == 0:
+        maybe_improve(name, user_input, answer[:500])
+
+    return answer
+
+
 def cmd_tokens(arg: str = ""):
     from core.token_tracker import format_stats, reset as token_reset
     if arg.strip().lower() == "reset":
@@ -1057,9 +1110,15 @@ def _run_agent(
     from majestic.agent.loop import AgentLoop
 
     _agent_stop.clear()
+    _tools_used: list[str] = []
 
     def _on_tool(name: str, args: dict) -> None:
-        label = {"search_knowledge": "🔍 searching knowledge base", "search_web": "🌐 searching web", "get_market_data": "📈 fetching market data"}.get(name, f"⚙ {name}")
+        _tools_used.append(name)
+        label = {
+            "search_knowledge": "🔍 searching knowledge base",
+            "search_web":       "🌐 searching web",
+            "get_market_data":  "📈 fetching market data",
+        }.get(name, f"⚙ {name}")
         print(f"  {DIM}{label}...{R}", flush=True)
 
     loop = AgentLoop(stop_event=_agent_stop)
@@ -1072,7 +1131,18 @@ def _run_agent(
         return ""
 
     _print_answer(result)
-    return result.get("answer", "")
+    answer = result.get("answer", "")
+
+    # Suggest saving as a skill if interaction was complex (background)
+    if len(set(_tools_used)) >= 2 and answer:
+        try:
+            from majestic.skills.nudge import suggest_skill
+            from core.config import get_lang
+            suggest_skill(user_input, answer[:500], _tools_used, lang=get_lang())
+        except Exception:
+            pass
+
+    return answer
 
 
 # ── Main loop ──────────────────────────────────────────────────────────────────
@@ -1260,8 +1330,21 @@ def main():
             _agent_stop.set()
             print(f"  {Y}Stop signal sent. Press Ctrl+C to interrupt a running query.{R}\n")
 
+        elif user == "/skills":
+            cmd_skills()
+
         elif user.startswith("/"):
-            print(f"  {Y}Unknown command. Type /help{R}\n")
+            # Check if it's a skill invocation: /<skill-name> [optional args]
+            cmd = user[1:].split()[0].lower()
+            skill_arg = user[1 + len(cmd):].strip()
+            if cmd and cmd in _skill_names():
+                ans = _run_skill(cmd, skill_arg, _session_id, _history)
+                if ans:
+                    _history.append((user, ans))
+                    if len(_history) > 10:
+                        _history = _history[-10:]
+            else:
+                print(f"  {Y}Unknown command. Type /help{R}\n")
 
         # ── File path / drag & drop ───────────────────────────────────────────
         elif _looks_like_path(user):
