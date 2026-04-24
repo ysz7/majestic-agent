@@ -285,6 +285,37 @@ def run_doctor() -> None:
         print(f"  {Y}{B}{problems} issue(s) found.{R}  Run `majestic setup` to fix.\n")
 
 
+def gateway_setup() -> None:
+    """Interactive wizard to configure platform connections."""
+    from majestic.cli.display import warn, ok
+    from majestic.constants import ENV_FILE
+    import os
+
+    print("\n  Gateway Setup\n")
+
+    env_lines: list[str] = []
+    if ENV_FILE.exists():
+        env_lines = ENV_FILE.read_text().splitlines()
+
+    def _set_env(key: str, value: str) -> None:
+        nonlocal env_lines
+        env_lines = [l for l in env_lines if not l.startswith(f"{key}=")]
+        if value:
+            env_lines.append(f"{key}={value}")
+
+    # Telegram
+    current = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    hint = f" [{current[:8]}…]" if current else ""
+    token = input(f"  Telegram bot token{hint} (leave blank to skip): ").strip()
+    if token:
+        _set_env("TELEGRAM_BOT_TOKEN", token)
+        ok("TELEGRAM_BOT_TOKEN saved")
+
+    ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+    ENV_FILE.write_text("\n".join(l for l in env_lines if l) + "\n")
+    print("\n  Done. Run `majestic gateway start` to start the gateway.\n")
+
+
 def _check_llm(provider: str) -> None:
     try:
         if provider == "anthropic":

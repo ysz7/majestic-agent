@@ -251,15 +251,11 @@ volumes:
 Телефон → Telegram/Discord/... → VPS gateway → агент
 ```
 
-- [ ] `gateway/base.py` — абстракция платформы
-- [ ] `gateway/telegram.py` — рефакторинг из `bot.py` Parallax (первый, уже есть)
-- [ ] `gateway/discord.py`
-- [ ] `gateway/slack.py`
-- [ ] `gateway/whatsapp.py`
-- [ ] `gateway/signal.py`
-- [ ] Команда `majestic-agent gateway setup` — wizard подключения платформ
-- [ ] Команда `majestic-agent gateway start` — запуск gateway процесса
-- [ ] Хранить `source` в таблице `sessions`
+- [x] `gateway/base.py` — абстракция платформы
+- [x] `gateway/telegram.py` — рефакторинг из `bot.py` Parallax (первый, уже есть)
+- [x] Команда `majestic gateway setup` — wizard подключения платформ
+- [x] Команда `majestic gateway start` — запуск gateway процесса
+- [x] Хранить `source` в таблице `sessions`
 - [ ] Cross-platform continuity — начал в Telegram, продолжил в Discord, контекст сохранён
 - [ ] Voice memo транскрипция через Whisper
 

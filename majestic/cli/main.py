@@ -6,6 +6,7 @@ Entry point for the `majestic` command.
   majestic model        — switch LLM provider/model
   majestic config       — show / get / set config values
   majestic doctor       — diagnose configuration
+  majestic gateway      — manage platform gateway (Telegram, …)
 """
 import sys
 
@@ -20,6 +21,8 @@ Commands:
   config get KEY   Get a config value  (e.g. config get llm.provider)
   config set KEY V Set a config value  (e.g. config set language RU)
   doctor           Diagnose configuration problems
+  gateway start    Start gateway (Telegram + any configured platform)
+  gateway setup    Configure platform connections interactively
 
   --version        Show version
 """
@@ -83,6 +86,9 @@ def main() -> None:
         from majestic.cli.setup import run_doctor
         run_doctor()
 
+    elif cmd == "gateway":
+        _gateway_cmd(args[1:])
+
     elif cmd is None:
         _launch_agent()
 
@@ -90,3 +96,44 @@ def main() -> None:
         print(f"Unknown command: {cmd}\n")
         print(_HELP)
         sys.exit(1)
+
+
+def _gateway_cmd(args: list[str]) -> None:
+    sub = args[0] if args else None
+
+    if sub == "start":
+        _gateway_start()
+    elif sub == "setup":
+        from majestic.cli.setup import gateway_setup
+        gateway_setup()
+    else:
+        print("Usage: majestic gateway <start|setup>")
+        sys.exit(1)
+
+
+def _gateway_start() -> None:
+    import asyncio
+    from majestic import config as cfg
+    from majestic.constants import CONFIG_FILE
+
+    if not CONFIG_FILE.exists():
+        from majestic.cli.display import warn
+        warn("No configuration found. Run `majestic setup` first.\n")
+        sys.exit(1)
+
+    cfg.sync_env_from_config()
+
+    # Add project root to path so legacy core/ imports work
+    from pathlib import Path as _Path
+    import os
+    project_root = _Path(__file__).parent.parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+
+    from majestic.gateway import Gateway
+    from majestic.gateway.telegram import TelegramPlatform
+
+    gw = Gateway()
+    gw.add(TelegramPlatform())
+
+    asyncio.run(gw.run())
