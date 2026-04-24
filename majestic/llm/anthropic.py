@@ -1,10 +1,13 @@
 """
 Anthropic provider — direct SDK, no langchain dependency.
+
+Messages normalized format → Anthropic native format via _convert_messages().
+Tool schemas expected in Anthropic format: {name, description, input_schema}.
 """
 import os
 from typing import Iterator
 
-from .base import LLMProvider, LLMResponse, Usage, register
+from .base import LLMProvider, LLMResponse, ToolCall, Usage, register
 
 _PRICING: dict[str, tuple[float, float]] = {
     "claude-opus-4-7":           (15.0, 75.0),
@@ -35,22 +38,79 @@ class AnthropicProvider(LLMProvider):
         in_price, out_price = _PRICING.get(self._model, (3.0, 15.0))
         return (usage.input_tokens * in_price + usage.output_tokens * out_price) / 1_000_000
 
+    def _convert_messages(self, messages: list[dict]) -> list[dict]:
+        """Convert normalized messages to Anthropic native format."""
+        result: list[dict] = []
+        i = 0
+        while i < len(messages):
+            m = messages[i]
+            role = m["role"]
+
+            if role == "tool_result":
+                # Merge consecutive tool_result messages into one user message
+                blocks = []
+                while i < len(messages) and messages[i]["role"] == "tool_result":
+                    blocks.append({
+                        "type":        "tool_result",
+                        "tool_use_id": messages[i]["tool_call_id"],
+                        "content":     str(messages[i]["content"]),
+                    })
+                    i += 1
+                result.append({"role": "user", "content": blocks})
+                continue
+
+            elif role == "assistant" and m.get("tool_calls"):
+                blocks: list[dict] = []
+                if m.get("content"):
+                    blocks.append({"type": "text", "text": m["content"]})
+                for tc in m["tool_calls"]:
+                    blocks.append({
+                        "type":  "tool_use",
+                        "id":    tc["id"],
+                        "name":  tc["name"],
+                        "input": tc["arguments"],
+                    })
+                result.append({"role": "assistant", "content": blocks})
+
+            elif role in ("user", "assistant"):
+                result.append({"role": role, "content": m["content"]})
+
+            i += 1
+        return result
+
     def complete(
         self,
         messages: list[dict],
         system: str = "",
         max_tokens: int = 4096,
+        tools: list[dict] | None = None,
     ) -> LLMResponse:
         client = self._get_client()
         kwargs: dict = {
-            "model": self._model,
-            "max_tokens": max_tokens,
+            "model":       self._model,
+            "max_tokens":  max_tokens,
             "temperature": self._temperature,
-            "messages": messages,
+            "messages":    self._convert_messages(messages),
         }
         if system:
             kwargs["system"] = system
+        if tools:
+            kwargs["tools"] = tools  # already in Anthropic format
+
         msg = client.messages.create(**kwargs)
+
+        text_content = ""
+        tool_calls: list[ToolCall] = []
+        for block in msg.content:
+            if block.type == "text":
+                text_content += block.text
+            elif block.type == "tool_use":
+                tool_calls.append(ToolCall(
+                    id=block.id,
+                    name=block.name,
+                    arguments=block.input,
+                ))
+
         usage = Usage(
             input_tokens=msg.usage.input_tokens,
             output_tokens=msg.usage.output_tokens,
@@ -58,10 +118,11 @@ class AnthropicProvider(LLMProvider):
             cache_write_tokens=getattr(msg.usage, "cache_creation_input_tokens", 0) or 0,
         )
         return LLMResponse(
-            content=msg.content[0].text if msg.content else "",
+            content=text_content,
             usage=usage,
             finish_reason=msg.stop_reason or "stop",
             model=msg.model,
+            tool_calls=tool_calls,
         )
 
     def stream(
@@ -72,10 +133,10 @@ class AnthropicProvider(LLMProvider):
     ) -> Iterator[str]:
         client = self._get_client()
         kwargs: dict = {
-            "model": self._model,
-            "max_tokens": max_tokens,
+            "model":       self._model,
+            "max_tokens":  max_tokens,
             "temperature": self._temperature,
-            "messages": messages,
+            "messages":    self._convert_messages(messages),
         }
         if system:
             kwargs["system"] = system

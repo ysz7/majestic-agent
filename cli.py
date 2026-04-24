@@ -16,6 +16,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 from dotenv import load_dotenv
 load_dotenv()
 
+# Global stop event — set by /stop or Ctrl+C during agent execution
+_agent_stop = threading.Event()
+
 # ── Pre-load core modules (so deprecation warnings appear at startup, not mid-query) ──
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="langchain_core")
@@ -56,6 +59,7 @@ COMMANDS: dict[str, str] = {
     "/reminders":      "list active reminders",
     "/rss":            "manage RSS feeds (/rss list | add <url> | remove <N>)",
     "/model":          "switch LLM provider/model without restart",
+    "/stop":           "stop a running agent loop (or press Ctrl+C)",
     "/memory":         "view persistent memory",
     "/forget":         "remove memory entries by keyword (/forget <topic>)",
     "/stats":          "knowledge base statistics",
@@ -1042,6 +1046,35 @@ def _start_auto_research():
     t.start()
 
 
+# ── Agent runner ──────────────────────────────────────────────────────────────
+
+def _run_agent(
+    user_input: str,
+    session_id: "str | None",
+    history: "list[tuple[str, str]]",
+) -> str:
+    """Run the agentic loop for a free-text input. Returns the final answer."""
+    from majestic.agent.loop import AgentLoop
+
+    _agent_stop.clear()
+
+    def _on_tool(name: str, args: dict) -> None:
+        label = {"search_knowledge": "🔍 searching knowledge base", "search_web": "🌐 searching web", "get_market_data": "📈 fetching market data"}.get(name, f"⚙ {name}")
+        print(f"  {DIM}{label}...{R}", flush=True)
+
+    loop = AgentLoop(stop_event=_agent_stop)
+    try:
+        with Spinner("Thinking..."):
+            result = loop.run(user_input, session_id=session_id, history=history, on_tool_call=_on_tool)
+    except KeyboardInterrupt:
+        _agent_stop.set()
+        print(f"\n  {Y}Stopped.{R}\n")
+        return ""
+
+    _print_answer(result)
+    return result.get("answer", "")
+
+
 # ── Main loop ──────────────────────────────────────────────────────────────────
 
 def main():
@@ -1223,6 +1256,10 @@ def main():
             except Exception as _e:
                 print(f"  {Y}Error switching model: {_e}{R}\n")
 
+        elif user == "/stop":
+            _agent_stop.set()
+            print(f"  {Y}Stop signal sent. Press Ctrl+C to interrupt a running query.{R}\n")
+
         elif user.startswith("/"):
             print(f"  {Y}Unknown command. Type /help{R}\n")
 
@@ -1232,28 +1269,19 @@ def main():
             if paths:
                 _handle_files(paths)
             else:
-                # Path exists but unsupported format
                 p = Path(user.strip('"').replace("\\", "/")).expanduser()
                 if p.exists():
                     print(f"  {Y}Unsupported format: {p.suffix}. Supported: {', '.join(SUPPORTED_EXTS)}{R}\n")
                 else:
-                    # Treat as a regular question
-                    with Spinner("Thinking..."):
-                        result = ask(user, history=_history)
-                    result = _web_fallback(user, result)
-                    _print_answer(result)
-                    _history.append((user, result["answer"]))
+                    _run_agent(user, _session_id, _history)
+                    _history.append((user, ""))
                     if len(_history) > 10:
                         _history = _history[-10:]
 
-        # ── RAG question ──────────────────────────────────────────────────────
+        # ── Agentic loop — free text ──────────────────────────────────────────
         else:
-            with Spinner("Thinking..."):
-                result = ask(user, history=_history)
-            result = _web_fallback(user, result)
-            _print_answer(result)
-            # Update conversation memory (keep last 10 turns)
-            _history.append((user, result["answer"]))
+            answer = _run_agent(user, _session_id, _history)
+            _history.append((user, answer))
             if len(_history) > 10:
                 _history = _history[-10:]
 

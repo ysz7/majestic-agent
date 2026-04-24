@@ -223,11 +223,11 @@ volumes:
 
 **Цель:** Настоящий агент-луп вместо "один запрос = один ответ".
 
-- [ ] Цикл `while not done`: LLM → tool calls → результаты → следующий turn
-- [ ] Tool call tracking — всё пишется в таблицу `messages`
-- [ ] `/stop` — прервать выполнение
+- [x] Цикл `while not done`: LLM → tool calls → результаты → следующий turn
+- [x] Tool call tracking — всё пишется в таблицу `messages`
+- [x] `/stop` — прервать выполнение (Ctrl+C + stop_event)
 - [ ] Context compression — при приближении к лимиту сжимать контекст, создавать дочернюю сессию через `parent_session_id`
-- [ ] Параллельные tool calls через `ThreadPoolExecutor`
+- [x] Параллельные tool calls через `ThreadPoolExecutor`
 
 ---
 

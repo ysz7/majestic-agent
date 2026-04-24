@@ -1,8 +1,8 @@
 """
-Core LLM abstractions: Usage, LLMResponse, LLMProvider, and provider registry.
+Core LLM abstractions: Usage, ToolCall, LLMResponse, LLMProvider, and provider registry.
 """
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterator
 
 
@@ -19,11 +19,19 @@ class Usage:
 
 
 @dataclass
+class ToolCall:
+    id: str
+    name: str
+    arguments: dict  # pre-parsed JSON
+
+
+@dataclass
 class LLMResponse:
     content: str
     usage: Usage
     finish_reason: str = "stop"
     model: str = ""
+    tool_calls: list[ToolCall] = field(default_factory=list)
 
 
 class LLMProvider(ABC):
@@ -33,6 +41,7 @@ class LLMProvider(ABC):
         messages: list[dict],
         system: str = "",
         max_tokens: int = 4096,
+        tools: list[dict] | None = None,
     ) -> LLMResponse: ...
 
     @abstractmethod
