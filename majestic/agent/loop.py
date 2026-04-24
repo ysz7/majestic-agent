@@ -41,7 +41,7 @@ class AgentLoop:
         on_tool_call: Optional[Callable[[str, dict], None]] = None,
     ) -> dict:
         from core.rag_engine import llm as _proxy
-        from majestic.agent import tools as _tools
+        import majestic.tools as _tools
         from majestic.memory.store import load_both
         from core.config import get_lang
 
@@ -97,7 +97,10 @@ class AgentLoop:
 
             # Collect sources from knowledge/web tool results
             for tc in resp.tool_calls:
-                if tc.name in ("search_knowledge", "search_web", "get_market_data"):
+                if tc.name in (
+                    "search_knowledge", "search_web", "get_market_data",
+                    "run_research", "get_news", "get_briefing", "get_report", "generate_ideas",
+                ):
                     sources.append(tc.name)
 
             # Append assistant message (with tool calls) to conversation
@@ -143,7 +146,7 @@ def _execute_tools(
     tool_calls: list[ToolCall],
     stop_event: threading.Event,
 ) -> dict[str, str]:
-    from majestic.agent import tools as _tools
+    import majestic.tools as _tools
 
     if stop_event.is_set():
         return {tc.id: "[Stopped]" for tc in tool_calls}

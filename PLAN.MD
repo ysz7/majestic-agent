@@ -264,31 +264,25 @@ volumes:
 ### Фаза 6.5 — Команды и UX
 
 **Принцип:**
-- Свободный текст → основное общение с агентом
-- Slash команды → управление агентом и быстрый доступ к research функциям
-- В будущем: агент сам понимает "сделай брифинг" из свободного текста
+- Свободный текст → основное общение с агентом, агент сам вызывает нужные tools
+- Slash команды → управление агентом + shortcuts для тяжёлых research операций
+- Research функции = Tools в `majestic/agent/tools.py` — агент видит их и вызывает по смыслу
 
-**Команды управления агентом** (как у Hermes):
+**Команды управления агентом:**
 ```
 /model       — сменить модель
 /memory      — просмотр памяти
 /forget      — удалить воспоминание
 /skills      — список навыков
 /stop        — прервать выполнение
-/schedule    — управление расписанием
-/background  — фоновая задача
-/compress    — сжать контекст
 /usage       — токены и стоимость сессии
 ```
 
-**Команды из Parallax — оставляем все:**
+**Shortcuts для research (bypass loop, прямой вызов tool):**
 ```
 /research    — собрать сигналы из всех источников + CCW скоринг
 /news [N]    — последние N новостей по скору
 /briefing    — полный брифинг: сигналы + маркет + инвест направление
-/predict     — предсказания с вероятностями
-/flows       — куда движется капитал
-/ideas       — бизнес идеи по трендам
 /market      — крипто + акции + форекс
 /report      — глубокий репорт по теме
 /reports     — список сохранённых репортов
@@ -297,7 +291,20 @@ volumes:
 /reminders   — список напоминаний
 ```
 
-> ⚠️ При разработке решить: оставить команды как есть, или научить агента понимать их из свободного текста и вызывать те же функции автоматически.
+**Убрано из shortcuts (агент понимает из свободного текста):**
+- `/predict`, `/flows` — часть briefing, агент вызывает `get_briefing` с нужным фокусом
+- `/ideas` — агент вызывает `generate_ideas` tool по запросу
+- `/background`, `/compress` — не реализованы, убраны
+
+**Research tools в `majestic/tools/research/`:**
+- [x] `get_market_data` — `research/market.py`
+- [x] `run_research` — `research/news.py` (`collect_and_index`)
+- [x] `get_briefing` — `research/briefing.py` (full / predictions / flows)
+- [x] `get_news` — `research/news.py` (top by CCW)
+- [x] `get_report` — `research/report.py`
+- [x] `generate_ideas` — `research/ideas.py`
+
+**Tool registry:** `majestic/tools/registry.py` — авторегистрация через `@tool` декоратор, `majestic/tools/__init__.py` импортирует все поддиректории.
 
 ---
 
