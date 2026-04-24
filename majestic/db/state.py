@@ -238,6 +238,23 @@ class StateDB:
         self._conn.commit()
         return sid
 
+    def close_session(
+        self,
+        session_id: str,
+        token_in: int = 0,
+        token_out: int = 0,
+        cost: float = 0.0,
+        message_count: int = 0,
+    ) -> None:
+        self._conn.execute(
+            """UPDATE sessions
+               SET ended_at = ?, token_count_in = ?, token_count_out = ?,
+                   estimated_cost = ?, message_count = ?
+               WHERE id = ?""",
+            (datetime.now().isoformat(), token_in, token_out, cost, message_count, session_id),
+        )
+        self._conn.commit()
+
     def add_message(self, session_id: str, role: str, content: str, **kwargs) -> int:
         cur = self._conn.execute(
             """INSERT INTO messages(session_id, role, content, tool_calls, tool_name, timestamp, finish_reason)

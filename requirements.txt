@@ -1,8 +1,7 @@
-# ── LLM (langchain stack — replaced in Phase 3) ───────────────────────────────
+# ── LLM ───────────────────────────────────────────────────────────────────────
 langchain>=0.3.0
-langchain-anthropic>=0.3.0
-langchain-ollama>=0.2.0
 langchain-community>=0.3.0
+openai>=1.0.0
 
 # ── Storage ────────────────────────────────────────────────────────────────────
 sqlite-vec>=0.1.0

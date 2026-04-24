@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from langchain_core.messages import HumanMessage
-from langchain_core.callbacks import BaseCallbackHandler
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
     PyPDFLoader, Docx2txtLoader, CSVLoader, TextLoader,
@@ -29,32 +28,17 @@ EXPORT_DIR = MAJESTIC_HOME / "exports"
 for _d in [INBOX_DIR, DONE_DIR, EXPORT_DIR]:
     _d.mkdir(parents=True, exist_ok=True)
 
-# ── LLM ────────────────────────────────────────────────────────────────────────
-def get_llm():
-    provider = os.getenv("LLM_PROVIDER", "ollama").lower()
-    if provider == "anthropic":
-        from langchain_anthropic import ChatAnthropic
-        model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
-        return ChatAnthropic(model=model, temperature=0.1)
-    from langchain_ollama import ChatOllama
-    model   = os.getenv("OLLAMA_MODEL", "gemma3")
-    num_ctx = int(os.getenv("OLLAMA_NUM_CTX", 8192))
-    return ChatOllama(model=model, temperature=0.1, num_ctx=num_ctx)
+# ── LLM proxy ─────────────────────────────────────────────────────────────────
+from majestic.llm.compat import LLMProxy as _LLMProxy
 
-
-llm = get_llm()
+llm = _LLMProxy()
 
 
 def unload_llm() -> None:
-    if os.getenv("LLM_PROVIDER", "ollama").lower() != "ollama":
-        return
     try:
-        import requests
-        requests.post(
-            "http://localhost:11434/api/generate",
-            json={"model": os.getenv("OLLAMA_MODEL", "gemma3"), "keep_alive": 0},
-            timeout=5,
-        )
+        from majestic.llm.ollama import OllamaProvider
+        if isinstance(llm.provider, OllamaProvider):
+            llm.provider.unload()
     except Exception:
         pass
 
@@ -249,6 +233,15 @@ def _infer_mode(question: str) -> str:
     return "analytical" if any(kw in question.lower() for kw in _ANALYTICAL_KW) else "general"
 
 
+_memory_context: str = ""
+
+
+def set_memory_context(text: str) -> None:
+    """Called at session start to inject persistent memory into every prompt."""
+    global _memory_context
+    _memory_context = text.strip()
+
+
 def _build_messages(context: str, question: str, history, mode: str) -> list:
     from core.config import get_lang
     lang = get_lang()
@@ -256,36 +249,17 @@ def _build_messages(context: str, question: str, history, mode: str) -> list:
     if history:
         turns = [f"User: {u}\nAssistant: {a}" for u, a in (history or [])[-3:]]
         history_str = "Previous conversation:\n" + "\n\n".join(turns) + "\n\n"
+    memory_str = f"Persistent memory about the user and past sessions:\n{_memory_context}\n\n" if _memory_context else ""
     content = (
         f"{_PROMPT_SYSTEM.get(mode, _PROMPT_SYSTEM['general'])}\n"
         f"Respond in {lang}.\n\n"
+        f"{memory_str}"
         f"{history_str}"
         f"Context:\n{context}\n\n"
         f"Question: {question}\n\nAnswer:"
     )
     return [HumanMessage(content=content)]
 
-
-class _TokenCallback(BaseCallbackHandler):
-    def __init__(self, op: str = "rag_query"):
-        self.op = op
-
-    def on_llm_end(self, response, **kwargs):
-        if os.getenv("LLM_PROVIDER", "").lower() != "anthropic":
-            return
-        try:
-            from core.token_tracker import track
-            for gen_list in response.generations:
-                for gen in gen_list:
-                    msg = getattr(gen, "message", None)
-                    if msg:
-                        um = getattr(msg, "usage_metadata", None) or {}
-                        tin, tout = um.get("input_tokens", 0), um.get("output_tokens", 0)
-                        if tin or tout:
-                            track(tin, tout, self.op)
-                            return
-        except Exception:
-            pass
 
 
 # ── Query ──────────────────────────────────────────────────────────────────────
@@ -367,7 +341,7 @@ def ask(
 
         context, sources = _chunks_to_context(chunks)
         msgs = _build_messages(context, question, history, "file_focused")
-        resp = llm.invoke(msgs, config={"callbacks": [_TokenCallback("rag_file")]})
+        resp = llm.invoke(msgs)
         from core.token_tracker import track_response
         track_response(resp, "rag_file")
         return {"answer": resp.content, "sources": sources}
@@ -397,7 +371,7 @@ def ask(
 
     context, sources = _chunks_to_context(chunks)
     msgs = _build_messages(context, question, history, _infer_mode(question))
-    resp = llm.invoke(msgs, config={"callbacks": [_TokenCallback()]})
+    resp = llm.invoke(msgs)
     from core.token_tracker import track_response
     track_response(resp, "rag_query")
     return {"answer": resp.content, "sources": sources}

@@ -55,6 +55,9 @@ COMMANDS: dict[str, str] = {
     "/remind":         "add reminder (natural language date)",
     "/reminders":      "list active reminders",
     "/rss":            "manage RSS feeds (/rss list | add <url> | remove <N>)",
+    "/model":          "switch LLM provider/model without restart",
+    "/memory":         "view persistent memory",
+    "/forget":         "remove memory entries by keyword (/forget <topic>)",
     "/stats":          "knowledge base statistics",
     "/help":           "show help",
     "/exit":           "quit",
@@ -306,6 +309,8 @@ HELP = f"""
   {G}/rss list{R}          — list configured RSS feeds
   {G}/rss add <url>{R}    — add an RSS feed by URL
   {G}/rss remove <N>{R}   — remove RSS feed by number
+  {G}/memory{R}            — view persistent memory (memory.md + user.md)
+  {G}/forget <topic>{R}   — remove memory entries mentioning topic
   {G}/stats{R}             — knowledge base statistics
   {G}/help{R}              — this help
   {G}/exit{R}              — quit
@@ -1051,6 +1056,30 @@ def main():
     import threading
     threading.Thread(target=check_and_backup, daemon=True, name="backup-check").start()
 
+    # Load persistent memory into RAG system prompt
+    try:
+        from majestic.memory.store import load_both
+        from core.rag_engine import set_memory_context
+        _mem = load_both()
+        if _mem:
+            set_memory_context(_mem)
+            print(f"  {DIM}Memory loaded.{R}\n")
+    except Exception as _e:
+        print(f"  {DIM}Memory load skipped: {_e}{R}\n")
+
+    # Open a DB session and snapshot token stats for delta tracking
+    _session_id: str | None = None
+    _session_start_tokens: dict = {}
+    try:
+        from majestic.db.state import StateDB as _StateDB
+        from core.token_tracker import get_stats as _get_token_stats
+        from majestic.config import get as _cfg_get
+        _model_label = f"{_cfg_get('llm.provider')}/{_cfg_get('llm.model')}"
+        _session_id = _StateDB().create_session(source="cli", model=_model_label)
+        _session_start_tokens = _get_token_stats()
+    except Exception:
+        pass
+
     # Conversation history for multi-turn context (in-memory, current session only)
     _history: list[tuple[str, str]] = []
 
@@ -1062,6 +1091,26 @@ def main():
 
         # ── Exit ──────────────────────────────────────────────────────────────
         if user.lower() in ("/exit", "/quit", "exit", "quit"):
+            if _history:
+                try:
+                    from majestic.memory.nudge import nudge_after_session
+                    from core.config import get_lang
+                    print(f"  {DIM}Saving session memory...{R}")
+                    nudge_after_session(_history, lang=get_lang(), blocking=True)
+                except Exception:
+                    pass
+            # Close DB session with accumulated token/cost delta
+            if _session_id:
+                try:
+                    from majestic.db.state import StateDB as _StateDB
+                    from core.token_tracker import get_stats as _get_token_stats
+                    _end = _get_token_stats()
+                    _tin  = max(0, _end.get("tokens_in", 0)  - _session_start_tokens.get("tokens_in", 0))
+                    _tout = max(0, _end.get("tokens_out", 0) - _session_start_tokens.get("tokens_out", 0))
+                    _cost = max(0.0, _end.get("cost_usd", 0.0) - _session_start_tokens.get("cost_usd", 0.0))
+                    _StateDB().close_session(_session_id, _tin, _tout, _cost, len(_history) * 2)
+                except Exception:
+                    pass
             unload_llm()
             print(f"{DIM}Bye!{R}")
             break
@@ -1141,6 +1190,38 @@ def main():
 
         elif user.lower().startswith("/rss"):
             cmd_rss(user[4:].strip())
+
+        elif user == "/memory":
+            try:
+                from majestic.memory.store import show as memory_show
+                print(f"\n{render_cli(memory_show())}\n")
+            except Exception as _e:
+                print(f"  {Y}Memory unavailable: {_e}{R}\n")
+
+        elif user.lower().startswith("/forget"):
+            topic = user[7:].strip()
+            if not topic:
+                print(f"  {Y}Usage: /forget <topic>{R}\n")
+            else:
+                try:
+                    from majestic.memory.store import forget as memory_forget
+                    n = memory_forget(topic)
+                    if n:
+                        print(f"  {G}✓ Removed {n} entr{'y' if n == 1 else 'ies'} mentioning «{topic}»{R}\n")
+                    else:
+                        print(f"  {DIM}Nothing found mentioning «{topic}»{R}\n")
+                except Exception as _e:
+                    print(f"  {Y}Error: {_e}{R}\n")
+
+        elif user == "/model":
+            try:
+                from majestic.cli.setup import select_model
+                from core.rag_engine import llm as _llm
+                select_model()
+                _llm.reload()
+                print(f"  {G}✓ Model switched — active for next request.{R}\n")
+            except Exception as _e:
+                print(f"  {Y}Error switching model: {_e}{R}\n")
 
         elif user.startswith("/"):
             print(f"  {Y}Unknown command. Type /help{R}\n")

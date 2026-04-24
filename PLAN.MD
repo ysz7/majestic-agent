@@ -199,11 +199,11 @@ volumes:
 
 **Цель:** Агент помнит пользователя и контекст между сессиями.
 
-- [ ] `~/.majestic-agent/memory/memory.md` — факты агента о задачах и знаниях
-- [ ] `~/.majestic-agent/memory/user.md` — профиль пользователя (предпочтения, привычки)
-- [ ] Загружать memory в system prompt при старте каждой сессии
-- [ ] LLM nudge после сессии — агент сам решает что запомнить
-- [ ] Команды: `/memory` (просмотр), `/forget <topic>` (удаление записи)
+- [x] `~/.majestic-agent/memory/memory.md` — факты агента о задачах и знаниях
+- [x] `~/.majestic-agent/memory/user.md` — профиль пользователя (предпочтения, привычки)
+- [x] Загружать memory в system prompt при старте каждой сессии (`set_memory_context`)
+- [x] LLM nudge после сессии — агент сам решает что запомнить (`majestic/memory/nudge.py`)
+- [x] Команды: `/memory` (просмотр), `/forget <topic>` (удаление записи)
 
 ---
 
@@ -211,11 +211,11 @@ volumes:
 
 **Цель:** Anthropic напрямую + OpenRouter для всего остального (200+ моделей).
 
-- [ ] Абстракция `LLMProvider` с единым интерфейсом (`complete`, `stream`)
-- [ ] Провайдер **Anthropic** — напрямую (основной)
-- [ ] Провайдер **OpenRouter** — для всех остальных моделей (Ollama, OpenAI, Gemini и т.д.)
-- [ ] Команда `/model` — переключение без перезапуска
-- [ ] Подсчёт токенов и `estimated_cost_usd` — сохранять в `sessions`
+- [x] Абстракция `LLMProvider` с единым интерфейсом (`complete`, `stream`)
+- [x] Провайдер **Anthropic** — напрямую (основной)
+- [x] Провайдер **OpenRouter** — для всех остальных моделей (Ollama, OpenAI, Gemini и т.д.)
+- [x] Команда `/model` — переключение без перезапуска
+- [x] Подсчёт токенов и `estimated_cost_usd` — сохранять в `sessions`
 
 ---
 

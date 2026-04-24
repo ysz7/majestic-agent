@@ -71,16 +71,13 @@ def track(tokens_in: int, tokens_out: int, operation: str = "query"):
 
 
 def track_response(response, operation: str = "query"):
-    """
-    Extract usage from a ChatAnthropic AIMessage response and call track().
-    No-op if LLM_PROVIDER != anthropic or usage data is unavailable.
-    """
-    if os.getenv("LLM_PROVIDER", "ollama").lower() != "anthropic":
+    """Extract usage from an LLM response and call track(). No-op for free/local providers."""
+    if os.getenv("LLM_PROVIDER", "ollama").lower() == "ollama":
         return
     try:
         um = getattr(response, "usage_metadata", None) or {}
-        tin  = um.get("input_tokens", 0)
-        tout = um.get("output_tokens", 0)
+        tin  = um.get("input_tokens", 0) or 0
+        tout = um.get("output_tokens", 0) or 0
         if tin or tout:
             track(tin, tout, operation)
     except Exception:
