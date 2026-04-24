@@ -866,7 +866,7 @@ def cmd_search(query: str):
 
 def cmd_skills():
     try:
-        from majestic.skills.store import list_skills
+        from majestic.skills.loader import list_skills
         skills = list_skills()
     except Exception as _e:
         print(f"  {Y}Skills unavailable: {_e}{R}\n")
@@ -885,15 +885,15 @@ def cmd_skills():
 
 def _skill_names() -> list[str]:
     try:
-        from majestic.skills.store import list_skills
+        from majestic.skills.loader import list_skills
         return [s.get("name", "") for s in list_skills()]
     except Exception:
         return []
 
 
 def _run_skill(name: str, args: str, session_id, history) -> str:
-    from majestic.skills.store import load_skill, increment_usage
-    from majestic.skills.nudge import maybe_improve
+    from majestic.skills.loader import load_skill, increment_usage
+    from majestic.skills.creator import maybe_improve
 
     skill = load_skill(name)
     if not skill:
@@ -1136,7 +1136,7 @@ def _run_agent(
     # Suggest saving as a skill if interaction was complex (background)
     if len(set(_tools_used)) >= 2 and answer:
         try:
-            from majestic.skills.nudge import suggest_skill
+            from majestic.skills.creator import suggest_skill
             from core.config import get_lang
             suggest_skill(user_input, answer[:500], _tools_used, lang=get_lang())
         except Exception:

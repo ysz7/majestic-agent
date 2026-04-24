@@ -1,1 +1,1 @@
-from . import search  # noqa: F401 — triggers tool registration
+from . import search, extract  # noqa: F401 — triggers tool registration

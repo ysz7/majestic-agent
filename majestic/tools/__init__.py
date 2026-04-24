@@ -2,11 +2,12 @@
 Tool registry — auto-registers all tools on import.
 
 Usage in agent loop:
+    import majestic.tools  # triggers registration of all tools
     from majestic.tools.registry import get_schemas, execute
-    import majestic.tools  # noqa — triggers registration of all tools
 """
-from . import web, research  # noqa: F401 — side-effect: populates registry
+from . import web, research, files, system  # noqa: F401 — side-effect: populates registry
+from . import db_search                      # noqa: F401
 
-from .registry import get_schemas, execute  # re-export for convenience
+from .registry import get_schemas, execute   # re-export for convenience
 
 __all__ = ["get_schemas", "execute"]

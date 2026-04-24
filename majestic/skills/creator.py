@@ -66,7 +66,7 @@ def suggest_skill(
 
 def maybe_improve(name: str, user_input: str, result_summary: str) -> None:
     """Trigger background skill improvement after every 3rd use."""
-    from majestic.skills.store import load_skill
+    from majestic.skills.loader import load_skill
     skill = load_skill(name)
     if not skill:
         return
@@ -92,7 +92,7 @@ def _run_suggest(
         import json
         from core.rag_engine import llm
         from langchain_core.messages import HumanMessage
-        from majestic.skills.store import save_skill
+        from majestic.skills.loader import save_skill
 
         prompt = _SAVE_PROMPT.format(
             user_input=user_input[:300],
@@ -120,7 +120,7 @@ def _run_improve(name: str, skill: dict, user_input: str, result_summary: str) -
     try:
         from core.rag_engine import llm
         from langchain_core.messages import HumanMessage
-        from majestic.skills.store import update_body
+        from majestic.skills.loader import update_body
 
         prompt = _IMPROVE_PROMPT.format(
             usage_count=skill["meta"].get("usage_count", 0),

@@ -1,0 +1,259 @@
+"""
+Telegram command and message handlers.
+
+All handlers import shared state from telegram_state to avoid circular imports.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+from pathlib import Path
+
+from .telegram_state import (
+    _history, _db_sessions, _gates, _SESSION_MAX,
+    _allowed, _deny, _send, _fmt_sources, _get_session,
+)
+
+logger = logging.getLogger(__name__)
+
+
+async def handle_start(update, context):
+    if not _allowed(update): return await _deny(update)
+    await update.message.reply_text(
+        "👋 <b>Majestic</b>\n\nUniversal AI agent. Just send me a message or use a command.\n\n"
+        "<b>Commands:</b> /research /briefing /market /news /ask /report /skills /memory /tokens",
+        parse_mode="HTML",
+    )
+
+
+async def handle_text(update, context):
+    if not _allowed(update): return await _deny(update)
+    question = (update.message.text or "").strip()
+    if not question: return
+    uid     = update.effective_user.id
+    history = _history.get(uid, [])
+    msg     = await update.message.reply_text("⏳ Thinking...")
+    try:
+        from majestic.agent.loop import AgentLoop
+        from core.formatter import render_telegram
+        session_id = _get_session(uid)
+        result = await asyncio.to_thread(
+            AgentLoop().run, question, session_id, history,
+        )
+        answer = render_telegram(result["answer"])
+        footer = _fmt_sources(result.get("sources", []))
+        await _send(update, msg, answer, footer=footer)
+        hist = _history.setdefault(uid, [])
+        hist.append((question, result["answer"]))
+        if len(hist) > _SESSION_MAX:
+            _history[uid] = hist[-_SESSION_MAX:]
+    except Exception as e:
+        logger.exception("handle_text")
+        await msg.edit_text(f"❌ Error: {e}")
+
+
+async def handle_ask(update, context):
+    if not _allowed(update): return await _deny(update)
+    question = " ".join(context.args or []).strip()
+    if not question:
+        await update.message.reply_text("Usage: /ask <question>"); return
+    uid = update.effective_user.id
+    msg = await update.message.reply_text("⏳ Searching...")
+    try:
+        from core.rag_engine import ask
+        from core.config import get_mod
+        from core.formatter import render_telegram
+        result = await asyncio.to_thread(ask, question, None, _history.get(uid, []), get_mod())
+        await _send(update, msg, render_telegram(result["answer"]),
+                    footer=_fmt_sources(result.get("sources", []), get_mod()))
+    except Exception as e:
+        await msg.edit_text(f"❌ {e}")
+
+
+async def handle_research(update, context):
+    if not _allowed(update): return await _deny(update)
+    msg = await update.message.reply_text("🔍 Collecting intel…")
+    try:
+        from core.intel import collect_and_index
+        result, fresh = await _gates["research"].run(collect_and_index)
+        total = result.get("total_new", 0)
+        await msg.edit_text(f"✅ Done ({'fresh' if fresh else 'shared'}). New items: {total}")
+    except Exception as e:
+        await msg.edit_text(f"❌ {e}")
+
+
+async def handle_briefing(update, context):
+    if not _allowed(update): return await _deny(update)
+    try: days = int(context.args[0]) if context.args else 14
+    except ValueError: days = 14
+    msg = await update.message.reply_text(f"📰 Generating {days}d briefing…")
+    try:
+        from core.trends import generate_briefing
+        from core.formatter import render_telegram
+        result, _ = await _gates["briefing"].run(generate_briefing, days)
+        await _send(update, msg, render_telegram(result))
+    except Exception as e:
+        await msg.edit_text(f"❌ {e}")
+
+
+async def handle_market(update, context):
+    if not _allowed(update): return await _deny(update)
+    msg = await update.message.reply_text("📈 Fetching market data…")
+    try:
+        from core.market_pulse import get_snapshot
+        from core.formatter import render_telegram
+        result, _ = await _gates["market"].run(get_snapshot)
+        await _send(update, msg, render_telegram(str(result)))
+    except Exception as e:
+        await msg.edit_text(f"❌ {e}")
+
+
+async def handle_news(update, context):
+    if not _allowed(update): return await _deny(update)
+    try: limit = int(context.args[0]) if context.args else 10
+    except ValueError: limit = 10
+    msg = await update.message.reply_text("📡 Loading news…")
+    try:
+        from majestic.db.state import StateDB
+        rows = StateDB().search_news("*", k=limit)
+        if not rows:
+            await msg.edit_text("No news found. Run /research first."); return
+        lines = [f"<b>{i+1}.</b> [{r['source']}] {r['title']}" for i, r in enumerate(rows)]
+        await _send(update, msg, "\n".join(lines))
+    except Exception as e:
+        await msg.edit_text(f"❌ {e}")
+
+
+async def handle_report(update, context):
+    if not _allowed(update): return await _deny(update)
+    topic = " ".join(context.args or []).strip()
+    if not topic:
+        await update.message.reply_text("Usage: /report <topic>"); return
+    msg = await update.message.reply_text(f"📝 Generating report: {topic[:60]}…")
+    try:
+        from core.rag_engine import ask
+        from core.formatter import render_telegram
+        result = await asyncio.to_thread(ask, f"Create detailed report on: {topic}", scope="all")
+        await _send(update, msg, render_telegram(result["answer"]))
+    except Exception as e:
+        await msg.edit_text(f"❌ {e}")
+
+
+async def handle_skills(update, context):
+    if not _allowed(update): return await _deny(update)
+    try:
+        from majestic.skills.loader import list_skills
+        skills = list_skills()
+        if not skills:
+            await update.message.reply_text("No skills saved yet."); return
+        lines = [f"/{s['name']} — {s.get('description','')}" for s in skills]
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    except Exception as e:
+        await update.message.reply_text(f"❌ {e}")
+
+
+async def handle_memory(update, context):
+    if not _allowed(update): return await _deny(update)
+    try:
+        from majestic.memory.store import show
+        from core.formatter import render_telegram
+        await update.message.reply_text(render_telegram(show()), parse_mode="HTML")
+    except Exception as e:
+        await update.message.reply_text(f"❌ {e}")
+
+
+async def handle_tokens(update, context):
+    if not _allowed(update): return await _deny(update)
+    from core.token_tracker import format_stats
+    await update.message.reply_text(f"<pre>{format_stats()}</pre>", parse_mode="HTML")
+
+
+async def handle_stats(update, context):
+    if not _allowed(update): return await _deny(update)
+    try:
+        from core.rag_engine import stats
+        s = stats()
+        await update.message.reply_text(
+            f"📊 <b>Knowledge base</b>\nChunks: {s['chunks']}\nFiles: {s['files']}",
+            parse_mode="HTML",
+        )
+    except Exception as e:
+        await update.message.reply_text(f"❌ {e}")
+
+
+async def handle_set(update, context):
+    if not _allowed(update): return await _deny(update)
+    args = context.args or []
+    if len(args) >= 2:
+        key, val = args[0].lower(), args[1].upper()
+        from core.config import set_lang, set_currency, set_mod
+        if key == "lang":       set_lang(val);          await update.message.reply_text(f"✅ Language → {val}")
+        elif key == "currency": set_currency(val);      await update.message.reply_text(f"✅ Currency → {val}")
+        elif key == "mod":      set_mod(val.lower());   await update.message.reply_text(f"✅ Scope → {val.lower()}")
+        else: await update.message.reply_text("Usage: /set lang|currency|mod <value>")
+    else:
+        from core.config import get_lang, get_currency, get_mod
+        await update.message.reply_text(
+            f"lang={get_lang()}  currency={get_currency()}  mod={get_mod()}"
+        )
+
+
+async def handle_logs(update, context):
+    if not _allowed(update): return await _deny(update)
+    try:
+        from core.error_logger import get_recent
+        lines = get_recent(10)
+        text = "\n".join(lines) if lines else "No errors logged."
+        await update.message.reply_text(f"<pre>{text[:3000]}</pre>", parse_mode="HTML")
+    except Exception as e:
+        await update.message.reply_text(f"❌ {e}")
+
+
+async def handle_remind(update, context):
+    if not _allowed(update): return await _deny(update)
+    text = " ".join(context.args or []).strip()
+    if not text:
+        await update.message.reply_text("Usage: /remind <text with date>"); return
+    try:
+        from core.reminders import extract_reminder_intent, add_reminder, format_reminder
+        intent = extract_reminder_intent(text)
+        if not intent:
+            await update.message.reply_text("❌ Could not parse date/time."); return
+        r = add_reminder(intent["title"], intent["dt"])
+        await update.message.reply_text(f"✅ {format_reminder(r)}")
+    except Exception as e:
+        await update.message.reply_text(f"❌ {e}")
+
+
+async def handle_reminders(update, context):
+    if not _allowed(update): return await _deny(update)
+    from core.reminders import list_reminders, format_reminder
+    items = list_reminders()
+    if not items:
+        await update.message.reply_text("No active reminders."); return
+    await update.message.reply_text(
+        "\n".join(f"{i+1}. {format_reminder(r)}" for i, r in enumerate(items))
+    )
+
+
+async def handle_document(update, context):
+    if not _allowed(update): return await _deny(update)
+    doc = update.message.document
+    if not doc: return
+    suffix = Path(doc.file_name or "").suffix.lower()
+    if suffix not in {".pdf", ".docx", ".csv", ".txt", ".md"}:
+        await update.message.reply_text(f"❌ Unsupported format: {suffix}"); return
+    msg = await update.message.reply_text(f"📥 Downloading {doc.file_name}…")
+    try:
+        from majestic.constants import WORKSPACE_DIR
+        inbox = WORKSPACE_DIR / "inbox"
+        inbox.mkdir(parents=True, exist_ok=True)
+        dest = inbox / doc.file_name
+        tg_file = await context.bot.get_file(doc.file_id)
+        await tg_file.download_to_drive(str(dest))
+        await msg.edit_text(f"⏳ Indexing {doc.file_name}…")
+        from core.rag_engine import index_file
+        n = await asyncio.to_thread(index_file, dest)
+        await msg.edit_text(f"✅ Indexed {doc.file_name} — {n} chunks")
+    except Exception as e:
+        await msg.edit_text(f"❌ {e}")

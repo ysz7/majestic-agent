@@ -14,17 +14,6 @@ from majestic.llm.base import ToolCall
 
 MAX_ITERATIONS = 10
 
-_SYSTEM = """\
-You are Majestic, a universal AI agent. You have access to tools to help answer questions and complete tasks.
-
-Guidelines:
-- Answer directly from your knowledge when you already know the answer.
-- Use tools when you need specific information: documents, web data, market prices.
-- For multi-step tasks, use multiple tools in sequence or parallel.
-- Be concise and structured in your final answer.
-- If a tool returns no useful data, say so and answer from what you know.\
-"""
-
 
 class AgentLoop:
     def __init__(self, stop_event: Optional[threading.Event] = None):
@@ -44,16 +33,12 @@ class AgentLoop:
         import majestic.tools as _tools
         from majestic.memory.store import load_both
         from core.config import get_lang
+        from majestic.agent.prompt import build_system
 
         provider = _proxy.provider
         tool_schemas = _tools.get_schemas()
 
-        # Build system prompt with memory and language
-        memory = load_both()
-        lang = get_lang()
-        system = _SYSTEM + f"\n\nRespond in {lang}."
-        if memory:
-            system += f"\n\n## Persistent memory\n{memory}"
+        system = build_system(lang=get_lang(), memory=load_both())
 
         # Build initial messages from history (last 5 turns for context)
         messages = _build_initial_messages(user_input, history)
