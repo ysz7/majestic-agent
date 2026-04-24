@@ -969,6 +969,57 @@ def cmd_set(args: str):
         print(f"  {Y}Unknown setting: {key}. Available: lang, currency, mod{R}\n")
 
 
+def cmd_schedule(args: str):
+    from majestic.cron.jobs import list_schedules, remove_schedule, nl_to_schedule, add_schedule
+    parts = args.strip().split(None, 1)
+    sub   = parts[0].lower() if parts else "list"
+
+    if sub == "list" or not sub:
+        rows = list_schedules()
+        if not rows:
+            print(f"\n  {DIM}No schedules yet. Use /schedule add <description>{R}\n")
+            return
+        print(f"\n{B}Schedules:{R}")
+        for r in rows:
+            status = f"{G}●{R}" if r["enabled"] else f"{DIM}○{R}"
+            print(f"  {status} {r['id']}. {B}{r['name']}{R}  {DIM}{r['cron_expr']}{R}")
+            print(f"     Task: {r['prompt']}  →  {r['delivery_target']}")
+            print(f"     Next: {DIM}{(r['next_run'] or '—')[:16]}{R}")
+        print()
+
+    elif sub == "remove":
+        rest = parts[1].strip() if len(parts) > 1 else ""
+        if not rest.isdigit():
+            print(f"  {Y}Usage: /schedule remove <id>{R}\n"); return
+        ok = remove_schedule(int(rest))
+        print(f"  {G}Removed.{R}\n" if ok else f"  {Y}Not found.{R}\n")
+
+    elif sub == "add":
+        text = parts[1].strip() if len(parts) > 1 else ""
+        if not text:
+            print(f"  {Y}Usage: /schedule add <description>{R}")
+            print(f"  {DIM}Example: /schedule add every day at 9am generate briefing{R}\n")
+            return
+        with Spinner("Parsing schedule…"):
+            try:
+                parsed = nl_to_schedule(text)
+                s = add_schedule(
+                    name=parsed["name"],
+                    cron_expr=parsed["cron"],
+                    prompt=parsed["prompt"],
+                    delivery_target=parsed.get("target", "cli"),
+                )
+                print(f"\n  {G}✅ Schedule added:{R} {B}{s['name']}{R}")
+                print(f"     Cron  : {DIM}{s['cron_expr']}{R}")
+                print(f"     Task  : {s['prompt']}")
+                print(f"     Target: {s['delivery_target']}")
+                print(f"     Next  : {DIM}{(s['next_run'] or '—')[:16]}{R}\n")
+            except Exception as e:
+                print(f"\n  {Y}❌ Could not parse schedule: {e}{R}\n")
+    else:
+        print(f"  {Y}Usage: /schedule list | add <desc> | remove <id>{R}\n")
+
+
 def cmd_rss(args: str):
     from core.rss import list_feeds, add_feed, remove_feed
     parts = args.strip().split(None, 1)
@@ -1290,6 +1341,9 @@ def main():
 
         elif user.lower().startswith("/set"):
             cmd_set(user[4:])
+
+        elif user.lower().startswith("/schedule"):
+            cmd_schedule(user[9:].strip())
 
         elif user.lower().startswith("/rss"):
             cmd_rss(user[4:].strip())

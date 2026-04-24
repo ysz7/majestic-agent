@@ -236,6 +236,68 @@ async def handle_reminders(update, context):
     )
 
 
+async def handle_schedule(update, context):
+    if not _allowed(update): return await _deny(update)
+    args = context.args or []
+    sub  = args[0].lower() if args else ""
+
+    if sub == "list":
+        from majestic.cron.jobs import list_schedules
+        rows = list_schedules()
+        if not rows:
+            await update.message.reply_text("No schedules. Add with /schedule add <description>")
+            return
+        lines = []
+        for r in rows:
+            status = "✅" if r["enabled"] else "⏸"
+            lines.append(f"{status} <b>{r['id']}.</b> {r['name']} — <code>{r['cron_expr']}</code>\n"
+                         f"   {r['prompt']} → {r['delivery_target']}\n"
+                         f"   Next: {(r['next_run'] or '—')[:16]}")
+        await update.message.reply_text("\n\n".join(lines), parse_mode="HTML")
+
+    elif sub == "remove":
+        if len(args) < 2 or not args[1].isdigit():
+            await update.message.reply_text("Usage: /schedule remove <id>"); return
+        from majestic.cron.jobs import remove_schedule
+        ok = remove_schedule(int(args[1]))
+        await update.message.reply_text("✅ Removed." if ok else "❌ Schedule not found.")
+
+    elif sub == "add":
+        text = " ".join(args[1:]).strip()
+        if not text:
+            await update.message.reply_text(
+                "Usage: /schedule add <description>\n"
+                "Example: /schedule add every day at 9am generate briefing\n"
+                "Example: /schedule add every monday at 8am do research and send to telegram"
+            ); return
+        msg = await update.message.reply_text("⏳ Parsing schedule…")
+        try:
+            from majestic.cron.jobs import nl_to_schedule, add_schedule
+            parsed = await asyncio.to_thread(nl_to_schedule, text)
+            target = parsed.get("target", "telegram")
+            s = add_schedule(
+                name=parsed["name"],
+                cron_expr=parsed["cron"],
+                prompt=parsed["prompt"],
+                delivery_target=target,
+            )
+            await msg.edit_text(
+                f"✅ Schedule added:\n"
+                f"<b>{s['name']}</b> — <code>{s['cron_expr']}</code>\n"
+                f"Task: {s['prompt']}\n"
+                f"Deliver to: {s['delivery_target']}\n"
+                f"Next run: {(s['next_run'] or '—')[:16]}",
+                parse_mode="HTML",
+            )
+        except Exception as e:
+            await msg.edit_text(f"❌ Could not parse schedule: {e}")
+
+    else:
+        await update.message.reply_text(
+            "/schedule list\n/schedule add <description>\n/schedule remove <id>"
+        )
+
+
 async def handle_document(update, context):
     if not _allowed(update): return await _deny(update)
     doc = update.message.document

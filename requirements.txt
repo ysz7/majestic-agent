@@ -36,3 +36,4 @@ dateparser>=1.2.0
 filelock>=3.12.0
 fpdf2>=2.7.0
 anthropic>=0.40.0
+croniter>=2.0.0

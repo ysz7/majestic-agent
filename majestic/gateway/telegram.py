@@ -19,11 +19,13 @@ def _start_services(notify_fn) -> None:
     from core.reminders import start_watcher
     from core.agent import start_autonomous_agent, set_notify
     from core.intel import collect_and_index
+    from majestic.cron.scheduler import start_scheduler
 
     start_backup_scheduler()
     start_watcher(on_due=lambda r: notify_fn(f"⏰ Reminder: {r['title']}"))
     set_notify(notify_fn)
     start_autonomous_agent(collect_fn=collect_and_index)
+    start_scheduler(delivery={"telegram": notify_fn, "cli": print})
 
 
 class TelegramPlatform(Platform):
@@ -49,7 +51,7 @@ class TelegramPlatform(Platform):
             handle_research, handle_briefing, handle_market,
             handle_news, handle_report, handle_skills, handle_memory,
             handle_tokens, handle_stats, handle_set, handle_logs,
-            handle_remind, handle_reminders, handle_document,
+            handle_remind, handle_reminders, handle_schedule, handle_document,
         )
 
         sync_env_from_config()
@@ -81,6 +83,7 @@ class TelegramPlatform(Platform):
                 BotCommand("logs",       "Recent error log"),
                 BotCommand("remind",     "Add reminder"),
                 BotCommand("reminders",  "List reminders"),
+                BotCommand("schedule",   "Cron schedules: add/list/remove"),
             ])
 
         app = Application.builder().token(token).post_init(_post_init).build()
@@ -101,6 +104,7 @@ class TelegramPlatform(Platform):
         app.add_handler(CommandHandler("logs",       handle_logs))
         app.add_handler(CommandHandler("remind",     handle_remind))
         app.add_handler(CommandHandler("reminders",  handle_reminders))
+        app.add_handler(CommandHandler("schedule",   handle_schedule))
         app.add_handler(MessageHandler(filters.Document.ALL,            handle_document))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
