@@ -1,0 +1,44 @@
+# ── Secrets ────────────────────────────────────────────────────────────────────
+.env
+
+# ── Python ─────────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+*.egg-info/
+
+# ── Data — auto-generated, large, or personal ──────────────────────────────────
+data/vector_db/
+data/intel/latest_feed.json
+data/intel/seen_hashes.json
+data/intel/alerts_log.json
+data/intel/ideas_log.json
+data/intel/market_history.db
+data/intel/.research.lock
+data/logs/
+data/exports/
+data/processed/
+data/backups/*.zip
+data/backups/last_backup.json
+data/tokens.json
+data/config.json
+
+# Keep RSS feed list (user config, not sensitive)
+!data/intel/rss_feeds.json
+
+# ── IDE / tooling ──────────────────────────────────────────────────────────────
+.claude/
+.idea/
+.vscode/
+*.swp
+
+# ── Private notes ──────────────────────────────────────────────────────────────
+PRIVATE-README.md
+CLAUDE.md
+
+# ── OS ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+DEPLOY.md

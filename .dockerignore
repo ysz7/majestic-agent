@@ -1,0 +1,31 @@
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Data — mounted as volume at runtime, not baked into image
+data/
+
+# Git
+.git/
+.gitignore
+
+# IDE / tooling
+.claude/
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Windows scripts (not needed on Linux server)
+*.bat
+
+# Dev files
+refactor-plan.txt
+PRIVATE-README.md
