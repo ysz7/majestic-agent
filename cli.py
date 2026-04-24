@@ -20,7 +20,7 @@ load_dotenv()
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="langchain_core")
 
-from core.rag_engine import ask, index_file, stats, INBOX_DIR, DONE_DIR, EXPORT_DIR, splitter, vectorstore, unload_llm
+from core.rag_engine import ask, index_file, index_file_with_progress, stats, INBOX_DIR, DONE_DIR, EXPORT_DIR, unload_llm
 from core.reminders import extract_reminder_intent, add_reminder, list_reminders, format_reminder, parse_date, start_watcher
 from core.formatter import render_cli
 
@@ -266,15 +266,15 @@ def _print_status() -> None:
     else:
         ollama_status = f"\033[32m●\033[0m{DIM} anthropic{R}"
 
-    # ── ChromaDB doc count ────────────────────────────────────────────────
+    # ── StateDB doc count ─────────────────────────────────────────────────
     try:
-        from core.rag_engine import vectorstore
-        doc_count = vectorstore._collection.count()
+        from core.rag_engine import stats as _rag_stats
+        doc_count = _rag_stats()["chunks"]
         db_dot = f"\033[32m●\033[0m"
     except Exception:
         doc_count = 0
         db_dot = f"\033[31m●\033[0m"
-    db_status = f"{db_dot}{DIM} chromadb{R}"
+    db_status = f"{db_dot}{DIM} state.db{R}"
 
     # ── Model label ───────────────────────────────────────────────────────
     model_label = f"{DIM}{provider} / {model}{R}"
@@ -356,39 +356,25 @@ def _split_paths(text: str) -> list[Path]:
 
 def _index_with_progress(path: Path) -> int:
     """Index a file with a live chunk counter. Returns chunk count."""
-    from core.rag_engine import load_file
-
-    docs = load_file(path)
-    if not docs:
-        return 0
-
-    chunks = splitter.split_documents(docs)
-    total = len(chunks)
     bar_width = 20
+    _total = [0]
 
-    def _bar(done: int) -> str:
+    def _on_progress(done: int, total: int):
+        _total[0] = total
         filled = int(bar_width * done / max(total, 1))
-        return "█" * filled + "░" * (bar_width - filled)
+        bar = "█" * filled + "░" * (bar_width - filled)
+        print(f"\r  ⏳ {path.name}... {bar} {done}/{total} chunks", end="", flush=True)
 
-    # Add in batches and update progress
-    batch = max(1, total // 20)
-    added = 0
-    for i in range(0, total, batch):
-        slice_ = chunks[i : i + batch]
-        vectorstore.add_documents(slice_)
-        added += len(slice_)
-        pct = _bar(added)
-        print(f"\r  ⏳ {path.name}... {pct} {added}/{total} chunks", end="", flush=True)
+    n = index_file_with_progress(path, on_progress=_on_progress)
+    print()
 
-    print()  # newline after progress bar
+    if n:
+        dest = DONE_DIR / path.name
+        if dest.exists():
+            dest = DONE_DIR / f"{path.stem}_{int(datetime.now().timestamp())}{path.suffix}"
+        shutil.move(str(path), str(dest))
 
-    # Move to processed/
-    dest = DONE_DIR / path.name
-    if dest.exists():
-        dest = DONE_DIR / f"{path.stem}_{int(datetime.now().timestamp())}{path.suffix}"
-    shutil.move(str(path), str(dest))
-
-    return total
+    return n
 
 
 def _handle_files(paths: list[Path]):

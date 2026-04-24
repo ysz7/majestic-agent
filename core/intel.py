@@ -592,7 +592,7 @@ def collect_and_index(index_to_rag: bool = True, on_progress=None) -> Dict:
 
 
 def _collect_and_index_inner(index_to_rag: bool = True, on_progress=None) -> Dict:
-    from core.rag_engine import splitter, vectorstore
+    from core.rag_engine import add_intel_docs
     from langchain_core.documents import Document
 
     from core.rss import fetch_all_feeds as _fetch_rss, list_feeds as _list_rss_feeds
@@ -679,8 +679,7 @@ def _collect_and_index_inner(index_to_rag: bool = True, on_progress=None) -> Dic
                 page_content=content,
                 metadata={"source_file": f"intel:{source}", "url": url}
             ))
-        chunks = splitter.split_documents(docs)
-        vectorstore.add_documents(chunks)
+        add_intel_docs(docs)
 
     counts = {}
     for item in new_items:

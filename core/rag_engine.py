@@ -1,292 +1,99 @@
 """
-RAG Engine — core vector search and document loading
+RAG Engine — document indexing and retrieval backed by StateDB + fastembed.
+Replaces ChromaDB with sqlite-vec (via StateDB) and HuggingFace with fastembed.
 """
-import math
 import os
 import re
 import shutil
 from pathlib import Path
 from typing import List, Optional
 
-
-def _cosine(a: list, b: list) -> float:
-    """Pure-Python cosine similarity for embedding vectors."""
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(y * y for y in b))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    return dot / (norm_a * norm_b)
-
 from dotenv import load_dotenv
 load_dotenv()
 
 from langchain_core.messages import HumanMessage
 from langchain_core.callbacks import BaseCallbackHandler
-from langchain_core.runnables import RunnableLambda
-from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
-    PyPDFLoader,
-    Docx2txtLoader,
-    CSVLoader,
-    TextLoader,
+    PyPDFLoader, Docx2txtLoader, CSVLoader, TextLoader,
 )
 from langchain_core.documents import Document
-from langchain_core.runnables import RunnablePassthrough, RunnableParallel
-from langchain_core.output_parsers import StrOutputParser
+
+from majestic.constants import MAJESTIC_HOME
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-BASE_DIR   = Path(__file__).parent.parent / "data"
-INBOX_DIR  = BASE_DIR / "inbox"
-DONE_DIR   = BASE_DIR / "processed"
-DB_DIR     = BASE_DIR / "vector_db"
-EXPORT_DIR = BASE_DIR / "exports"
+INBOX_DIR  = MAJESTIC_HOME / "workspace" / "inbox"
+DONE_DIR   = MAJESTIC_HOME / "workspace" / "processed"
+EXPORT_DIR = MAJESTIC_HOME / "exports"
 
-for d in [INBOX_DIR, DONE_DIR, DB_DIR, EXPORT_DIR]:
-    d.mkdir(parents=True, exist_ok=True)
+for _d in [INBOX_DIR, DONE_DIR, EXPORT_DIR]:
+    _d.mkdir(parents=True, exist_ok=True)
 
-# ── LLM / Embeddings ───────────────────────────────────────────────────────────
-EMBED_MODEL = "nomic-embed-text"   # pull once: ollama pull nomic-embed-text
-
-
+# ── LLM ────────────────────────────────────────────────────────────────────────
 def get_llm():
-    """Return LLM instance based on LLM_PROVIDER env var (ollama or anthropic)."""
     provider = os.getenv("LLM_PROVIDER", "ollama").lower()
     if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
-        model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+        model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
         return ChatAnthropic(model=model, temperature=0.1)
-    else:
-        from langchain_ollama import ChatOllama
-        model = os.getenv("OLLAMA_MODEL", "gemma3")
-        num_ctx = int(os.getenv("OLLAMA_NUM_CTX", 8192))
-        return ChatOllama(model=model, temperature=0.1, num_ctx=num_ctx)
-
-
-class _LazyEmbeddings:
-    """Loads the embedding model only on first actual use, not at import time."""
-    def __init__(self):
-        self._model = None
-
-    def _load(self):
-        if self._model is None:
-            import warnings, logging, sys
-            os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
-            os.environ["TQDM_DISABLE"] = "1"
-            warnings.filterwarnings("ignore")
-            for logger_name in (
-                "sentence_transformers", "huggingface_hub", "transformers",
-                "transformers.modeling_utils", "huggingface_hub.file_download",
-            ):
-                logging.getLogger(logger_name).setLevel(logging.ERROR)
-            _old_stderr = sys.stderr
-            try:
-                sys.stderr = open(os.devnull, "w")
-                from langchain_huggingface import HuggingFaceEmbeddings
-                self._model = HuggingFaceEmbeddings(
-                    model_name="all-MiniLM-L6-v2",
-                    model_kwargs={"device": "cpu"},
-                )
-            finally:
-                sys.stderr.close()
-                sys.stderr = _old_stderr
-                os.environ.pop("TQDM_DISABLE", None)
-        return self._model
-
-    def embed_documents(self, texts):
-        return self._load().embed_documents(texts)
-
-    def embed_query(self, text):
-        return self._load().embed_query(text)
+    from langchain_ollama import ChatOllama
+    model   = os.getenv("OLLAMA_MODEL", "gemma3")
+    num_ctx = int(os.getenv("OLLAMA_NUM_CTX", 8192))
+    return ChatOllama(model=model, temperature=0.1, num_ctx=num_ctx)
 
 
 llm = get_llm()
-embeddings = _LazyEmbeddings()
 
 
-def unload_llm():
-    """Ask Ollama to immediately evict the model from VRAM/RAM (keep_alive=0).
-    No-op when using any other provider."""
-    provider = os.getenv("LLM_PROVIDER", "ollama").lower()
-    if provider != "ollama":
+def unload_llm() -> None:
+    if os.getenv("LLM_PROVIDER", "ollama").lower() != "ollama":
         return
     try:
         import requests
-        model = os.getenv("OLLAMA_MODEL", "gemma3")
         requests.post(
             "http://localhost:11434/api/generate",
-            json={"model": model, "keep_alive": 0},
+            json={"model": os.getenv("OLLAMA_MODEL", "gemma3"), "keep_alive": 0},
             timeout=5,
         )
     except Exception:
         pass
 
-# ── Vector DB ──────────────────────────────────────────────────────────────────
-vectorstore = Chroma(
-    persist_directory=str(DB_DIR),
-    embedding_function=embeddings,
-    collection_name="parallax",
-)
 
-splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
-
-retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+# ── Embeddings (fastembed, lazy) ───────────────────────────────────────────────
+_embed_model = None
 
 
-def _format_docs(docs: List[Document]) -> str:
-    parts = []
-    for d in docs:
-        src = d.metadata.get("source_file", "")
-        header = f"[Source: {src}]\n" if src else ""
-        parts.append(header + d.page_content)
-    return "\n\n---\n\n".join(parts)
+def _get_embedder():
+    global _embed_model
+    if _embed_model is None:
+        os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+        from fastembed import TextEmbedding
+        _embed_model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+    return _embed_model
 
 
-# ── Analytical keywords & k resolver ──────────────────────────────────────────
-
-_ANALYTICAL_KEYWORDS = {
-    "compare", "comparison", "vs", "versus", "difference", "between",
-    "summarize", "summary", "overview", "report", "analyze", "analysis",
-    "trend", "trends", "findings", "insights", "key points", "list all",
-    "what are all", "across", "all available", "full list",
-}
+def embed_text(text: str) -> list[float]:
+    model = _get_embedder()
+    return list(model.embed([text]))[0].tolist()
 
 
-def _resolve_k(question: str) -> int:
-    """Return retriever k appropriate for this question type."""
-    q_lower = question.lower()
-    if any(kw in q_lower for kw in _ANALYTICAL_KEYWORDS):
-        return 15
-    return 8
+# ── StateDB singleton ─────────────────────────────────────────────────────────
+_db = None
 
 
-def _infer_mode(question: str) -> str:
-    """Classify question into prompt mode: 'analytical' or 'general'."""
-    q_lower = question.lower()
-    if any(kw in q_lower for kw in _ANALYTICAL_KEYWORDS):
-        return "analytical"
-    return "general"
+def _get_db():
+    global _db
+    if _db is None:
+        from majestic.db.state import StateDB
+        _db = StateDB()
+    return _db
 
 
-# ── Prompt templates ───────────────────────────────────────────────────────────
-
-_PROMPT_SYSTEM = {
-    "general": (
-        "You are Parallax, an AI research assistant with access to indexed documents.\n"
-        "Answer using ONLY the provided context. If the information is not present, say so clearly.\n\n"
-        "FORMATTING RULES (always follow):\n"
-        "- Use **bold** for key terms, names, numbers, and important facts\n"
-        "- Use bullet points (- item) for lists of 3+ items\n"
-        "- Use ## Section heading when the answer has multiple distinct parts\n"
-        "- Use `inline code` for tech stack names, tools, frameworks\n"
-        "- Keep paragraphs short (2-3 sentences max)\n"
-        "- Do NOT output raw unformatted prose"
-    ),
-    "analytical": (
-        "You are Parallax, an AI research analyst. Synthesize information from the provided "
-        "context into a structured, actionable analysis.\n"
-        "Use ONLY the provided context. Do not invent data.\n\n"
-        "REQUIRED STRUCTURE:\n"
-        "## Summary\n"
-        "2-3 sentence overview\n\n"
-        "## Key Findings\n"
-        "- bullet list of facts with **bold** highlights\n\n"
-        "## Implications\n"
-        "- actionable takeaways (if applicable)\n\n"
-        "## Sources\n"
-        "- which document each finding comes from\n\n"
-        "FORMATTING RULES:\n"
-        "- Use **bold** for numbers, metrics, and key terms\n"
-        "- Use `code` for tech stack, tools, frameworks\n"
-        "- Compare sources explicitly if multiple are present"
-    ),
-    "file_focused": (
-        "You are Parallax, an AI research assistant analyzing a specific document.\n"
-        "Use ONLY the provided document content to answer.\n"
-        "Be thorough — extract all relevant data points, numbers, and facts.\n\n"
-        "FORMATTING RULES (always follow):\n"
-        "- Use ## Section headings to organize the answer\n"
-        "- Use **bold** for all numbers, salaries, percentages, company names\n"
-        "- Use bullet points (- item) for lists\n"
-        "- Use `inline code` for tech stack, tools, languages\n"
-        "- Do NOT output raw unformatted prose"
-    ),
-}
+# ── Splitter ───────────────────────────────────────────────────────────────────
+_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
 
 
-# ── Dynamic prompt builder (reads lang + history at call time) ─────────────────
-
-def _build_messages(inputs: dict) -> list:
-    """Build LLM input with current lang setting, mode, and optional conversation history."""
-    from core.config import get_lang
-    lang     = get_lang()
-    history  = inputs.get("history") or []
-    context  = inputs.get("context", "")
-    question = inputs.get("question", "")
-    mode     = inputs.get("mode", "general")
-
-    history_str = ""
-    if history:
-        turns = []
-        for u, a in history[-3:]:
-            turns.append(f"User: {u}\nAssistant: {a}")
-        history_str = "Previous conversation:\n" + "\n\n".join(turns) + "\n\n"
-
-    system_instruction = _PROMPT_SYSTEM.get(mode, _PROMPT_SYSTEM["general"])
-
-    content = (
-        f"{system_instruction}\n"
-        f"Respond in {lang}.\n\n"
-        f"{history_str}"
-        f"Context:\n{context}\n\n"
-        f"Question: {question}\n\n"
-        f"Answer:"
-    )
-    return [HumanMessage(content=content)]
-
-
-# ── Token tracking callback for LCEL chains ────────────────────────────────────
-
-class _TokenCallback(BaseCallbackHandler):
-    """Tracks Anthropic token usage inside LCEL chain invocations."""
-
-    def __init__(self, operation: str = "rag_query"):
-        self.operation = operation
-
-    def on_llm_end(self, response, **kwargs):
-        if os.getenv("LLM_PROVIDER", "").lower() != "anthropic":
-            return
-        try:
-            from core.token_tracker import track
-            for gen_list in response.generations:
-                for gen in gen_list:
-                    msg = getattr(gen, "message", None)
-                    if msg:
-                        um = getattr(msg, "usage_metadata", None) or {}
-                        tin  = um.get("input_tokens", 0)
-                        tout = um.get("output_tokens", 0)
-                        if tin or tout:
-                            track(tin, tout, self.operation)
-                            return   # count once per invocation
-        except Exception:
-            pass
-
-
-# ── QA chain ───────────────────────────────────────────────────────────────────
-# Uses RunnableLambda so prompt is built dynamically (reads lang/history at call time).
-qa_chain = RunnableParallel(
-    answer=(
-        RunnablePassthrough.assign(context=lambda x: _format_docs(retriever.invoke(x["question"])))
-        | RunnableLambda(_build_messages)
-        | llm
-        | StrOutputParser()
-    ),
-    source_documents=lambda x: retriever.invoke(x["question"]),
-)
-
-
-# ── Loaders ────────────────────────────────────────────────────────────────────
+# ── Document loaders ───────────────────────────────────────────────────────────
 LOADERS = {
     ".pdf":  PyPDFLoader,
     ".docx": Docx2txtLoader,
@@ -295,9 +102,9 @@ LOADERS = {
     ".md":   TextLoader,
 }
 
+
 def load_file(path: Path) -> List[Document]:
-    suffix = path.suffix.lower()
-    loader_cls = LOADERS.get(suffix)
+    loader_cls = LOADERS.get(path.suffix.lower())
     if not loader_cls:
         return []
     try:
@@ -315,278 +122,292 @@ def load_file(path: Path) -> List[Document]:
         return []
 
 
-# ── Index ──────────────────────────────────────────────────────────────────────
+# ── Indexing ───────────────────────────────────────────────────────────────────
+
+def _docs_to_chunks(docs: List[Document]) -> list[dict]:
+    """Split documents, embed each chunk, return list of {content, embedding, metadata}."""
+    raw_chunks = _splitter.split_documents(docs)
+    result = []
+    embedder = _get_embedder()
+    texts = [c.page_content for c in raw_chunks]
+    embeddings = list(embedder.embed(texts))
+    for chunk, emb in zip(raw_chunks, embeddings):
+        result.append({
+            "content":   chunk.page_content,
+            "embedding": emb.tolist(),
+            "metadata":  chunk.metadata,
+        })
+    return result
+
+
 def index_file(path: Path) -> int:
     """Load, chunk, embed and store a single file. Returns chunk count."""
     docs = load_file(path)
     if not docs:
         return 0
-    chunks = splitter.split_documents(docs)
-    vectorstore.add_documents(chunks)
-    return len(chunks)
+    chunks = _docs_to_chunks(docs)
+    return _get_db().add_chunks(path.name, chunks)
 
 
-def index_inbox() -> List[str]:
-    """Scan inbox, index every supported file, move to processed/."""
-    results = []
-    for f in INBOX_DIR.iterdir():
-        if f.suffix.lower() not in LOADERS:
-            continue
-        n = index_file(f)
-        if n:
-            dest = DONE_DIR / f.name
-            shutil.move(str(f), str(dest))
-            results.append(f"✅ {f.name} — {n} chunks")
-        else:
-            results.append(f"⚠️  {f.name} — skipped (unsupported or empty)")
-    return results or ["📭 Inbox empty"]
+def index_file_with_progress(path: Path, on_progress=None) -> int:
+    """Like index_file but calls on_progress(done, total) after each batch."""
+    docs = load_file(path)
+    if not docs:
+        return 0
+    raw_chunks = _splitter.split_documents(docs)
+    total = len(raw_chunks)
+    if not total:
+        return 0
+
+    embedder = _get_embedder()
+    batch_size = max(1, total // 20)
+    chunks_out = []
+    done = 0
+    for i in range(0, total, batch_size):
+        batch = raw_chunks[i : i + batch_size]
+        embs  = list(embedder.embed([c.page_content for c in batch]))
+        for chunk, emb in zip(batch, embs):
+            chunks_out.append({
+                "content":   chunk.page_content,
+                "embedding": emb.tolist(),
+                "metadata":  chunk.metadata,
+            })
+        done += len(batch)
+        if on_progress:
+            on_progress(done, total)
+
+    _get_db().add_chunks(path.name, chunks_out)
+    return total
+
+
+def add_intel_docs(docs: List[Document]) -> int:
+    """Index intel/news documents into StateDB vectors + news table."""
+    db = _get_db()
+    # Store as vector chunks for semantic search
+    chunks = _docs_to_chunks(docs)
+    for doc, chunk in zip(docs, chunks):
+        source_file = doc.metadata.get("source_file", "intel:unknown")
+        db.add_chunks(source_file, [chunk])
+
+    # Also store raw items in news table for FTS5 search
+    news_items = []
+    for doc in docs:
+        meta = doc.metadata
+        src  = meta.get("source_file", "intel:unknown").replace("intel:", "")
+        lines = doc.page_content.split("\n")
+        title = lines[0].lstrip("[").split("]")[-1].strip() if lines else ""
+        desc  = "\n".join(lines[1:5]).strip()
+        news_items.append({
+            "source":      src,
+            "title":       title or doc.page_content[:120],
+            "url":         meta.get("url"),
+            "description": desc,
+        })
+    if news_items:
+        db.add_news_items(news_items)
+
+    return len(docs)
+
+
+# ── Prompts ────────────────────────────────────────────────────────────────────
+_PROMPT_SYSTEM = {
+    "general": (
+        "You are Majestic, a universal AI agent with access to indexed documents and research.\n"
+        "Answer using ONLY the provided context. If the information is not present, say so.\n\n"
+        "- Use **bold** for key terms and numbers\n"
+        "- Use bullet points for lists of 3+ items\n"
+        "- Use ## headings when the answer has multiple parts\n"
+        "- Keep paragraphs short"
+    ),
+    "analytical": (
+        "You are Majestic, an AI research analyst. Synthesize the provided context into a structured analysis.\n"
+        "Use ONLY the provided context.\n\n"
+        "## Summary\n2-3 sentence overview\n\n"
+        "## Key Findings\n- bullet list with **bold** highlights\n\n"
+        "## Implications\n- actionable takeaways\n\n"
+        "## Sources\n- which document each finding comes from"
+    ),
+    "file_focused": (
+        "You are Majestic, an AI agent analyzing a specific document.\n"
+        "Use ONLY the provided document content. Extract all relevant facts, numbers, and data points.\n\n"
+        "- Use ## headings\n- Use **bold** for numbers and names\n- Use bullet points for lists"
+    ),
+}
+
+_ANALYTICAL_KW = {
+    "compare", "comparison", "vs", "versus", "difference", "summarize", "summary",
+    "overview", "report", "analyze", "analysis", "trend", "trends", "findings",
+    "insights", "key points", "list all", "what are all", "across", "all available",
+}
+
+
+def _resolve_k(question: str) -> int:
+    return 15 if any(kw in question.lower() for kw in _ANALYTICAL_KW) else 8
+
+
+def _infer_mode(question: str) -> str:
+    return "analytical" if any(kw in question.lower() for kw in _ANALYTICAL_KW) else "general"
+
+
+def _build_messages(context: str, question: str, history, mode: str) -> list:
+    from core.config import get_lang
+    lang = get_lang()
+    history_str = ""
+    if history:
+        turns = [f"User: {u}\nAssistant: {a}" for u, a in (history or [])[-3:]]
+        history_str = "Previous conversation:\n" + "\n\n".join(turns) + "\n\n"
+    content = (
+        f"{_PROMPT_SYSTEM.get(mode, _PROMPT_SYSTEM['general'])}\n"
+        f"Respond in {lang}.\n\n"
+        f"{history_str}"
+        f"Context:\n{context}\n\n"
+        f"Question: {question}\n\nAnswer:"
+    )
+    return [HumanMessage(content=content)]
+
+
+class _TokenCallback(BaseCallbackHandler):
+    def __init__(self, op: str = "rag_query"):
+        self.op = op
+
+    def on_llm_end(self, response, **kwargs):
+        if os.getenv("LLM_PROVIDER", "").lower() != "anthropic":
+            return
+        try:
+            from core.token_tracker import track
+            for gen_list in response.generations:
+                for gen in gen_list:
+                    msg = getattr(gen, "message", None)
+                    if msg:
+                        um = getattr(msg, "usage_metadata", None) or {}
+                        tin, tout = um.get("input_tokens", 0), um.get("output_tokens", 0)
+                        if tin or tout:
+                            track(tin, tout, self.op)
+                            return
+        except Exception:
+            pass
 
 
 # ── Query ──────────────────────────────────────────────────────────────────────
 
-def _known_files() -> List[str]:
-    """Return list of unique source_file values currently in the vectorstore."""
+def _known_files() -> list[str]:
     try:
-        col = vectorstore._collection
-        if not col.count():
-            return []
-        data = col.get(include=["metadatas"])
-        return list({m["source_file"] for m in data["metadatas"] if m.get("source_file")})
+        return _get_db().get_files()
     except Exception:
         return []
 
 
-_FILE_SIM_THRESHOLD = float(os.getenv("RAG_FILE_SIM_THRESHOLD", "0.55"))
-
-
-def _detect_file_in_question(question: str, extra_history: Optional[List[str]] = None) -> Optional[str]:
-    """
-    Return the most relevant indexed filename for this question.
-
-    Strategy (ordered by confidence):
-    1. Exact substring match — filename or stem appears literally in the query.
-    2. Keyword overlap — any significant word from the filename stem appears in the query.
-    3. Semantic similarity — cosine sim between query embedding and filename embedding.
-    4. History fallback — repeat strategies 1-2 on recent conversation turns.
-
-    For intel: sources (intel:reddit, intel:hackernews etc.) we do NOT auto-select
-    them by filename similarity — they should only match via explicit mention or
-    when the entire query is clearly about that specific source.
-    """
+def _detect_file_in_question(question: str, history_texts: list[str] = None) -> Optional[str]:
     known = _known_files()
     if not known:
         return None
-
-    q_lower = question.lower()
-    q_words = set(re.findall(r'\b\w{4,}\b', q_lower))  # meaningful words (4+ chars)
-
-    # Separate user files from intel: sources
-    user_files = [f for f in known if not f.startswith("intel:")]
+    q_lower  = question.lower()
+    q_words  = set(re.findall(r'\b\w{4,}\b', q_lower))
+    user_files  = [f for f in known if not f.startswith("intel:")]
     intel_files = [f for f in known if f.startswith("intel:")]
 
-    # --- Strategy 1: exact substring match (user files first, then intel) ---
     for fname in user_files + intel_files:
         stem = re.sub(r'\.[^.]+$', '', fname).lower()
         if fname.lower() in q_lower or stem in q_lower:
             return fname
 
-    # --- Strategy 2: keyword overlap for user files ---
-    best_overlap = (0, None)
+    best = (0, None)
     for fname in user_files:
-        stem = re.sub(r'[_\-.]', ' ', re.sub(r'\.[^.]+$', '', fname)).lower()
-        stem_words = set(re.findall(r'\b\w{4,}\b', stem))
-        overlap = len(q_words & stem_words)
-        if overlap > best_overlap[0]:
-            best_overlap = (overlap, fname)
-
-    if best_overlap[0] >= 2:  # at least 2 meaningful words match
-        return best_overlap[1]
-
-    # --- Strategy 3: semantic similarity (user files only, skip intel) ---
-    if user_files:
-        try:
-            q_vec = embeddings.embed_query(question)
-            candidates = []
-            for fname in user_files:
-                stem_text = re.sub(r'[_\-.]', ' ', re.sub(r'\.[^.]+$', '', fname))
-                f_vec = embeddings.embed_query(stem_text)
-                sim = _cosine(q_vec, f_vec)
-                candidates.append((sim, fname))
-            candidates.sort(reverse=True)
-            if candidates and candidates[0][0] >= _FILE_SIM_THRESHOLD:
-                return candidates[0][1]
-        except Exception:
-            pass
-
-    # --- Strategy 4: history fallback (substring + keyword) ---
-    if extra_history:
-        for text in reversed(extra_history):
-            t_lower = text.lower()
-            t_words = set(re.findall(r'\b\w{4,}\b', t_lower))
-            for fname in user_files:
-                stem = re.sub(r'\.[^.]+$', '', fname).lower()
-                if fname.lower() in t_lower or stem in t_lower:
-                    return fname
-            for fname in user_files:
-                stem = re.sub(r'[_\-.]', ' ', re.sub(r'\.[^.]+$', '', fname)).lower()
-                stem_words = set(re.findall(r'\b\w{4,}\b', stem))
-                if len(t_words & stem_words) >= 2:
-                    return fname
+        stem  = re.sub(r'[_\-.]', ' ', re.sub(r'\.[^.]+$', '', fname)).lower()
+        words = set(re.findall(r'\b\w{4,}\b', stem))
+        n = len(q_words & words)
+        if n > best[0]:
+            best = (n, fname)
+    if best[0] >= 2:
+        return best[1]
 
     return None
 
 
-def _ask_file(question: str, source_file: str, history: Optional[List] = None) -> dict:
-    """Fetch all chunks for source_file and query LLM with lang + history."""
-    col = vectorstore._collection
-    data = col.get(where={"source_file": source_file}, include=["documents"])
-    chunks = data.get("documents") or []
-    if not chunks:
-        return {"answer": f"File «{source_file}» not found in knowledge base.", "sources": []}
-
-    # Adaptive chunk cap: analytical questions get more context
-    max_chunks = max(_resolve_k(question) * 2, 20)
-    context = f"[Source: {source_file}]\n\n" + "\n\n---\n\n".join(chunks[:max_chunks])
-
-    messages = _build_messages({
-        "context": context,
-        "question": question,
-        "history": history,
-        "mode": "file_focused",
-    })
-    response = llm.invoke(messages)
-
-    from core.token_tracker import track_response
-    track_response(response, "rag_file_query")
-
-    return {"answer": response.content, "sources": [source_file]}
-
-
-def _similarity_search_scoped(question: str, k: int, scope: str) -> list:
-    """
-    Run similarity_search with scope filtering via ChromaDB $in filter.
-
-      all   → balanced merge: general search + guaranteed doc coverage.
-              User docs are often outnumbered by intel chunks, so a pure
-              semantic search on 'all' tends to return only intel results.
-              We fix this by always including top doc-file results alongside
-              general results, letting the LLM pick what's relevant.
-      docs  → only locally uploaded files
-      intel → only collected research (HN, Reddit, GitHub, RSS...)
-    """
-    known = _known_files()
-    doc_files   = [f for f in known if not f.startswith("intel:")]
-    intel_files = [f for f in known if f.startswith("intel:")]
-
-    if scope == "docs":
-        if not doc_files:
-            return []
-        return vectorstore.similarity_search(question, k=k, filter={"source_file": {"$in": doc_files}})
-
-    if scope == "intel":
-        if not intel_files:
-            return []
-        return vectorstore.similarity_search(question, k=k, filter={"source_file": {"$in": intel_files}})
-
-    # scope == "all": balanced merge
-    general = vectorstore.similarity_search(question, k=k)
-
-    if not doc_files:
-        return general
-
-    # Always pull some results from user docs to prevent intel-volume bias.
-    # Cross-lingual queries (e.g. Russian question about English-named file) won't
-    # rank doc chunks highly in a pure semantic search across the full corpus.
-    k_docs = max(2, k // 3)
-    doc_results = vectorstore.similarity_search(
-        question, k=k_docs, filter={"source_file": {"$in": doc_files}}
-    )
-
-    # Merge: general first (already ranked by relevance), append doc chunks not present
-    seen = {d.page_content[:100] for d in general}
-    extra = [d for d in doc_results if d.page_content[:100] not in seen]
-    return general + extra
+def _chunks_to_context(chunks: list[dict]) -> tuple[str, list[str]]:
+    parts, sources = [], set()
+    for c in chunks:
+        src = c.get("file_name", "")
+        sources.add(src)
+        header = f"[Source: {src}]\n" if src else ""
+        parts.append(header + c["content"])
+    return "\n\n---\n\n".join(parts), sorted(sources)
 
 
 def ask(
     question: str,
     source_file: Optional[str] = None,
-    history: Optional[List] = None,
+    history=None,
     scope: Optional[str] = None,
 ) -> dict:
-    """
-    Run RAG query. Returns {answer, sources}.
-
-    Args:
-        question:    user question
-        source_file: force search within this specific indexed file
-        history:     conversation context — list of (user_msg, assistant_msg) tuples
-        scope:       search scope — "all" | "docs" | "intel"
-                     If None, reads current value from config (set via /set mod)
-    """
     if scope is None:
         from core.config import get_mod
         scope = get_mod()
 
-    # In docs mode, file auto-detection is always on (we're looking in documents)
-    # In intel mode, skip file detection (intel sources aren't files)
+    db = _get_db()
     history_texts = [u for u, a in (history or [])]
 
     if source_file is None and scope != "intel":
-        source_file = _detect_file_in_question(question, extra_history=history_texts)
+        source_file = _detect_file_in_question(question, history_texts)
 
+    # ── File-focused query ────────────────────────────────────────────────────
     if source_file:
-        try:
-            return _ask_file(question, source_file, history=history)
-        except Exception as e:
-            print(f"[RAG] File query failed for {source_file}: {e}")
+        if source_file.startswith("intel:"):
+            src = source_file.replace("intel:", "")
+            rows = db.search_news(question, k=20)
+            rows = [r for r in rows if r.get("source") == src] or rows[:10]
+            chunks = [{"content": f"[{r['source']}] {r['title']}\n{r.get('description','')}", "file_name": source_file} for r in rows]
+        else:
+            contents = db.get_file_chunks(source_file)
+            k = max(_resolve_k(question) * 2, 20)
+            chunks = [{"content": c, "file_name": source_file} for c in contents[:k]]
 
-    # Adaptive retrieval with scope filtering
+        if not chunks:
+            return {"answer": f"No data found for «{source_file}».", "sources": []}
+
+        context, sources = _chunks_to_context(chunks)
+        msgs = _build_messages(context, question, history, "file_focused")
+        resp = llm.invoke(msgs, config={"callbacks": [_TokenCallback("rag_file")]})
+        from core.token_tracker import track_response
+        track_response(resp, "rag_file")
+        return {"answer": resp.content, "sources": sources}
+
+    # ── Scope-based retrieval ──────────────────────────────────────────────────
     k = _resolve_k(question)
-    docs = _similarity_search_scoped(question, k=k, scope=scope)
+    chunks: list[dict] = []
 
-    if not docs:
-        scope_label = {"docs": "local documents", "intel": "research intel", "all": "knowledge base"}
-        return {
-            "answer": f"No relevant information found in {scope_label.get(scope, 'knowledge base')}.",
-            "sources": [],
-        }
+    if scope in ("docs", "all"):
+        emb    = embed_text(question)
+        files  = [f for f in _known_files() if not f.startswith("intel:")] if scope == "docs" else None
+        chunks += db.vector_search_match(emb, k=k) if not files else [
+            c for c in db.vector_search_match(emb, k=k) if c.get("file_name") in files
+        ]
 
-    context = _format_docs(docs)
-    mode = _infer_mode(question)
-    messages = _build_messages({
-        "context": context,
-        "question": question,
-        "history": history or [],
-        "mode": mode,
-    })
-    response = llm.invoke(
-        messages,
-        config={"callbacks": [_TokenCallback("rag_query")]},
-    )
+    if scope in ("intel", "all"):
+        news_rows = db.search_news(question, k=k)
+        for r in news_rows:
+            chunks.append({
+                "content":   f"[{r['source']}] {r['title']}\n{r.get('description') or ''}",
+                "file_name": f"intel:{r['source']}",
+            })
+
+    if not chunks:
+        label = {"docs": "local documents", "intel": "research intel", "all": "knowledge base"}
+        return {"answer": f"No relevant information found in {label.get(scope,'knowledge base')}.", "sources": []}
+
+    context, sources = _chunks_to_context(chunks)
+    msgs = _build_messages(context, question, history, _infer_mode(question))
+    resp = llm.invoke(msgs, config={"callbacks": [_TokenCallback()]})
     from core.token_tracker import track_response
-    track_response(response, "rag_query")
-    sources = list({doc.metadata.get("source_file", "unknown") for doc in docs})
-    return {"answer": response.content, "sources": sources}
+    track_response(resp, "rag_query")
+    return {"answer": resp.content, "sources": sources}
 
 
 def delete_file(source_file: str) -> int:
-    """Remove all chunks belonging to source_file. Returns number of deleted chunks."""
-    col = vectorstore._collection
-    data = col.get(where={"source_file": source_file}, include=["metadatas"])
-    ids = data.get("ids", [])
-    if ids:
-        col.delete(ids=ids)
-    return len(ids)
+    return _get_db().delete_file(source_file)
 
 
 def stats() -> dict:
-    col = vectorstore._collection
-    count = col.count()
-    files = set()
-    if count:
-        data = col.get(include=["metadatas"])
-        for m in data["metadatas"]:
-            if m.get("source_file"):
-                files.add(m["source_file"])
-    return {"chunks": count, "files": len(files), "file_list": sorted(files)}
+    db    = _get_db()
+    files = db.get_files()
+    return {"chunks": db.get_chunk_count(), "files": len(files), "file_list": sorted(files)}
