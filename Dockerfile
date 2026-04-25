@@ -1,27 +1,29 @@
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    MAJESTIC_HOME=/data
 
 WORKDIR /app
 
-# System dependencies for lxml, BeautifulSoup, unstructured, PDF export
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libxml2-dev \
-    libxslt-dev \
-    fonts-dejavu-core \
+    gcc g++ \
+    libxml2-dev libxslt-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-# Install CPU-only torch first to avoid pulling CUDA packages (~2GB) on a small server
+# CPU-only torch — avoids pulling the full CUDA build (~2 GB) on a small VPS
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+RUN pip install --no-cache-dir -e .
 
-# data/ is mounted as a volume — create empty dirs so app doesn't crash on first run
-RUN mkdir -p data/inbox data/processed data/vector_db data/exports \
-             data/intel data/logs data/backups
+# Runtime data lives in the mounted volume, not in the image
+VOLUME /data
 
-CMD ["python", "bot.py"]
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')" || exit 1
+
+CMD ["majestic", "gateway", "start"]

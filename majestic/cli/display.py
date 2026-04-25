@@ -1,7 +1,10 @@
 import os
+import re
 import sys
 import threading
 import time
+from datetime import datetime, date
+from pathlib import Path
 
 R   = "\033[0m"
 B   = "\033[1m"
@@ -11,17 +14,16 @@ Y   = "\033[33m"
 DIM = "\033[2m"
 RED = "\033[31m"
 
-_LINK = "\033]8;;https://github.com/ysz7/majestic-agent\033\\by ysz\033]8;;\033\\"
+_ANSI_ESC = re.compile(r'\033(?:\[[0-9;]*m|\]8;;[^\033]*\033\\)')
 
-BANNER = f"""{C}{B}
-  ██████╗   █████╗      ██╗███████╗███████╗████████╗██╗ ██████╗
-  ██╔══██╗ ██╔══██╗     ██║██╔════╝██╔════╝╚══██╔══╝██║██╔════╝
-  ██████╔╝ ███████║     ██║█████╗  ███████╗   ██║   ██║██║
-  ██╔═══╝  ██╔══██║██   ██║██╔══╝  ╚════██║   ██║   ██║██║
-  ██║      ██║  ██║╚█████╔╝███████╗███████║   ██║   ██║╚██████╗
-  ╚═╝      ╚═╝  ╚═╝ ╚════╝ ╚══════╝╚══════╝   ╚═╝   ╚═╝ ╚═════╝
-{R}{DIM}                               Universal Agent Executor  {_LINK}{R}
-"""
+_LOGO_LINES = [
+    "███╗   ███╗ █████╗      ██╗███████╗███████╗████████╗██╗ ██████╗ ",
+    "████╗ ████║██╔══██╗     ██║██╔════╝██╔════╝╚══██╔══╝██║██╔════╝ ",
+    "██╔████╔██║███████║     ██║█████╗  ███████╗   ██║   ██║██║      ",
+    "██║╚██╔╝██║██╔══██║██   ██║██╔══╝  ╚════██║   ██║   ██║██║      ",
+    "██║ ╚═╝ ██║██║  ██║╚█████╔╝███████╗███████║   ██║   ██║╚██████╗ ",
+    "╚═╝     ╚═╝╚═╝  ╚═╝ ╚════╝ ╚══════╝╚══════╝   ╚═╝   ╚═╝ ╚═════╝",
+]
 
 
 class Spinner:
@@ -58,31 +60,172 @@ class Spinner:
         self._real.flush()  # type: ignore[attr-defined]
 
 
-def print_banner() -> None:
-    print(BANNER)
+def _vis(s: str) -> int:
+    """Visual (printable) length of a string, stripping ANSI escape codes."""
+    return len(_ANSI_ESC.sub('', s))
 
 
-def print_status() -> None:
-    from majestic import config as cfg
+def _gather_startup() -> dict:
+    """Collect all data for the startup panel. Never raises."""
+    out: dict = {
+        'model': '—', 'provider': 'anthropic', 'api_ok': False,
+        'mem_count': 0, 'user_first': '', 'skills': [], 'recent': [],
+        'workdir': str(Path.cwd()),
+    }
+    try:
+        from majestic import config as cfg
+        out['model']    = (cfg.get('llm.model')    or '—')
+        out['provider'] = (cfg.get('llm.provider') or 'anthropic')
+        key_map = {
+            'anthropic':  'ANTHROPIC_API_KEY',
+            'openai':     'OPENAI_API_KEY',
+            'openrouter': 'OPENROUTER_API_KEY',
+        }
+        key_var = key_map.get(out['provider'], '')
+        out['api_ok'] = bool(os.environ.get(key_var)) if key_var else True
+    except Exception:
+        pass
+    try:
+        from majestic.memory.store import load_user, load_memory
+        u = load_user()
+        m = load_memory()
+        out['mem_count'] = sum(1 for p in (u + '\n\n' + m).split('\n\n') if p.strip())
+        out['user_first'] = next(
+            (l.strip() for l in u.splitlines() if l.strip() and not l.startswith('#')), ''
+        )[:48]
+    except Exception:
+        pass
+    try:
+        from majestic.skills.loader import list_skills
+        out['skills'] = list_skills() or []
+    except Exception:
+        pass
+    try:
+        from majestic.db.state import StateDB
+        rows = StateDB()._conn.execute(
+            "SELECT source, started_at FROM sessions ORDER BY started_at DESC LIMIT 3"
+        ).fetchall()
+        out['recent'] = [(r['source'], r['started_at']) for r in rows]
+    except Exception:
+        pass
+    return out
 
-    provider = cfg.get("llm.provider", "anthropic")
-    model    = cfg.get("llm.model", "—")
 
-    if provider == "anthropic":
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        llm_ok  = bool(api_key)
-        dot     = f"{G}●{R}" if llm_ok else f"{RED}●{R}"
-        label   = f"{dot} {DIM}anthropic / {model}{R}"
-    elif provider == "openrouter":
-        api_key = os.environ.get("OPENROUTER_API_KEY", "")
-        llm_ok  = bool(api_key)
-        dot     = f"{G}●{R}" if llm_ok else f"{RED}●{R}"
-        label   = f"{dot} {DIM}openrouter / {model}{R}"
+
+def print_startup() -> None:
+    """Rich startup panel matching the docs/banner.html design."""
+    d = _gather_startup()
+
+    # ── Logo ──────────────────────────────────────────────────────────────────
+    print()
+    for line in _LOGO_LINES:
+        print(f"  {C}{B}{line}{R}")
+
+    today = date.today().strftime("%Y.%m.%d")
+    print()
+    print(f"  {C}Majestic Agent v0.1.0 ({today}){R}  {DIM}·  github.com/ysz/majestic-agent{R}")
+    print(f"  {DIM}{'─' * 68}{R}")
+    print()
+
+    # ── Column widths (inner content visual widths) ───────────────────────────
+    LW, RW = 30, 56  # box row totals: LW+4=34, RW+4=60; total line: ~96 chars
+
+    # ── Left column ───────────────────────────────────────────────────────────
+    model    = (d['model'] or '—')[:19]
+    provider = d['provider']
+    api_dot  = f"{G}●{R}" if d['api_ok'] else f"{RED}●{R}"
+    mc       = d['mem_count']
+    mem_col  = G if mc else DIM
+    mem_str  = f"{'on' if mc else 'off'} · {mc} fact{'s' if mc != 1 else ''}"
+    wd       = d['workdir']
+    if len(wd) > 19:
+        wd = '…' + wd[-18:]
+
+    left: list[str] = [
+        f"{C}  *   *   *   *   *{R}",
+        f"{C}  |\\ /|\\ /|\\ /|\\ /|{R}",
+        f"{C}  | X | X | X | X |{R}",
+        f"{C}  |/ \\|/ \\|/ \\|/ \\|{R}",
+        f"{C}  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾{R}",
+        f"{C}   M A J E S T I C{R}",
+        "",
+        f"{DIM}model    · {R}{model}",
+        f"{DIM}provider · {R}{api_dot} {provider}",
+        f"{DIM}memory   · {R}{mem_col}{mem_str}{R}",
+        f"{DIM}workdir  · {R}{DIM}{wd}{R}",
+        f"{DIM}session  · {R}{DIM}new{R}",
+        "",
+        f"{C}── RECENT ACTIVITY ──{R}",
+    ]
+    if d['recent']:
+        for src, ts in d['recent']:
+            try:
+                delta = datetime.now() - datetime.fromisoformat(ts)
+                if delta.days == 0:
+                    rel = "today"
+                elif delta.days == 1:
+                    rel = "yesterday"
+                else:
+                    rel = f"{delta.days}d ago"
+                left.append(f"{DIM}·{R} {DIM}{rel:<10}{R}{src}")
+            except Exception:
+                left.append(f"{DIM}· {src}{R}")
     else:
-        label = f"{DIM}{provider} / {model}{R}"
+        left.append(f"{DIM}no activity yet{R}")
 
-    home = os.environ.get("MAJESTIC_HOME", "~/.majestic-agent")
-    print(f"  {label}   {DIM}home: {home}{R}\n")
+    # ── Right column ──────────────────────────────────────────────────────────
+    def sec(title: str) -> str:
+        dashes = '─' * max(0, RW - len(title) - 1)
+        return f"{C}{title}{R} {DIM}{dashes}{R}"
+
+    skills    = d['skills']
+    skill_cnt = len(skills)
+    uf        = d['user_first']
+
+    right: list[str] = [
+        sec("AVAILABLE TOOLS"),
+        f"{DIM}web:        {R}web_search, web_extract",
+        f"{DIM}research:   {R}news, briefing, report, predict",
+        f"{DIM}market:     {R}crypto, stocks, forex, flows",
+        f"{DIM}files:      {R}read_file, write_file, index",
+        f"{DIM}system:     {R}terminal",
+        f"{DIM}core:       {R}{C}db_search{R}",
+        "",
+        sec("AVAILABLE SKILLS"),
+    ]
+    if skills:
+        for sk in skills[:3]:
+            n    = (sk.get('name') or '?')[:14]
+            desc = (sk.get('description') or '')[:RW - 17]
+            right.append(f"{DIM}/{n:<14}{R}  {desc}")
+        if skill_cnt > 3:
+            right.append(f"{DIM}+ {skill_cnt - 3} more{R}")
+    else:
+        right.append(f"{DIM}none yet — add to ~/.majestic-agent/skills/{R}")
+    right += ["", sec("MEMORY SNAPSHOT")]
+    right.append(f"{DIM}user:  {R}{uf if uf else DIM + '(empty)' + R}")
+    right.append(f"{DIM}agent: {R}{mc} fact{'s' if mc != 1 else ''}")
+
+    # ── Two-column render ─────────────────────────────────────────────────────
+    height     = max(len(left), len(right))
+    left_rows  = left  + [''] * (height - len(left))
+    right_rows = right + [''] * (height - len(right))
+
+    print(f" ┌{'─' * (LW + 2)}┐  ┌{'─' * (RW + 2)}┐")
+    for l, r in zip(left_rows, right_rows):
+        lp = ' ' * max(0, LW - _vis(l))
+        rp = ' ' * max(0, RW - _vis(r))
+        print(f" │ {l}{lp} │  │ {r}{rp} │")
+    print(f" └{'─' * (LW + 2)}┘  └{'─' * (RW + 2)}┘")
+
+    print()
+    print(f"  {DIM}6 toolsets · {skill_cnt} skill{'s' if skill_cnt != 1 else ''} · {mc} memor{'ies' if mc != 1 else 'y'}  ·  /help for commands{R}")
+    print()
+    print(f"  {C}Welcome to Majestic!{R} Type your message or {B}/help{R} for commands.")
+    print(f"  {DIM}· /research for fresh intel  ·  /briefing for daily summary{R}")
+    print()
+    print(f"  {C}♛ majestic{R}  {DIM}│  {provider} / {model}  │  ctx 0  │  $0.0000{R}")
+    print()
 
 
 def ok(msg: str) -> None:

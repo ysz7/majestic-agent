@@ -1,7 +1,11 @@
 services:
-  bot:
+  majestic:
     build: .
     env_file: .env
+    environment:
+      MAJESTIC_HOME: /data
     volumes:
-      - ./data:/app/data
+      - ${MAJESTIC_HOST_HOME:-~/.majestic-agent}:/data
+    ports:
+      - "8080:8080"
     restart: unless-stopped

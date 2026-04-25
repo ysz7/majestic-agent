@@ -40,14 +40,6 @@ def _launch_agent() -> None:
         return
 
     cfg.sync_env_from_config()
-
-    # Add project root so legacy core/ imports work until Phase 12
-    import os
-    from pathlib import Path
-    project_root = Path(__file__).parent.parent.parent
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
-
     from majestic.cli.repl import run
     run()
 
@@ -119,12 +111,8 @@ def _gateway_start() -> None:
 
     cfg.sync_env_from_config()
 
-    # Add project root to path so legacy core/ imports work
-    from pathlib import Path as _Path
-    import os
-    project_root = _Path(__file__).parent.parent.parent
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
+    from majestic.gateway.health import start as start_health
+    start_health()
 
     from majestic.gateway import Gateway
     from majestic.gateway.telegram import TelegramPlatform

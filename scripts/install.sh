@@ -56,3 +56,30 @@ fi
 echo ""
 echo "  ✓ Installation complete. Run: majestic setup"
 echo ""
+
+# ── Optional: systemd service for gateway auto-start ──────────────────────────
+if [[ "${1:-}" == "--service" ]]; then
+    SERVICE_FILE="$HOME/.config/systemd/user/majestic.service"
+    mkdir -p "$(dirname "$SERVICE_FILE")"
+    cat > "$SERVICE_FILE" <<EOF
+[Unit]
+Description=Majestic Agent Gateway
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$VENV_DIR/bin/majestic gateway start
+Restart=on-failure
+RestartSec=10
+Environment=MAJESTIC_HOME=%h/.majestic-agent
+
+[Install]
+WantedBy=default.target
+EOF
+    systemctl --user daemon-reload
+    systemctl --user enable majestic
+    systemctl --user start majestic
+    echo "  ✓ systemd service enabled: majestic.service"
+    echo "    systemctl --user status majestic"
+    echo ""
+fi

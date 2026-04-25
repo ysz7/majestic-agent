@@ -58,9 +58,8 @@ def get_report(topic: str) -> str:
     # Save to exports
     try:
         from datetime import datetime
-        from pathlib import Path
-        import os
-        export_dir = Path(os.environ.get("EXPORT_DIR", "data/exports"))
+        from majestic.constants import EXPORTS_DIR
+        export_dir = EXPORTS_DIR
         export_dir.mkdir(parents=True, exist_ok=True)
         ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
         slug = topic[:40].replace(" ", "_").replace("/", "-")

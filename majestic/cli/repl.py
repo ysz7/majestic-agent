@@ -8,7 +8,7 @@ Interactive CLI REPL for the Majestic agent.
 """
 from __future__ import annotations
 
-from majestic.cli.display import R, B, C, G, Y, DIM, print_banner, print_status
+from majestic.cli.display import R, B, C, G, Y, DIM, print_startup
 from majestic.cli.repl_helpers import (
     _agent_stop,
     run_agent, dispatch_shortcut,
@@ -48,10 +48,7 @@ _HELP = f"""
 
 
 def run() -> None:
-    import readline  # noqa: F401 — enables arrow-key history + Ctrl+R
-
-    print_banner()
-    print_status()
+    print_startup()
 
     try:
         from majestic.cron.scheduler import start_scheduler
@@ -94,9 +91,53 @@ def run() -> None:
         if len(history) > 10:
             history[:] = history[-10:]
 
+    # ── Prompt setup (prompt_toolkit with tab-completion + toolbar) ───────────
+    _pt_prompt = None
+    try:
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.completion import WordCompleter
+        from prompt_toolkit.formatted_text import FormattedText, HTML
+
+        _PROMPT_MSG = FormattedText([("fg:#D95767 bold", "▶ ")])
+
+        _STATIC_CMDS = [
+            "/help", "/research", "/briefing", "/market", "/news", "/report",
+            "/ideas", "/memory", "/forget", "/skills", "/model", "/usage",
+            "/schedule", "/remind", "/reminders", "/rss", "/reports",
+            "/stop", "/exit",
+        ]
+
+        def _make_completer():
+            cmds = _STATIC_CMDS + [f"/{n}" for n in _skill_names()]
+            return WordCompleter(cmds, WORD=True, ignore_case=True)
+
+        def _toolbar():
+            try:
+                from majestic.token_tracker import get_stats
+                s    = get_stats()
+                cost = f"${s.get('cost_usd', 0.0):.4f}"
+                tok  = s.get('tokens_in', 0) + s.get('tokens_out', 0)
+                return HTML(f' <b>♛</b> <ansidarkgray>{label}  │  {tok:,} tok  │  {cost}  │  Tab for commands</ansidarkgray>')
+            except Exception:
+                return HTML(f' <b>♛</b> <ansidarkgray>{label}  │  Tab for commands</ansidarkgray>')
+
+        _pt_prompt = PromptSession(bottom_toolbar=_toolbar, refresh_interval=2)
+    except Exception:
+        pass
+
+    def _get_input() -> str:
+        if _pt_prompt is not None:
+            return _pt_prompt.prompt(
+                _PROMPT_MSG,
+                completer=_make_completer(),
+                complete_while_typing=True,
+            ).strip()
+        import readline  # noqa: F401
+        return input(f"{C}▶ {R}").strip()
+
     while True:
         try:
-            user = input(f"{C}▶ {R}").strip()
+            user = _get_input()
         except (EOFError, KeyboardInterrupt):
             print()
             user = "/exit"
