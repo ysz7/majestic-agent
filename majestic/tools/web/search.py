@@ -14,17 +14,13 @@ from majestic.tools.registry import tool
     },
 )
 def search_knowledge(query: str) -> str:
-    from core.rag_engine import _get_db, embed_text, _known_files
-    db = _get_db()
-    known = _known_files()
+    from majestic.db.state import StateDB
+    db = StateDB()
     parts: list[str] = []
 
-    doc_files = [f for f in known if not f.startswith("intel:")]
-    if doc_files:
-        emb = embed_text(query)
-        chunks = db.vector_search_match(emb, k=6)
-        for c in chunks:
-            parts.append(f"[doc: {c.get('file_name', '')}]\n{c['content']}")
+    chunks = db.semantic_search(query, k=6)
+    for c in chunks:
+        parts.append(f"[doc: {c.get('file_name', '')}]\n{c['content']}")
 
     news = db.search_news(query, k=5)
     for r in news:

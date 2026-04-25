@@ -69,9 +69,7 @@ def db_search(query: str, sources: str = "all") -> str:
 
     if sources in ("all", "docs"):
         try:
-            from core.rag_engine import embed_text
-            emb = embed_text(query)
-            raw = db.vector_search_match(emb, k=8)
+            raw = db.semantic_search(query, k=8)
             vec_results = [{"id": f"vec:{i}", **r} for i, r in enumerate(raw)]
         except Exception:
             pass

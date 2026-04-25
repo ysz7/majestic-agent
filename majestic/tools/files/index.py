@@ -1,4 +1,4 @@
-"""File indexing tool — index a file or directory into the knowledge base."""
+"""File indexing tool — parse + embed + store into state.db."""
 from majestic.tools.registry import tool
 
 
@@ -22,21 +22,37 @@ from majestic.tools.registry import tool
 )
 def index_file(path: str) -> str:
     from pathlib import Path
-    try:
-        from core.rag_engine import index_file as _index, index_directory as _index_dir
-    except ImportError as e:
-        return f"Indexing unavailable: {e}"
+    from majestic.db.parser import load_and_chunk, SUPPORTED_EXTS
+    from majestic.db.state import StateDB
 
     p = Path(path)
     if not p.exists():
         return f"Path not found: {path}"
 
+    if p.is_dir():
+        total = 0
+        errors: list[str] = []
+        for f in p.rglob("*"):
+            if f.suffix.lower() in SUPPORTED_EXTS:
+                try:
+                    chunks = load_and_chunk(f)
+                    if chunks:
+                        total += StateDB().embed_and_store(f.name, chunks)
+                except Exception as e:
+                    errors.append(f"{f.name}: {e}")
+        msg = f"Indexed directory {path}: {total} chunks"
+        if errors:
+            msg += f" ({len(errors)} errors: {'; '.join(errors[:3])})"
+        return msg
+
+    if p.suffix.lower() not in SUPPORTED_EXTS:
+        return f"Unsupported format: {p.suffix}. Supported: {', '.join(SUPPORTED_EXTS)}"
+
     try:
-        if p.is_dir():
-            n = _index_dir(p)
-            return f"Indexed directory {path}: {n} chunks"
-        else:
-            n = _index(p)
-            return f"Indexed {path}: {n} chunks"
+        chunks = load_and_chunk(p)
+        if not chunks:
+            return f"No text extracted from {path}"
+        n = StateDB().embed_and_store(p.name, chunks)
+        return f"Indexed {path}: {n} chunks"
     except Exception as e:
         return f"Error indexing {path}: {e}"

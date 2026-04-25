@@ -184,6 +184,22 @@ class StateDB:
         ).fetchall()
         return [r[0] for r in rows]
 
+    def embed_and_store(self, file_name: str, texts: list[str]) -> int:
+        """Embed text chunks with fastembed and store in state.db. Returns chunk count."""
+        from majestic.db.embedder import embed_batch
+        embeddings = embed_batch(texts)
+        chunks = [
+            {"content": text, "embedding": emb}
+            for text, emb in zip(texts, embeddings)
+        ]
+        return self.add_chunks(file_name, chunks)
+
+    def semantic_search(self, query: str, k: int = 8) -> list[dict]:
+        """Embed query and search vector store. Falls back to recent chunks if unavailable."""
+        from majestic.db.embedder import embed
+        emb = embed(query)
+        return self.vector_search_match(emb, k=k)
+
     # ── News (intel items) ─────────────────────────────────────────────────────
 
     def add_news_items(self, items: list[dict]) -> int:
