@@ -123,7 +123,7 @@ def print_startup() -> None:
 
     today = date.today().strftime("%Y.%m.%d")
     print()
-    print(f"  {C}Majestic Agent v0.1.0 ({today}){R}  {DIM}·  github.com/ysz/majestic-agent{R}")
+    print(f"  {C}Majestic Agent v0.1.0 ({today}){R}  {DIM}·  github.com/ysz7/majestic-agent{R}")
     print(f"  {DIM}{'─' * 68}{R}")
     print()
 
@@ -224,7 +224,6 @@ def print_startup() -> None:
     print(f"  {C}Welcome to Majestic!{R} Type your message or {B}/help{R} for commands.")
     print(f"  {DIM}· /research for fresh intel  ·  /briefing for daily summary{R}")
     print()
-    print(f"  {C}♛ majestic{R}  {DIM}│  {provider} / {model}  │  ctx 0  │  $0.0000{R}")
     print()
 
 

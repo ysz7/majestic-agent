@@ -124,17 +124,24 @@ def _collect_inner(on_progress=None) -> Dict:
     if list_feeds():
         sources.append(("RSS Feeds", fetch_all_feeds))
 
+    import sys as _sys
+
+    def _log(msg: str) -> None:
+        _sys.__stdout__.write(msg + "\n")
+        _sys.__stdout__.flush()
+
     seen      = _load_seen()
     all_items: List[Dict] = []
+    total = len(sources)
     for i, (name, fn) in enumerate(sources, 1):
         if on_progress:
-            on_progress(name, i, len(sources))
+            on_progress(name, i, total)
         else:
-            print(f"[Intel] Fetching {name}...")
+            _log(f"  ├ {name} [{i}/{total}]")
         try:
             all_items += fn()
-        except Exception as e:
-            print(f"[Intel] {name} error: {e}")
+        except Exception:
+            pass
 
     new_items = []
     for item in all_items:
@@ -152,15 +159,16 @@ def _collect_inner(on_progress=None) -> Dict:
         try:
             from majestic.db.state import StateDB
             StateDB().add_news_items(new_items)
-        except Exception as e:
-            print(f"[Intel] DB store error: {e}")
+        except Exception:
+            pass
 
     counts = {}
     for item in new_items:
         s = item.get("source", "unknown")
         counts[s] = counts.get(s, 0) + 1
 
-    print(f"[Intel] Done: {len(new_items)} new items.")
+    if not on_progress:
+        _log(f"  └ Done · {len(new_items)} new items")
     return {
         "total_new":  len(new_items),
         "total_seen": len(all_items) - len(new_items),

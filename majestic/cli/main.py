@@ -8,7 +8,9 @@ Entry point for the `majestic` command.
   majestic doctor       — diagnose configuration
   majestic gateway      — manage platform gateway (Telegram, …)
 """
+import os
 import sys
+import pathlib
 
 _HELP = """\
 Usage: majestic [command]
@@ -28,6 +30,21 @@ Commands:
 """
 
 
+def _reexec_with_venv_if_needed() -> None:
+    """Re-exec with venv Python if the current interpreter is not from the project venv."""
+    project_root = pathlib.Path(__file__).resolve().parent.parent.parent
+    venv_dir = project_root / ".venv"
+    if not venv_dir.exists():
+        return
+    # Use sys.prefix (not executable) — venv Python symlinks to the same binary as system Python
+    if pathlib.Path(sys.prefix).resolve() == venv_dir.resolve():
+        return
+    venv_python = venv_dir / "bin" / "python3"
+    if not venv_python.exists():
+        return
+    os.execv(str(venv_python), [str(venv_python)] + sys.argv)
+
+
 def _launch_agent() -> None:
     from majestic import config as cfg
     from majestic.constants import CONFIG_FILE
@@ -45,6 +62,7 @@ def _launch_agent() -> None:
 
 
 def main() -> None:
+    _reexec_with_venv_if_needed()
     args = sys.argv[1:]
     cmd  = args[0] if args else None
 

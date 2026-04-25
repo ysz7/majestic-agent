@@ -1,11 +1,34 @@
 #!/usr/bin/env bash
+# Majestic Agent installer — works both locally and via curl pipe:
+#   curl -fsSL https://raw.githubusercontent.com/ysz7/majestic-agent/main/scripts/install.sh | bash
 set -e
 
-REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-VENV_DIR="$REPO_DIR/.venv"
+REPO_URL="https://github.com/ysz7/majestic-agent"
+DEST="${MAJESTIC_DIR:-$HOME/majestic-agent}"
 
 echo ""
-echo "  Installing Majestic Agent..."
+echo "  ♛ Majestic Agent Installer"
+echo ""
+
+# When piped via curl, $0 is /dev/stdin — detect and clone first
+SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || SCRIPT_DIR=""
+if [ -z "$SCRIPT_DIR" ] || [ ! -f "$SCRIPT_DIR/../pyproject.toml" ]; then
+    if ! command -v git &>/dev/null; then
+        echo "  ✗ git not found. Install git first."
+        exit 1
+    fi
+    if [ ! -d "$DEST/.git" ]; then
+        echo "  Cloning into $DEST..."
+        git clone --depth 1 "$REPO_URL" "$DEST"
+    else
+        echo "  ✓ Using existing repo at $DEST"
+    fi
+    exec bash "$DEST/scripts/install.sh" "$@"
+fi
+
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+VENV_DIR="$REPO_DIR/.venv"
+
 echo "  Repo: $REPO_DIR"
 echo ""
 

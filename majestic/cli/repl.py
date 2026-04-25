@@ -95,11 +95,21 @@ def run() -> None:
     _pt_prompt = None
     try:
         from prompt_toolkit import PromptSession
-        from prompt_toolkit.completion import WordCompleter
+        from prompt_toolkit.completion import Completer, Completion
         from prompt_toolkit.formatted_text import FormattedText, HTML
         from prompt_toolkit.shortcuts.prompt import CompleteStyle
+        from prompt_toolkit.styles import Style as PTStyle
 
-        _PROMPT_MSG = FormattedText([("fg:#D95767 bold", "▶ ")])
+        _STYLE = PTStyle.from_dict({
+            "completion-menu":                    "bg:default noreverse",
+            "completion-menu.completion":         "bg:default fg:#666677 nounderline noreverse",
+            "completion-menu.completion.current": "bg:default fg:#D95767 bold nounderline noreverse",
+            "scrollbar.background":               "bg:default",
+            "scrollbar.button":                   "bg:default",
+            "bottom-toolbar":                     "bg:default fg:#444455 noreverse",
+        })
+
+        _PROMPT_MSG = FormattedText([("", "  "), ("fg:#D95767 bold", "majestic ▶ ")])
 
         _STATIC_CMDS = [
             "/help", "/research", "/briefing", "/market", "/news", "/report",
@@ -108,9 +118,22 @@ def run() -> None:
             "/stop", "/exit",
         ]
 
+        class _SlashCompleter(Completer):
+            def __init__(self, cmds: list[str]) -> None:
+                self._cmds = cmds
+
+            def get_completions(self, document, complete_event):
+                word = document.get_word_before_cursor(WORD=True)
+                if not word.startswith("/"):
+                    return
+                lo = word.lower()
+                for cmd in self._cmds:
+                    if cmd.lower().startswith(lo):
+                        yield Completion(cmd, start_position=-len(word))
+
         def _make_completer():
             cmds = _STATIC_CMDS + [f"/{n}" for n in _skill_names()]
-            return WordCompleter(cmds, WORD=True, ignore_case=True)
+            return _SlashCompleter(cmds)
 
         def _toolbar():
             try:
@@ -128,6 +151,7 @@ def run() -> None:
             complete_style=CompleteStyle.MULTI_COLUMN,
             bottom_toolbar=_toolbar,
             refresh_interval=2,
+            style=_STYLE,
         )
     except Exception:
         pass
@@ -137,7 +161,7 @@ def run() -> None:
             _pt_prompt.completer = _make_completer()
             return _pt_prompt.prompt(_PROMPT_MSG).strip()
         import readline  # noqa: F401
-        return input(f"{C}▶ {R}").strip()
+        return input(f"  {C}majestic ▶ {R}").strip()
 
     while True:
         try:

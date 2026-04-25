@@ -1,5 +1,6 @@
 <div align="center">
 
+<img src="docs/assets/majestic-cli-logo.png" alt="Majestic" width="480">
 
 **The agent that gets it done.**
 
@@ -7,7 +8,7 @@ Not a chatbot. Not a command menu. A universal agent-executor — runs on your l
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.11+-red.svg)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.1.0-red.svg)](https://github.com/ysz/majestic-agent)
+[![Version](https://img.shields.io/badge/version-0.1.0-red.svg)](https://github.com/ysz7/majestic-agent)
 [![Tests](https://img.shields.io/badge/tests-54%20passed-brightgreen.svg)](tests/)
 
 </div>
@@ -19,57 +20,54 @@ Not a chatbot. Not a command menu. A universal agent-executor — runs on your l
 Majestic is a **universal agent-executor**. Give it a task in plain language — it picks the right tools and executes. Research, market data, file work, automations — all from one agent, on any platform.
 
 ```
-$ majestic
+  majestic ▶ Research BTC market and send briefing to Telegram
 
-  ╔══════════════╗  ╔══════════════════════════════════════════╗
-  ║  *  *  *  *  ║  ║  Available Tools                         ║
-  ║ /| /| /| /|  ║  ║  web:       web_search, web_extract      ║
-  ║/ \/ \/ \/ \  ║  ║  research:  news, briefing, report       ║
-  ║──────────────║  ║  market:    crypto, stocks, forex         ║
-  ║  MAJESTIC    ║  ║  files:     read_file, write_file, index  ║
-  ║              ║  ║  system:    terminal                      ║
-  ║  model    ·  ║  ║  core:      db_search                     ║
-  ║  claude-s-4  ║  ╠══════════════════════════════════════════╣
-  ║  memory   ·  ║  ║  Memory Snapshot                         ║
-  ║  on · 12 f   ║  ║  user:   prefers crypto focus            ║
-  ╚══════════════╝  ║  agent:  12 facts · updated today        ║
-                    ╚══════════════════════════════════════════╝
+ ┌ web_search
+ ├ Working... ⠹
+ ├ get_market_data
+ ├ Working... ⠸
+ ├ get_briefing
+ └ Done · 3 tool calls · $0.004 · 8.2s
 
-  6 toolsets · 0 skills · 12 memories · /help for commands
-  ♛ claude-sonnet-4  │  0 tok  │  $0.0000  │  Tab for commands
-
-▶
+  BTC is trading at $67,420 (+2.4%)...
 ```
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Quick Install
 
 ```bash
-git clone https://github.com/ysz/majestic-agent
+curl -fsSL https://raw.githubusercontent.com/ysz7/majestic-agent/main/scripts/install.sh | bash
+```
+
+After install:
+
+```bash
+majestic setup    # interactive wizard — API keys, model, language
+majestic          # launch agent
+```
+
+Restart your terminal (or `source ~/.bashrc`) after install so `majestic` is on PATH.
+
+---
+
+## 📦 Installation Options
+
+**Requirements:** Python 3.11+, Git, macOS / Linux
+
+```bash
+# One-liner (recommended)
+curl -fsSL https://raw.githubusercontent.com/ysz7/majestic-agent/main/scripts/install.sh | bash
+
+# Clone manually
+git clone https://github.com/ysz7/majestic-agent
 cd majestic-agent
-./scripts/install.sh   # creates .venv, installs deps, registers PATH
-
-majestic setup         # interactive wizard — API keys, model, platform
-majestic               # launch agent
-```
-
-Restart your terminal after install (or `source ~/.bashrc`) so `majestic` is available everywhere.
-
----
-
-## 📦 Installation
-
-**Requirements:** Python 3.11+, macOS / Linux
-
-```bash
-# Recommended — sets up venv, registers PATH, optional systemd service
 ./scripts/install.sh
 
-# With systemd auto-start (gateway starts on boot)
+# With systemd auto-start (Telegram gateway starts on boot)
 ./scripts/install.sh --service
 
-# Or manually
+# Manual venv setup
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 majestic setup
@@ -79,12 +77,11 @@ majestic setup
 
 ```bash
 cp .env.example .env
-# fill in ANTHROPIC_API_KEY and TELEGRAM_BOT_TOKEN in .env
-
+# fill ANTHROPIC_API_KEY and TELEGRAM_BOT_TOKEN in .env
 docker compose up -d
 ```
 
-Data persists in `~/.majestic-agent/` on the host (mapped as a volume). Health check available at `http://localhost:8080/health`.
+Data persists in `~/.majestic-agent/` on the host. Health check at `http://localhost:8080/health`.
 
 ---
 
@@ -103,17 +100,46 @@ Data persists in `~/.majestic-agent/` on the host (mapped as a volume). Health c
 
 ---
 
-## 🖥️ Platforms
+## ⌨️ Commands
+
+### Agent tools
 
 ```
-CLI (terminal)   ──┐
-Telegram bot     ──┤── majestic (local / VPS)  ──→  LLM  ──→  tools
-Cron / schedule  ──┘
+/research              collect intel from all sources (HN, Reddit, GitHub, arXiv...)
+/briefing [days]       market + tech briefing (default 14 days)
+/market                crypto · stocks · forex snapshot
+/news [N]              latest N news items sorted by relevance
+/report <topic>        deep report on any topic
+/ideas                 business ideas generated from recent signals
 ```
 
-**CLI** — interactive REPL with prompt_toolkit: tab-completion for all commands, token/cost status bar, history.
+### Memory & skills
 
-**Telegram** — same agent as CLI. Start with `majestic gateway start` or enable the systemd service.
+```
+/memory                view persistent memory
+/forget <topic>        remove memory entries mentioning a keyword
+/skills                list saved skills
+```
+
+### Management
+
+```
+/model                 switch LLM provider or model
+/usage [reset]         token usage and cost stats
+/schedule list         list active cron schedules
+/schedule add <text>   add schedule in plain language
+/schedule remove <id>  remove a schedule
+/remind <text>         add a natural-language reminder
+/reminders             list active reminders
+/rss list              list RSS feeds
+/rss add <url>         add RSS feed
+/rss remove <id>       remove RSS feed
+/reports               list saved reports
+/reports view <N>      view a report
+/reports del <N>       delete a report
+/stop                  interrupt current task
+/exit                  save session memory and quit
+```
 
 ---
 
@@ -127,13 +153,13 @@ tools/
 ├── research/    news · briefing · report · predict · flows · ideas
 ├── files/       read_file · write_file · index (pdf, docx, csv, md)
 ├── system/      terminal
-└── db_search.py unified search across all indexed data  ← core tool
+└── db_search    unified search across all indexed data  ← core
 ```
 
 **Adding a custom tool:**
 
 ```python
-# tools/myapp/action.py
+# majestic/tools/myapp/action.py
 from majestic.tools.registry import tool
 
 @tool("my_tool", "Does something useful", {
@@ -142,9 +168,8 @@ from majestic.tools.registry import tool
     "required": ["query"],
 })
 def my_tool(query: str) -> str:
-    ...
     return result
-# Agent picks it up automatically on next start — nothing else to change
+# Agent picks it up automatically on next start
 ```
 
 ---
@@ -159,44 +184,63 @@ def my_tool(query: str) -> str:
 └── user.md     # user profile: preferences, habits, background
 ```
 
-```
-/memory          # view current memory
-/forget crypto   # remove all entries mentioning "crypto"
-```
-
 **Skills** are reusable procedures stored as Markdown:
 
 ```
 ~/.majestic-agent/skills/
-└── *.md         # each file is one skill, invoked as /skill-name
-```
-
-```
-/skills          # list available skills
-/my-skill        # invoke by name, tab-complete in the REPL
+└── *.md        # each file is one skill, invoked as /skill-name
 ```
 
 ---
 
-## 🔍 Universal Search
+## 🗓️ Automations
+
+Schedule any task in plain language:
 
 ```
-db_search("query")
-    ├── messages_fts    → conversation history   (FTS5 · BM25)
-    ├── news_fts        → collected intel         (FTS5 · BM25)
-    ├── vector_chunks   → indexed documents       (sqlite-vec · cosine)
-    └── market_history  → market snapshots        (SQL · time range)
-                                  ↓
-                        RRF fusion → ranked results
+/schedule add "every Monday at 9am, send me a market briefing on Telegram"
+/schedule add "daily at 7am, research AI news and brief me"
+/schedule list
+/schedule remove 2
 ```
 
-No ChromaDB. No extra processes. Everything in `~/.majestic-agent/state.db`.
+The scheduler runs in the background and delivers to Telegram or CLI.
+
+---
+
+## 🤖 LLM Providers
+
+| Provider | Notes |
+|---|---|
+| **Anthropic** | `ANTHROPIC_API_KEY` — direct SDK, best tool use |
+| **Ollama** | local models — no API key, set `llm.provider: ollama` |
+
+```bash
+majestic model    # interactive model selector
+/model            # same, from within the REPL
+```
+
+---
+
+## 📡 Platforms
+
+```
+CLI (terminal)   ──┐
+Telegram bot     ──┤── majestic (local / VPS) ──→ LLM ──→ tools
+Cron / schedule  ──┘
+```
+
+Start the Telegram gateway:
+
+```bash
+majestic gateway start
+# or as a systemd service:
+./scripts/install.sh --service
+```
 
 ---
 
 ## 💾 Data Layout
-
-One directory, one backup:
 
 ```
 ~/.majestic-agent/
@@ -212,77 +256,9 @@ One directory, one backup:
 └── backups/               # daily auto-backups (.zip)
 ```
 
+Backup everything:
 ```bash
 tar -czf majestic-backup.tar.gz ~/.majestic-agent/
-```
-
----
-
-## ⌨️ Commands
-
-<table>
-<tr>
-<td valign="top">
-
-**Agent**
-```
-/research        collect intel from all sources
-/briefing [N]    market + tech briefing (default 14d)
-/market          crypto · stocks · forex snapshot
-/news [N]        latest N news items
-/report <topic>  deep report on a topic
-/ideas           business ideas from signals
-```
-
-</td>
-<td valign="top">
-
-**Management**
-```
-/memory          view persistent memory
-/forget <topic>  remove memory entries
-/skills          list saved skills
-/model           switch LLM provider/model
-/usage [reset]   token + cost stats
-/schedule ...    manage cron schedules
-/remind <text>   add a reminder
-/rss ...         manage RSS feeds
-/reports ...     view / delete saved reports
-/stop            interrupt current task
-/exit            save session memory and quit
-```
-
-</td>
-</tr>
-</table>
-
----
-
-## 🗓️ Automations
-
-Schedule any task in plain language:
-
-```
-/schedule add "every Monday at 9am, send me a market briefing on Telegram"
-/schedule add "daily at 7am, research AI news and brief me"
-/schedule list
-/schedule remove 2
-```
-
-The scheduler ticks in the background, delivers to Telegram or CLI. Expressions are parsed by the LLM and stored as cron.
-
----
-
-## 🤖 LLM Providers
-
-| Provider | Config |
-|---|---|
-| **Anthropic** | `ANTHROPIC_API_KEY` — direct SDK, best tool use |
-| **Ollama** | local models — no API key, set `llm.provider: ollama` |
-
-```bash
-majestic model     # interactive model selector
-/model             # same, from within the REPL
 ```
 
 ---
@@ -294,7 +270,7 @@ Max 300 lines per file, one responsibility per module:
 ```
 majestic/
 ├── agent/        loop.py · prompt.py · delegate.py · runner.py
-├── db/           state.py · migrations.py · embedder.py · parser.py
+├── db/           state.py · embedder.py · parser.py
 ├── llm/          base.py · anthropic.py · ollama.py · openrouter.py
 ├── memory/       store.py · nudge.py
 ├── tools/        registry.py · web/ · research/ · files/ · system/
@@ -302,11 +278,6 @@ majestic/
 ├── gateway/      base.py · telegram.py · health.py · formatter.py
 ├── cron/         scheduler.py · jobs.py
 └── cli/          main.py · repl.py · repl_helpers.py · display.py · setup.py
-
-tests/
-├── conftest.py
-├── test_db.py     · test_memory.py  · test_llm.py
-├── test_tools.py  · test_cron.py   · test_agent.py
 ```
 
 ---
@@ -315,21 +286,17 @@ tests/
 
 ```bash
 pytest tests/ -v
-# 54 passed in 0.56s
+# 54 passed in ~0.6s
 ```
 
-All critical paths are covered without real LLM calls or network access:
-
-| File | Coverage |
+| File | What's tested |
 |---|---|
 | `test_db.py` | Sessions, messages, FTS5 search, news, vector chunks |
 | `test_memory.py` | Load, append, dedup, forget, show |
-| `test_llm.py` | ToolCall, Usage, MockProvider, streaming |
-| `test_tools.py` | Register, execute, schema format, error handling |
-| `test_cron.py` | CRUD, get_due, mark_ran, nl_to_schedule mock |
+| `test_llm.py` | ToolCall, Usage, MockProvider |
+| `test_tools.py` | Register, execute, schema, error handling |
+| `test_cron.py` | CRUD, get_due, mark_ran, nl_to_schedule |
 | `test_agent.py` | Single turn, history, tool calls, stop signal, iteration cap |
-
-CI runs on every push via GitHub Actions.
 
 ---
 
@@ -341,6 +308,6 @@ MIT — do whatever you want.
 
 <div align="center">
 
-Made with ♛ by [ysz](https://github.com/ysz)
+Made with ♛ by [ysz7](https://github.com/ysz7)
 
 </div>

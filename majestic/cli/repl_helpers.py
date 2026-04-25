@@ -9,10 +9,47 @@ import threading
 from pathlib import Path
 
 from majestic.cli.display import R, B, C, G, Y, DIM, Spinner
+import time as _time
 
 _agent_stop = threading.Event()
 
 SUPPORTED_EXTS = {".pdf", ".docx", ".csv", ".txt", ".md"}
+
+_SPIN_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+
+class _LineSpinner:
+    """Animates a single terminal line while a task runs, then finalizes it."""
+
+    def __init__(self, out) -> None:
+        self._out   = out
+        self._stop  = threading.Event()
+        self._line  = ""
+        self._thread: threading.Thread | None = None
+
+    def start(self, line: str) -> None:
+        self.stop()
+        self._line = line
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        if self._thread is not None:
+            self._stop.set()
+            self._thread.join(timeout=1.0)
+            self._thread = None
+
+    def _run(self) -> None:
+        i = 0
+        while not self._stop.wait(0.1):
+            frame = _SPIN_FRAMES[i % len(_SPIN_FRAMES)]
+            self._out.write(f"\r\033[2K{self._line} {DIM}{frame}{R}")
+            self._out.flush()
+            i += 1
+        # Clear the working line, leave cursor at col 0 (no \n)
+        self._out.write("\r\033[2K")
+        self._out.flush()
 
 _TOOL_LABELS: dict[str, str] = {
     "search_knowledge":  "searching knowledge base",
@@ -39,26 +76,57 @@ def run_agent(user_input: str, session_id: str | None, history: list) -> str:
 
     _agent_stop.clear()
     _tools_used: list[str] = []
+    _had_tools = [False]
+    _start = _time.time()
+    _spinner = _LineSpinner(_sys.__stdout__)
 
     def _on_tool(name: str, _args: dict) -> None:
+        _spinner.stop()  # clears "Working..." or "thinking..." line, cursor at col 0
         _tools_used.append(name)
-        label = _TOOL_LABELS.get(name, name)
-        _sys.__stdout__.write(f"\r\033[2K  {DIM}{label}...{R}\n")
+        prefix = f"{DIM}┌{R}" if not _had_tools[0] else f"{DIM}├{R}"
+        _had_tools[0] = True
+        _sys.__stdout__.write(f" {prefix} {C}{name}{R}\n")
         _sys.__stdout__.flush()
+        _spinner.start(f" {DIM}├ Working...{R}")
 
     loop = AgentLoop(stop_event=_agent_stop)
+
+    _spinner.start(f" {DIM}· thinking...{R}")
+
     try:
-        with Spinner("Thinking..."):
-            result = loop.run(
-                user_input,
-                session_id=session_id,
-                history=history,
-                on_tool_call=_on_tool,
-            )
+        from majestic.token_tracker import get_stats as _gs
+        _cost_before = _gs().get("cost_usd", 0.0)
+    except Exception:
+        _cost_before = 0.0
+
+    try:
+        result = loop.run(
+            user_input,
+            session_id=session_id,
+            history=history,
+            on_tool_call=_on_tool,
+        )
     except KeyboardInterrupt:
+        _spinner.stop()
         _agent_stop.set()
+        _sys.__stdout__.write("\r\033[2K")
         print(f"\n  {Y}Stopped.{R}\n")
         return ""
+
+    _spinner.stop()  # clears "Working..." line, cursor at col 0
+
+    elapsed = _time.time() - _start
+    try:
+        from majestic.token_tracker import get_stats as _gs
+        cost = max(0.0, _gs().get("cost_usd", 0.0) - _cost_before)
+    except Exception:
+        cost = 0.0
+
+    n = len(_tools_used)
+    if n > 0:
+        calls = f"{n} tool call{'s' if n != 1 else ''}"
+        _sys.__stdout__.write(f" {DIM}└ Done{R} {DIM}· {calls} · ${cost:.4f} · {elapsed:.1f}s{R}\n")
+        _sys.__stdout__.flush()
 
     _print_answer(result)
     answer = result.get("answer", "")
@@ -80,11 +148,14 @@ def _print_answer(result: dict) -> None:
         text = render_cli(result.get("answer", ""))
     except Exception:
         text = result.get("answer", "")
-    print(f"\n{DIM}{'─' * 64}{R}\n{text}\n{DIM}{'─' * 64}{R}\n")
+    indented = "\n".join("  " + line if line else "" for line in text.splitlines())
+    print(f"\n{indented}\n")
 
 
 def dispatch_shortcut(cmd: str, rest: str) -> None:
     from majestic.cli.commands import dispatch
+    import sys as _sys
+
     args: dict = {}
     if cmd == "briefing" and rest:
         try:
@@ -98,13 +169,40 @@ def dispatch_shortcut(cmd: str, rest: str) -> None:
             pass
     elif cmd == "report":
         args["topic"] = rest
-    with Spinner(f"/{cmd}..."):
-        result = dispatch(cmd, args)
+
+    spinner = _LineSpinner(_sys.__stdout__)
+    _sys.__stdout__.write(f" {DIM}┌{R} {C}{cmd}{R}\n")
+    _sys.__stdout__.flush()
+    spinner.start(f" {DIM}├ Working...{R}")
+
+    try:
+        from majestic.token_tracker import get_stats as _gs
+        _cost_before = _gs().get("cost_usd", 0.0)
+    except Exception:
+        _cost_before = 0.0
+
+    _start = _time.time()
+    result = dispatch(cmd, args)
+    elapsed = _time.time() - _start
+
+    spinner.stop()  # clears "Working..." line, cursor at col 0
+
+    try:
+        from majestic.token_tracker import get_stats as _gs
+        cost = max(0.0, _gs().get("cost_usd", 0.0) - _cost_before)
+    except Exception:
+        cost = 0.0
+
+    _sys.__stdout__.write(f" {DIM}└ Done{R} {DIM}· ${cost:.4f} · {elapsed:.1f}s{R}\n")
+    _sys.__stdout__.flush()
+
     try:
         from majestic.gateway.formatter import render_cli
-        print(f"\n{render_cli(result)}\n")
+        text = render_cli(result)
     except Exception:
-        print(f"\n{result}\n")
+        text = result
+    indented = "\n".join("  " + line if line else "" for line in text.splitlines())
+    print(f"\n{indented}\n")
 
 
 # ── File handling ─────────────────────────────────────────────────────────────
