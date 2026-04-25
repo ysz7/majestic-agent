@@ -90,8 +90,7 @@ def _run_suggest(
 ) -> None:
     try:
         import json
-        from core.rag_engine import llm
-        from langchain_core.messages import HumanMessage
+        from majestic.llm import get_provider
         from majestic.skills.loader import save_skill
 
         prompt = _SAVE_PROMPT.format(
@@ -99,7 +98,7 @@ def _run_suggest(
             tools=", ".join(sorted(set(tools))),
             result_summary=result_summary[:500],
         )
-        resp = llm.invoke([HumanMessage(content=prompt)])
+        resp = get_provider().complete([{"role": "user", "content": prompt}])
         text = resp.content.strip()
         if text.startswith("```"):
             text = text.split("```")[1].lstrip("json").strip()
@@ -118,8 +117,7 @@ def _run_suggest(
 
 def _run_improve(name: str, skill: dict, user_input: str, result_summary: str) -> None:
     try:
-        from core.rag_engine import llm
-        from langchain_core.messages import HumanMessage
+        from majestic.llm import get_provider
         from majestic.skills.loader import update_body
 
         prompt = _IMPROVE_PROMPT.format(
@@ -128,7 +126,7 @@ def _run_improve(name: str, skill: dict, user_input: str, result_summary: str) -
             user_input=user_input[:300],
             result_summary=result_summary[:500],
         )
-        resp = llm.invoke([HumanMessage(content=prompt)])
+        resp = get_provider().complete([{"role": "user", "content": prompt}])
         improved = resp.content.strip()
         if improved:
             update_body(name, improved)

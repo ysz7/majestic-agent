@@ -40,8 +40,7 @@ def get_report(topic: str) -> str:
     if _no_data or not result.get("sources"):
         try:
             from core.web_search import search
-            from core.rag_engine import llm
-            from langchain_core.messages import HumanMessage
+            from majestic.llm import get_provider
             lang = get_lang()
             web = search(topic, max_results=6)
             if web:
@@ -52,7 +51,7 @@ def get_report(topic: str) -> str:
                     f"Create a detailed structured report on: «{topic}».\n"
                     f"Use ONLY the web results below. Respond in {lang}.\n\n{ctx[:6000]}\n\nReport:"
                 )
-                resp = llm.invoke([HumanMessage(content=prompt)])
+                resp = get_provider().complete([{"role": "user", "content": prompt}])
                 answer = resp.content
         except Exception as e:
             answer = answer or f"Could not generate report: {e}"

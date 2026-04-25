@@ -125,11 +125,10 @@ Respond ONLY with JSON, no explanation.\
 def nl_to_schedule(text: str) -> dict:
     """Use LLM to parse natural language into {name, cron, prompt, target}."""
     import json
-    from core.rag_engine import llm
-    from langchain_core.messages import HumanMessage
+    from majestic.llm import get_provider
 
     prompt = _NL_PROMPT.format(text=text.strip())
-    resp = llm.invoke([HumanMessage(content=prompt)])
+    resp = get_provider().complete([{"role": "user", "content": prompt}])
     raw = resp.content.strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1].lstrip("json").strip()

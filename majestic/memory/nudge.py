@@ -47,15 +47,14 @@ def _run_nudge(history: list[tuple[str, str]], lang: str = "EN") -> None:
 
     try:
         import json
-        from core.rag_engine import llm
-        from langchain_core.messages import HumanMessage
+        from majestic.llm import get_provider
         from majestic.memory.store import append_memory, append_user
 
         prompt = _NUDGE_PROMPT.format(history=history_text)
         if lang != "EN":
             prompt += f"\n\nNote: entries should be written in {lang}."
 
-        response = llm.invoke([HumanMessage(content=prompt)])
+        response = get_provider().complete([{"role": "user", "content": prompt}])
         text = response.content.strip()
 
         # Strip markdown code fences if present
