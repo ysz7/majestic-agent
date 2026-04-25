@@ -21,6 +21,11 @@ class AgentLoop:
 
     def stop(self) -> None:
         self._stop.set()
+        try:
+            from majestic.agent.delegate import stop_all_children
+            stop_all_children()
+        except Exception:
+            pass
 
     def run(
         self,
