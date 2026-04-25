@@ -39,21 +39,17 @@ def _launch_agent() -> None:
         run_setup()
         return
 
-    # Sync env vars so legacy core/ code picks up config from MAJESTIC_HOME
     cfg.sync_env_from_config()
 
-    # Phase 0: delegate to existing CLI until Phase 4 (agentic loop)
-    import sys
+    # Add project root so legacy core/ imports work until Phase 12
     import os
     from pathlib import Path
     project_root = Path(__file__).parent.parent.parent
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
-    # Point existing code at project-local data/ for now
-    # (Phase 1 migrates storage to MAJESTIC_HOME/state.db)
-    from cli import main as cli_main
-    cli_main()
+    from majestic.cli.repl import run
+    run()
 
 
 def main() -> None:

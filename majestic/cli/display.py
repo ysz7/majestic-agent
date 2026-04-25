@@ -1,4 +1,7 @@
 import os
+import sys
+import threading
+import time
 
 R   = "\033[0m"
 B   = "\033[1m"
@@ -19,6 +22,40 @@ BANNER = f"""{C}{B}
   ╚═╝      ╚═╝  ╚═╝ ╚════╝ ╚══════╝╚══════╝   ╚═╝   ╚═╝ ╚═════╝
 {R}{DIM}                               Universal Agent Executor  {_LINK}{R}
 """
+
+
+class Spinner:
+    """Animated terminal spinner. Swallows stdout from inner code."""
+    _FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+    def __init__(self, text: str = "Thinking..."):
+        self.text    = text
+        self._stop   = threading.Event()
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._real: object = None
+
+    def _spin(self) -> None:
+        i = 0
+        while not self._stop.is_set():
+            frame = self._FRAMES[i % len(self._FRAMES)]
+            self._real.write(f"\r\033[2K\033[36m{frame}\033[0m {self.text}")  # type: ignore[attr-defined]
+            self._real.flush()  # type: ignore[attr-defined]
+            i += 1
+            time.sleep(0.08)
+
+    def __enter__(self) -> "Spinner":
+        import io
+        self._real = sys.__stdout__
+        sys.stdout = io.StringIO()
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_) -> None:
+        self._stop.set()
+        self._thread.join()
+        sys.stdout = self._real  # type: ignore[assignment]
+        self._real.write("\r\033[2K")  # type: ignore[attr-defined]
+        self._real.flush()  # type: ignore[attr-defined]
 
 
 def print_banner() -> None:
