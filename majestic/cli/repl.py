@@ -97,6 +97,7 @@ def run() -> None:
         from prompt_toolkit import PromptSession
         from prompt_toolkit.completion import WordCompleter
         from prompt_toolkit.formatted_text import FormattedText, HTML
+        from prompt_toolkit.shortcuts.prompt import CompleteStyle
 
         _PROMPT_MSG = FormattedText([("fg:#D95767 bold", "▶ ")])
 
@@ -121,17 +122,20 @@ def run() -> None:
             except Exception:
                 return HTML(f' <b>♛</b> <ansidarkgray>{label}  │  Tab for commands</ansidarkgray>')
 
-        _pt_prompt = PromptSession(bottom_toolbar=_toolbar, refresh_interval=2)
+        _pt_prompt = PromptSession(
+            completer=_make_completer(),
+            complete_while_typing=True,
+            complete_style=CompleteStyle.MULTI_COLUMN,
+            bottom_toolbar=_toolbar,
+            refresh_interval=2,
+        )
     except Exception:
         pass
 
     def _get_input() -> str:
         if _pt_prompt is not None:
-            return _pt_prompt.prompt(
-                _PROMPT_MSG,
-                completer=_make_completer(),
-                complete_while_typing=True,
-            ).strip()
+            _pt_prompt.completer = _make_completer()
+            return _pt_prompt.prompt(_PROMPT_MSG).strip()
         import readline  # noqa: F401
         return input(f"{C}▶ {R}").strip()
 

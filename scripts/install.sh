@@ -42,17 +42,34 @@ pip install --quiet -r "$REPO_DIR/requirements.txt"
 echo "  Registering majestic command..."
 pip install --quiet -e "$REPO_DIR"
 
-# ── Verify ────────────────────────────────────────────────────────────────────
-if command -v majestic &>/dev/null; then
-    echo "  ✓ majestic command available"
-else
-    VENV_BIN="$VENV_DIR/bin"
-    echo "  ✓ majestic installed at $VENV_BIN/majestic"
-    echo ""
-    echo "  Add to your shell profile to use globally:"
-    echo "    export PATH=\"$VENV_BIN:\$PATH\""
+# ── Register in PATH (write to shell profile if not already there) ────────────
+VENV_BIN="$VENV_DIR/bin"
+PATH_LINE="export PATH=\"$VENV_BIN:\$PATH\""
+
+if [[ ":$PATH:" != *":$VENV_BIN:"* ]]; then
+    # Detect shell profile
+    if [[ -f "$HOME/.zshrc" ]]; then
+        PROFILE="$HOME/.zshrc"
+    elif [[ -f "$HOME/.bashrc" ]]; then
+        PROFILE="$HOME/.bashrc"
+    else
+        PROFILE="$HOME/.profile"
+    fi
+
+    # Only add if not already present
+    if ! grep -qF "$VENV_BIN" "$PROFILE" 2>/dev/null; then
+        echo "" >> "$PROFILE"
+        echo "# majestic-agent" >> "$PROFILE"
+        echo "$PATH_LINE" >> "$PROFILE"
+        echo "  ✓ Added to $PROFILE"
+        echo "    Restart your terminal or run: source $PROFILE"
+    fi
+
+    # Also make available in the current session
+    export PATH="$VENV_BIN:$PATH"
 fi
 
+echo "  ✓ majestic → $VENV_BIN/majestic"
 echo ""
 echo "  ✓ Installation complete. Run: majestic setup"
 echo ""
