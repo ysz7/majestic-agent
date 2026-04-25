@@ -22,10 +22,10 @@ from majestic.tools.registry import tool
     },
 )
 def get_report(topic: str) -> str:
-    from core.rag_engine import ask
-    from core.config import get_mod, get_lang
+    from majestic.rag import ask
+    from majestic.config import get
 
-    scope = get_mod()
+    scope    = get("search_mode", "all")
     question = (
         f"Create a detailed structured report on: «{topic}». "
         "Include all relevant data. Divide into sections with headings."
@@ -33,15 +33,14 @@ def get_report(topic: str) -> str:
     result = ask(question, scope=scope)
     answer = result.get("answer", "")
 
-    # Fall back to web if RAG has nothing
     _no_data = not answer.strip() or any(
         p in answer.lower() for p in ("no relevant", "i don't have", "not found")
     )
     if _no_data or not result.get("sources"):
         try:
-            from core.web_search import search
+            from majestic.tools.web.websearch import search
             from majestic.llm import get_provider
-            lang = get_lang()
+            lang = get("language", "EN")
             web = search(topic, max_results=6)
             if web:
                 ctx = "\n\n---\n\n".join(

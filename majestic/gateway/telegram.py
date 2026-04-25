@@ -15,14 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 def _start_services(notify_fn) -> None:
-    from core.backup import start_backup_scheduler
-    from core.reminders import start_watcher
-    from core.agent import start_autonomous_agent, set_notify
-    from core.intel import collect_and_index
+    from majestic.backup import start_backup_scheduler
+    from majestic.reminders import start_watcher
+    from majestic.agent.runner import start_autonomous_agent, set_notify
+    from majestic.tools.research.collect import collect_and_index
     from majestic.cron.scheduler import start_scheduler
 
     start_backup_scheduler()
-    start_watcher(on_due=lambda r: notify_fn(f"⏰ Reminder: {r['title']}"))
+    start_watcher(on_due=lambda r: notify_fn(f"⏰ Reminder: {r['text']}"))
     set_notify(notify_fn)
     start_autonomous_agent(collect_fn=collect_and_index)
     start_scheduler(delivery={"telegram": notify_fn, "cli": print})
@@ -43,7 +43,6 @@ class TelegramPlatform(Platform):
         from telegram.ext import Application, CommandHandler, MessageHandler, filters
         from majestic.config import sync_env_from_config
         from majestic.memory.store import load_both
-        from core.rag_engine import set_memory_context
         from .telegram_state import _sync_notify
         import majestic.gateway.telegram_state as _st
         from .telegram_handlers import (
@@ -60,9 +59,7 @@ class TelegramPlatform(Platform):
             logger.error("TELEGRAM_BOT_TOKEN not set"); return
 
         try:
-            mem = load_both()
-            if mem:
-                set_memory_context(mem)
+            load_both()
         except Exception:
             pass
 

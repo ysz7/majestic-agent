@@ -43,7 +43,7 @@ def search_knowledge(query: str) -> str:
     },
 )
 def search_web(query: str) -> str:
-    from core.web_search import search
+    from majestic.tools.web.websearch import search
     results = search(query, max_results=5)
     if not results:
         return "No web results found."

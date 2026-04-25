@@ -74,7 +74,7 @@ def run() -> None:
         label = f"{_cfg.get('llm.provider')}/{_cfg.get('llm.model')}"
         session_id = StateDB().create_session(source="cli", model=label)
         try:
-            from core.token_tracker import get_stats
+            from majestic.token_tracker import get_stats
             session_start_tokens = get_stats()
         except Exception:
             pass
@@ -117,7 +117,7 @@ def run() -> None:
             if session_id:
                 try:
                     from majestic.db.state import StateDB
-                    from core.token_tracker import get_stats
+                    from majestic.token_tracker import get_stats
                     end = get_stats()
                     tin  = max(0, end.get("tokens_in", 0)  - session_start_tokens.get("tokens_in", 0))
                     tout = max(0, end.get("tokens_out", 0) - session_start_tokens.get("tokens_out", 0))
@@ -151,7 +151,7 @@ def run() -> None:
 
         elif user.startswith("/usage"):
             try:
-                from core.token_tracker import get_stats, reset_stats
+                from majestic.token_tracker import get_stats, reset_stats
                 if "reset" in user:
                     reset_stats()
                     print(f"  {G}✓ Token counter reset.{R}\n")

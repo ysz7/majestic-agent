@@ -34,16 +34,16 @@ class AgentLoop:
         history: Optional[list[tuple[str, str]]] = None,
         on_tool_call: Optional[Callable[[str, dict], None]] = None,
     ) -> dict:
-        from core.rag_engine import llm as _proxy
+        from majestic.llm import get_provider
         import majestic.tools as _tools
         from majestic.memory.store import load_both
-        from core.config import get_lang
+        from majestic.config import get
         from majestic.agent.prompt import build_system
 
-        provider = _proxy.provider
+        provider     = get_provider()
         tool_schemas = _tools.get_schemas()
 
-        system = build_system(lang=get_lang(), memory=load_both())
+        system = build_system(lang=get("language", "EN"), memory=load_both())
 
         # Build initial messages from history (last 5 turns for context)
         messages = _build_initial_messages(user_input, history)
@@ -170,14 +170,9 @@ def _save_msg(session_id: str, role: str, content: str, **kwargs) -> None:
 
 def _track(resp) -> None:
     try:
-        from majestic.llm.compat import _AIMessage
-        from core.token_tracker import track_response
-        track_response(
-            _AIMessage(resp.content, {
-                "input_tokens":  resp.usage.input_tokens,
-                "output_tokens": resp.usage.output_tokens,
-            }),
-            "agent_loop",
-        )
+        from majestic.token_tracker import track
+        um = resp.usage
+        if um:
+            track(um.input_tokens or 0, um.output_tokens or 0, "agent_loop")
     except Exception:
         pass

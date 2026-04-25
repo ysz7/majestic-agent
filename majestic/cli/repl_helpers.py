@@ -76,7 +76,7 @@ def run_agent(user_input: str, session_id: str | None, history: list) -> str:
 
 def _print_answer(result: dict) -> None:
     try:
-        from core.formatter import render_cli
+        from majestic.gateway.formatter import render_cli
         text = render_cli(result.get("answer", ""))
     except Exception:
         text = result.get("answer", "")
@@ -101,7 +101,7 @@ def dispatch_shortcut(cmd: str, rest: str) -> None:
     with Spinner(f"/{cmd}..."):
         result = dispatch(cmd, args)
     try:
-        from core.formatter import render_cli
+        from majestic.gateway.formatter import render_cli
         print(f"\n{render_cli(result)}\n")
     except Exception:
         print(f"\n{result}\n")
@@ -175,7 +175,7 @@ def cmd_memory() -> None:
     try:
         from majestic.memory.store import show
         try:
-            from core.formatter import render_cli
+            from majestic.gateway.formatter import render_cli
             print(f"\n{render_cli(show())}\n")
         except Exception:
             print(f"\n{show()}\n")
@@ -212,7 +212,7 @@ def cmd_skills() -> None:
 def cmd_remind(rest: str, is_list: bool = False) -> None:
     if is_list or not rest:
         try:
-            from core.reminders import list_reminders
+            from majestic.reminders import list_reminders
             rows = list_reminders()
             if not rows:
                 print(f"  {DIM}No active reminders.{R}\n")
@@ -224,7 +224,7 @@ def cmd_remind(rest: str, is_list: bool = False) -> None:
             print(f"  {Y}Error: {e}{R}\n")
     else:
         try:
-            from core.reminders import add_reminder
+            from majestic.reminders import add_reminder
             add_reminder(rest)
             print(f"  {G}✓ Reminder set.{R}\n")
         except Exception as e:
@@ -233,7 +233,7 @@ def cmd_remind(rest: str, is_list: bool = False) -> None:
 
 def cmd_rss(rest: str) -> None:
     try:
-        from core.rss import list_feeds, add_feed, remove_feed
+        from majestic.tools.web.rss import list_feeds, add_feed, remove_feed
         parts = rest.split(None, 1)
         sub   = parts[0].lower() if parts else "list"
         arg   = parts[1] if len(parts) > 1 else ""
@@ -274,7 +274,7 @@ def cmd_reports(rest: str) -> None:
         try:
             content = reports[int(arg) - 1].read_text(encoding="utf-8")
             try:
-                from core.formatter import render_cli
+                from majestic.gateway.formatter import render_cli
                 print(render_cli(content))
             except Exception:
                 print(content)

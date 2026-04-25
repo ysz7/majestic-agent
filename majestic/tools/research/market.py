@@ -9,22 +9,8 @@ from majestic.tools.registry import tool
 )
 def get_market_data() -> str:
     try:
-        from core.market_pulse import get_snapshot
-        data = get_snapshot()
-        if not data:
-            return "Market data unavailable."
-        lines = []
-        for section, items in data.items():
-            if isinstance(items, dict):
-                lines.append(f"\n{section}:")
-                for symbol, info in items.items():
-                    if isinstance(info, dict):
-                        price  = info.get("price") or info.get("usd", "?")
-                        change = info.get("change_24h") or info.get("change_percent", "")
-                        lines.append(
-                            f"  {symbol}: {price}"
-                            + (f" ({change:+.2f}%)" if isinstance(change, (int, float)) else "")
-                        )
-        return "\n".join(lines) if lines else str(data)
+        from majestic.tools.research.market_data import collect_market_pulse, format_pulse
+        data = collect_market_pulse()
+        return format_pulse(data)
     except Exception as e:
         return f"Market data error: {e}"

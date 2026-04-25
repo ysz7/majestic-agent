@@ -12,7 +12,7 @@ from majestic.tools.registry import tool
     input_schema={"type": "object", "properties": {}},
 )
 def run_research() -> str:
-    from core.intel import collect_and_index
+    from majestic.tools.research.collect import collect_and_index
     try:
         result = collect_and_index()
     except Exception as e:
@@ -28,7 +28,7 @@ def run_research() -> str:
     new_items = result.get("new_items", [])
     if new_items:
         try:
-            from core.trends import quick_summary_from_new
+            from majestic.tools.research.briefing import quick_summary_from_new
             summary = quick_summary_from_new(new_items)
             lines.append("\n" + summary)
         except Exception:
@@ -54,7 +54,7 @@ def run_research() -> str:
     },
 )
 def get_news(limit: int = 10) -> str:
-    from core.intel import load_feed
+    from majestic.tools.research.collect import load_feed
     items = load_feed(limit=limit * 3)
     if not items:
         return "No news yet. Run research first."

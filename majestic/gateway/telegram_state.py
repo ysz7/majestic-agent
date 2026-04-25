@@ -88,7 +88,7 @@ def _sync_notify(text: str) -> None:
     if not _app or not allowed:
         print(f"[notify] {text}")
         return
-    from core.formatter import render_telegram
+    from majestic.gateway.formatter import render_telegram
     from telegram.constants import ParseMode
     chunks = _split_text(render_telegram(text))
     loop = asyncio.get_event_loop()
