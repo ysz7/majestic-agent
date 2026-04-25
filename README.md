@@ -88,8 +88,8 @@ Data persists in `~/.majestic-agent/` on the host. Health check at `http://local
 ## ✦ Features
 
 | | Feature | Details |
-|---|---|---|
-| ♛ | **Universal Execution** | Any task in plain language — agent picks the right tools |
+|---|---|
+| **Universal Execution** | Any task in plain language — agent picks the right tools |
 | **Persistent Memory** | Remembers preferences, context, and skills across sessions |
 | **Hybrid Search** | FTS5 + vector search across all data: news, docs, history, reports |
 | **Modular Tools** | Drop a file in `tools/` — registered automatically on next start |
