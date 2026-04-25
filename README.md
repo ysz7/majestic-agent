@@ -34,7 +34,7 @@ Majestic is a **universal agent-executor**. Give it a task in plain language —
 
 ---
 
-## ⚡ Quick Install
+## Quick Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ysz7/majestic-agent/main/scripts/install.sh | bash
@@ -51,7 +51,7 @@ Restart your terminal (or `source ~/.bashrc`) after install so `majestic` is on 
 
 ---
 
-## 📦 Installation Options
+## Installation Options
 
 **Requirements:** Python 3.11+, Git, macOS / Linux
 
@@ -90,17 +90,17 @@ Data persists in `~/.majestic-agent/` on the host. Health check at `http://local
 | | Feature | Details |
 |---|---|---|
 | ♛ | **Universal Execution** | Any task in plain language — agent picks the right tools |
-| 🧠 | **Persistent Memory** | Remembers preferences, context, and skills across sessions |
-| 🔍 | **Hybrid Search** | FTS5 + vector search across all data: news, docs, history, reports |
-| 🔧 | **Modular Tools** | Drop a file in `tools/` — registered automatically on next start |
-| 🗓️ | **Automations** | Natural language scheduling delivered to any platform |
-| 📡 | **Multi-Platform** | Telegram bot + CLI — same agent, any interface |
-| 🐳 | **Docker Ready** | One command deploy with persistent volume and health endpoint |
-| ✅ | **Tested** | 54 unit tests across all critical paths, GitHub Actions CI |
+| **Persistent Memory** | Remembers preferences, context, and skills across sessions |
+| **Hybrid Search** | FTS5 + vector search across all data: news, docs, history, reports |
+| **Modular Tools** | Drop a file in `tools/` — registered automatically on next start |
+| **Automations** | Natural language scheduling delivered to any platform |
+| **Multi-Platform** | Telegram bot + CLI — same agent, any interface |
+| **Docker Ready** | One command deploy with persistent volume and health endpoint |
+| **Tested** | 54 unit tests across all critical paths, GitHub Actions CI |
 
 ---
 
-## ⌨️ Commands
+## Commands
 
 ### Agent tools
 
@@ -143,7 +143,7 @@ Data persists in `~/.majestic-agent/` on the host. Health check at `http://local
 
 ---
 
-## 🛠️ Toolsets
+## Toolsets
 
 Tools are grouped by domain. The agent selects automatically based on the task.
 
@@ -174,7 +174,7 @@ def my_tool(query: str) -> str:
 
 ---
 
-## 🧠 Memory & Skills
+## Memory & Skills
 
 **Memory** persists between sessions as plain Markdown files:
 
@@ -193,7 +193,7 @@ def my_tool(query: str) -> str:
 
 ---
 
-## 🗓️ Automations
+## Automations
 
 Schedule any task in plain language:
 
@@ -208,7 +208,7 @@ The scheduler runs in the background and delivers to Telegram or CLI.
 
 ---
 
-## 🤖 LLM Providers
+## LLM Providers
 
 | Provider | Notes |
 |---|---|
@@ -222,7 +222,7 @@ majestic model    # interactive model selector
 
 ---
 
-## 📡 Platforms
+## Platforms
 
 ```
 CLI (terminal)   ──┐
@@ -240,7 +240,7 @@ majestic gateway start
 
 ---
 
-## 💾 Data Layout
+## Data Layout
 
 ```
 ~/.majestic-agent/
@@ -263,7 +263,7 @@ tar -czf majestic-backup.tar.gz ~/.majestic-agent/
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 Max 300 lines per file, one responsibility per module:
 
@@ -282,7 +282,7 @@ majestic/
 
 ---
 
-## ✅ Tests
+## Tests
 
 ```bash
 pytest tests/ -v
@@ -300,7 +300,7 @@ pytest tests/ -v
 
 ---
 
-## 📄 License
+## License
 
 MIT — do whatever you want.
 
