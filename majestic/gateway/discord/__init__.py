@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import os
 
-from .base import Platform
+from ..base import Platform
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class DiscordPlatform(Platform):
         # ── helpers ──────────────────────────────────────────────────────────
 
         async def _reply(interaction: discord.Interaction, text: str) -> None:
-            from .formatter import render_discord, chunk_discord
+            from ..formatter import render_discord, chunk_discord
             rendered = render_discord(text)
             chunks   = chunk_discord(rendered)
             await interaction.response.send_message(chunks[0])
@@ -76,7 +76,7 @@ class DiscordPlatform(Platform):
         async def cmd_ask(interaction: discord.Interaction, query: str):
             await interaction.response.defer()
             answer = await _run_agent(query)
-            from .formatter import render_discord, chunk_discord
+            from ..formatter import render_discord, chunk_discord
             chunks = chunk_discord(render_discord(answer))
             await interaction.followup.send(chunks[0])
             for chunk in chunks[1:]:
@@ -87,7 +87,7 @@ class DiscordPlatform(Platform):
         async def cmd_briefing(interaction: discord.Interaction, days: int = 14):
             await interaction.response.defer()
             text = await _run_cmd("briefing", {"days": days})
-            from .formatter import render_discord, chunk_discord
+            from ..formatter import render_discord, chunk_discord
             chunks = chunk_discord(render_discord(text))
             await interaction.followup.send(chunks[0])
             for chunk in chunks[1:]:
@@ -97,7 +97,7 @@ class DiscordPlatform(Platform):
         async def cmd_research(interaction: discord.Interaction):
             await interaction.response.defer()
             text = await _run_cmd("research", {})
-            from .formatter import render_discord, chunk_discord
+            from ..formatter import render_discord, chunk_discord
             chunks = chunk_discord(render_discord(text))
             await interaction.followup.send(chunks[0])
             for chunk in chunks[1:]:
@@ -108,7 +108,7 @@ class DiscordPlatform(Platform):
         async def cmd_news(interaction: discord.Interaction, limit: int = 10):
             await interaction.response.defer()
             text = await _run_cmd("news", {"limit": limit})
-            from .formatter import render_discord, chunk_discord
+            from ..formatter import render_discord, chunk_discord
             chunks = chunk_discord(render_discord(text))
             await interaction.followup.send(chunks[0])
             for chunk in chunks[1:]:
@@ -118,7 +118,7 @@ class DiscordPlatform(Platform):
         async def cmd_market(interaction: discord.Interaction):
             await interaction.response.defer()
             text = await _run_cmd("market", {})
-            from .formatter import render_discord, chunk_discord
+            from ..formatter import render_discord, chunk_discord
             chunks = chunk_discord(render_discord(text))
             await interaction.followup.send(chunks[0])
             for chunk in chunks[1:]:
@@ -169,7 +169,7 @@ class DiscordPlatform(Platform):
                 return
             async with message.channel.typing():
                 answer = await _run_agent(text)
-            from .formatter import render_discord, chunk_discord
+            from ..formatter import render_discord, chunk_discord
             chunks = chunk_discord(render_discord(answer))
             for chunk in chunks:
                 await message.channel.send(chunk)

@@ -1,7 +1,7 @@
 """
 Telegram command and message handlers.
 
-All handlers import shared state from telegram_state to avoid circular imports.
+All handlers import shared state from state.py to avoid circular imports.
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from .telegram_state import (
+from .state import (
     _history, _db_sessions, _gates, _SESSION_MAX,
     _allowed, _deny, _send, _fmt_sources, _get_session,
 )
@@ -65,7 +65,7 @@ async def handle_ask(update, context):
         from majestic.gateway.formatter import render_telegram
         result = await asyncio.to_thread(ask, question, None, _history.get(uid, []), get("search_mode", "all"))
         await _send(update, msg, render_telegram(result["answer"]),
-                    footer=_fmt_sources(result.get("sources", []), get_mod()))
+                    footer=_fmt_sources(result.get("sources", []), get("search_mode", "all")))
     except Exception as e:
         await msg.edit_text(f"❌ {e}")
 

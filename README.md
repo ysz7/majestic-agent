@@ -87,7 +87,7 @@ Data persists in `~/.majestic-agent/` on the host. Health check at `http://local
 
 ## ✦ Features
 
-| | Feature | Details |
+| Feature | Details |
 |---|---|
 | **Universal Execution** | Any task in plain language — agent picks the right tools |
 | **Persistent Memory** | Remembers preferences, context, and skills across sessions |

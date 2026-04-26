@@ -1,7 +1,7 @@
 """
 Shared state, helpers, and concurrency gate for the Telegram gateway.
 
-Imported by both telegram.py (Platform class) and telegram_handlers.py (handlers).
+Imported by both __init__.py (Platform class) and handlers.py (handlers).
 """
 from __future__ import annotations
 

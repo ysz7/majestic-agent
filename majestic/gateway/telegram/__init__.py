@@ -1,15 +1,15 @@
 """
 Telegram gateway — Platform implementation.
 
-State and helpers: telegram_state.py
-Handlers:          telegram_handlers.py
+State and helpers: state.py
+Handlers:          handlers.py
 """
 from __future__ import annotations
 
 import logging
 import os
 
-from .base import Platform
+from ..base import Platform
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +43,9 @@ class TelegramPlatform(Platform):
         from telegram.ext import Application, CommandHandler, MessageHandler, filters
         from majestic.config import sync_env_from_config
         from majestic.memory.store import load_both
-        from .telegram_state import _sync_notify
-        import majestic.gateway.telegram_state as _st
-        from .telegram_handlers import (
+        from .state import _sync_notify
+        from . import state as _st
+        from .handlers import (
             handle_start, handle_text, handle_ask,
             handle_research, handle_briefing, handle_market,
             handle_news, handle_report, handle_skills, handle_memory,
@@ -110,7 +110,7 @@ class TelegramPlatform(Platform):
         await app.run_polling(drop_pending_updates=True)
 
     async def stop(self) -> None:
-        import majestic.gateway.telegram_state as _st
+        from . import state as _st
         if _st._app:
             await _st._app.stop()
             _st._app = None
