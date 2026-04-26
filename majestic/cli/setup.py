@@ -332,6 +332,14 @@ def gateway_setup() -> None:
         _set_env("TELEGRAM_BOT_TOKEN", token)
         ok("TELEGRAM_BOT_TOKEN saved")
 
+    # Discord
+    current_dc = os.environ.get("DISCORD_BOT_TOKEN", "")
+    hint_dc = f" [{current_dc[:8]}…]" if current_dc else ""
+    dc_token = input(f"  Discord bot token{hint_dc} (leave blank to skip): ").strip()
+    if dc_token:
+        _set_env("DISCORD_BOT_TOKEN", dc_token)
+        ok("DISCORD_BOT_TOKEN saved")
+
     ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
     ENV_FILE.write_text("\n".join(l for l in env_lines if l) + "\n")
     print("\n  Done. Run `majestic gateway start` to start the gateway.\n")

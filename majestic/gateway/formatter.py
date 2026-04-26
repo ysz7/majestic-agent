@@ -1,4 +1,4 @@
-"""Markdown rendering — ANSI for CLI, HTML for Telegram."""
+"""Markdown rendering — ANSI for CLI, HTML for Telegram, Markdown for Discord."""
 import re
 
 _R   = "\033[0m"
@@ -122,3 +122,45 @@ def _inline_tg(text: str) -> str:
     text = re.sub(r'_([^_\n]+?)_', lambda m: f"<i>{m.group(1)}</i>", text)
     text = re.sub(r'`([^`\n]+)`', lambda m: f"<code>{m.group(1)}</code>", text)
     return text
+
+
+def render_discord(text: str) -> str:
+    """Convert Markdown for Discord — clean up headings and separators, keep native Discord markdown."""
+    lines = text.splitlines()
+    out: list[str] = []
+    for line in lines:
+        # headings → bold with prefix
+        m = re.match(r'^# (.+)$', line)
+        if m:
+            out.append(f"\n**◆ {m.group(1)}**")
+            continue
+        m = re.match(r'^#{2,3} (.+)$', line)
+        if m:
+            out.append(f"\n**▸ {m.group(1)}**")
+            continue
+        # horizontal rules → blank line
+        if re.match(r'^---+$', line.strip()):
+            out.append("")
+            continue
+        out.append(line)
+    result = "\n".join(out)
+    # collapse 3+ consecutive blank lines to 2
+    result = re.sub(r'\n{3,}', '\n\n', result)
+    return result.strip()
+
+
+def chunk_discord(text: str, limit: int = 1900) -> list[str]:
+    """Split text into chunks that fit Discord's 2000-char message limit."""
+    if len(text) <= limit:
+        return [text]
+    chunks: list[str] = []
+    while text:
+        if len(text) <= limit:
+            chunks.append(text)
+            break
+        split = text.rfind("\n", 0, limit)
+        if split == -1:
+            split = limit
+        chunks.append(text[:split])
+        text = text[split:].lstrip("\n")
+    return chunks

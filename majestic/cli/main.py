@@ -191,19 +191,20 @@ def _api_cmd(args: list[str]) -> None:
 
 
 def _gateway_cmd(args: list[str]) -> None:
-    sub = args[0] if args else None
+    sub     = args[0] if args else None
+    target  = args[1] if len(args) > 1 else "all"
 
     if sub == "start":
-        _gateway_start()
+        _gateway_start(target)
     elif sub == "setup":
         from majestic.cli.setup import gateway_setup
         gateway_setup()
     else:
-        print("Usage: majestic gateway <start|setup>")
+        print("Usage: majestic gateway <start [telegram|discord|all]|setup>")
         sys.exit(1)
 
 
-def _gateway_start() -> None:
+def _gateway_start(target: str = "all") -> None:
     import asyncio
     from majestic import config as cfg
     from majestic.constants import CONFIG_FILE
@@ -220,8 +221,12 @@ def _gateway_start() -> None:
 
     from majestic.gateway import Gateway
     from majestic.gateway.telegram import TelegramPlatform
+    from majestic.gateway.discord import DiscordPlatform
 
     gw = Gateway()
-    gw.add(TelegramPlatform())
+    if target in ("telegram", "all"):
+        gw.add(TelegramPlatform())
+    if target in ("discord", "all"):
+        gw.add(DiscordPlatform())
 
     asyncio.run(gw.run())
