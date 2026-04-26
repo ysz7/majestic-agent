@@ -256,6 +256,46 @@ def cmd_set(rest: str) -> None:
     _cfg.set_value(key, val)
     print(f"  {G}✓ {key} = {val!r}{R}\n")
 
+def cmd_history(rest: str) -> None:
+    from majestic.db.state import StateDB
+    db = StateDB()
+    parts = rest.strip().split(None, 1)
+    sub = parts[0].lower() if parts else "last"
+    arg = parts[1] if len(parts) > 1 else ""
+
+    if sub == "last" or not rest.strip():
+        try:
+            n = int(arg) if arg else 10
+        except ValueError:
+            n = 10
+        rows = db.get_recent_sessions(limit=n)
+        if not rows:
+            print(f"  {DIM}No sessions found.{R}\n")
+            return
+        print()
+        for r in rows:
+            date  = (r.get("started_at") or "")[:16].replace("T", " ")
+            title = r.get("title") or f"{DIM}(no summary){R}"
+            msgs  = r.get("message_count", 0)
+            print(f"  {DIM}{date}{R}  {title}  {DIM}{msgs} msgs{R}")
+        print()
+    else:
+        query = rest.strip()
+        if not query:
+            print(f"  {Y}Usage: /history <query> | last [N]{R}\n")
+            return
+        with Spinner("Searching history..."):
+            from majestic.tools.history_search import history_search
+            result = history_search(query)
+        try:
+            from majestic.gateway.formatter import render_cli
+            text = render_cli(result)
+        except Exception:
+            text = result
+        indented = "\n".join("  " + line if line else "" for line in text.splitlines())
+        print(f"\n{indented}\n")
+
+
 def cmd_schedule(rest: str) -> None:
     from majestic.cron.jobs import list_schedules, add_schedule, remove_schedule, nl_to_schedule
     parts = rest.split(None, 1)

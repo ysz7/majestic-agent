@@ -14,7 +14,7 @@ from majestic.cli.repl_helpers import (
     run_agent, dispatch_shortcut,
     looks_like_path, split_paths, handle_files,
     cmd_schedule, cmd_memory, cmd_forget, cmd_skills,
-    cmd_remind, cmd_rss, cmd_reports, cmd_set,
+    cmd_remind, cmd_rss, cmd_reports, cmd_set, cmd_history,
 )
 
 _HELP = f"""
@@ -32,6 +32,7 @@ _HELP = f"""
   /memory                       → view persistent memory
   /forget <topic>               → remove memory entries
   /skills                       → list saved skills
+  /history [query | last N]     → search past conversations
 
 {B}Management:{R}
   /model                        → switch LLM provider/model
@@ -116,7 +117,7 @@ def run() -> None:
             "/help", "/research", "/briefing", "/market", "/news", "/report",
             "/ideas", "/memory", "/forget", "/skills", "/model", "/usage",
             "/schedule", "/remind", "/reminders", "/rss", "/reports",
-            "/set", "/stop", "/exit",
+            "/history", "/set", "/stop", "/exit",
         ]
 
         class _SlashCompleter(Completer):
@@ -182,6 +183,12 @@ def run() -> None:
                     from majestic import config as _cfg
                     print(f"  {DIM}Saving session memory...{R}")
                     nudge_after_session(history, lang=_cfg.get("language", "EN"), blocking=True)
+                except Exception:
+                    pass
+            if session_id:
+                try:
+                    from majestic.memory.session_summarizer import summarize_session
+                    summarize_session(session_id)
                 except Exception:
                     pass
             if session_id:
@@ -257,6 +264,9 @@ def run() -> None:
 
         elif user.lower().startswith("/reports"):
             cmd_reports(user[8:].strip())
+
+        elif user.lower().startswith("/history"):
+            cmd_history(user[8:].strip())
 
         elif user.lower().startswith("/set"):
             cmd_set(user[4:].strip())

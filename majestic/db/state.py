@@ -288,10 +288,52 @@ class StateDB:
 
     def get_recent_sessions(self, limit: int = 20) -> list[dict]:
         rows = self._conn.execute(
-            "SELECT id, source, model, started_at, ended_at, message_count FROM sessions ORDER BY started_at DESC LIMIT ?",
+            "SELECT id, source, model, started_at, ended_at, message_count, title FROM sessions ORDER BY started_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def set_session_title(self, session_id: str, title: str) -> None:
+        self._conn.execute(
+            "UPDATE sessions SET title = ? WHERE id = ?", (title, session_id)
+        )
+        self._conn.commit()
+
+    def get_session_messages(self, session_id: str, limit: int = 50) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT role, content, timestamp FROM messages WHERE session_id = ? ORDER BY id LIMIT ?",
+            (session_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def search_messages_grouped(self, query: str, k: int = 6) -> list[dict]:
+        """FTS5 search, results grouped by session with session metadata."""
+        rows = self._conn.execute(
+            """
+            SELECT m.session_id, m.role, m.content, m.timestamp,
+                   s.started_at, s.title
+            FROM messages_fts f
+            JOIN messages m ON m.id = f.rowid
+            JOIN sessions s ON s.id = m.session_id
+            WHERE messages_fts MATCH ?
+            ORDER BY rank
+            LIMIT ?
+            """,
+            (query, k * 3),
+        ).fetchall()
+        seen: dict[str, dict] = {}
+        for r in rows:
+            sid = r["session_id"]
+            if sid not in seen:
+                seen[sid] = {
+                    "session_id": sid,
+                    "started_at": r["started_at"],
+                    "title":      r["title"] or "",
+                    "snippets":   [],
+                }
+            if len(seen[sid]["snippets"]) < 3:
+                seen[sid]["snippets"].append({"role": r["role"], "content": r["content"]})
+        return list(seen.values())[:k]
 
     def search_messages(self, query: str, k: int = 10) -> list[dict]:
         rows = self._conn.execute(
