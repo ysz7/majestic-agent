@@ -23,6 +23,7 @@ _DEFAULTS: dict = {
         "port": 8080,
         "key": "",
     },
+    "mcp_servers": [],
     "language": "EN",
     "currency": "USD",
     "search_mode": "all",

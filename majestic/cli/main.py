@@ -24,6 +24,8 @@ Commands:
   config set KEY V Set a config value  (e.g. config set language RU)
   doctor           Diagnose configuration problems
   api start        Start REST API server (POST /chat, GET /health, GET /sessions)
+  mcp list         List configured MCP servers and their tools
+  mcp add NAME CMD Add MCP server (CMD is space-separated command)
   gateway start    Start gateway (Telegram + any configured platform)
   gateway setup    Configure platform connections interactively
 
@@ -96,6 +98,9 @@ def main() -> None:
     elif cmd == "api":
         _api_cmd(args[1:])
 
+    elif cmd == "mcp":
+        _mcp_cmd(args[1:])
+
     elif cmd == "gateway":
         _gateway_cmd(args[1:])
 
@@ -105,6 +110,58 @@ def main() -> None:
     else:
         print(f"Unknown command: {cmd}\n")
         print(_HELP)
+        sys.exit(1)
+
+
+def _mcp_cmd(args: list[str]) -> None:
+    from majestic import config as cfg
+    sub = args[0] if args else "list"
+
+    if sub == "list":
+        servers = cfg.get("mcp_servers", []) or []
+        if not servers:
+            print("  No MCP servers configured.")
+            print("  Add one: majestic mcp add <name> <command...>")
+            return
+        cfg.sync_env_from_config()
+        from majestic.mcp.bridge import load_all_servers, list_server_tools
+        load_all_servers()
+        loaded = list_server_tools()
+        for srv in servers:
+            name = srv.get("name", "?")
+            tools = loaded.get(name, [])
+            cmd_str = " ".join(srv.get("command", [])) or srv.get("url", "")
+            print(f"\n  {name}  ({cmd_str})")
+            if tools:
+                for t in tools:
+                    print(f"    · mcp_{name}_{t}")
+            else:
+                print(f"    (failed to connect or no tools)")
+        print()
+
+    elif sub == "add":
+        if len(args) < 3:
+            print("Usage: majestic mcp add <name> <command...>")
+            sys.exit(1)
+        name    = args[1]
+        command = args[2:]
+        servers = list(cfg.get("mcp_servers", []) or [])
+        servers = [s for s in servers if s.get("name") != name]
+        servers.append({"name": name, "command": command})
+        cfg.set_value("mcp_servers", servers)
+        print(f"  ✓ Added MCP server '{name}': {' '.join(command)}")
+
+    elif sub == "remove":
+        if len(args) < 2:
+            print("Usage: majestic mcp remove <name>")
+            sys.exit(1)
+        name    = args[1]
+        servers = [s for s in (cfg.get("mcp_servers", []) or []) if s.get("name") != name]
+        cfg.set_value("mcp_servers", servers)
+        print(f"  ✓ Removed MCP server '{name}'")
+
+    else:
+        print("Usage: majestic mcp <list|add|remove>")
         sys.exit(1)
 
 
