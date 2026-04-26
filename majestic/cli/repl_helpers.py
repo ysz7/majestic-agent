@@ -249,7 +249,7 @@ def cmd_schedule(rest: str) -> None:
         else:
             for r in rows:
                 dot = f"{G}●{R}" if r.get("enabled") else f"{DIM}○{R}"
-                print(f"  {dot} [{r['id']}] {r['name']:30s} {DIM}{r['cron']}{R}")
+                print(f"  {dot} [{r['id']}] {r['name']:30s} {DIM}{r['cron_expr']}{R}")
             print()
     elif sub == "add":
         if not arg:
@@ -257,7 +257,12 @@ def cmd_schedule(rest: str) -> None:
             return
         with Spinner("Parsing schedule..."):
             sched = nl_to_schedule(arg)
-        add_schedule(**sched)
+        add_schedule(
+            name=sched["name"],
+            cron_expr=sched["cron"],
+            prompt=sched["prompt"],
+            delivery_target=sched.get("target", "cli"),
+        )
         print(f"  {G}✓ Added:{R} {sched['name']} ({sched['cron']})\n")
     elif sub == "remove":
         try:
