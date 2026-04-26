@@ -233,8 +233,22 @@ def _save_msg(session_id: str, role: str, content: str, **kwargs) -> None:
 def _track(resp) -> None:
     try:
         from majestic.token_tracker import track
+        from majestic.llm import get_provider
         um = resp.usage
-        if um:
-            track(um.input_tokens or 0, um.output_tokens or 0, "agent_loop")
+        if not um:
+            return
+        cost = None
+        try:
+            cost = get_provider().estimated_cost(um)
+        except Exception:
+            pass
+        track(
+            um.input_tokens or 0,
+            um.output_tokens or 0,
+            "agent_loop",
+            cache_write=um.cache_write_tokens or 0,
+            cache_read=um.cache_read_tokens or 0,
+            cost_override=cost,
+        )
     except Exception:
         pass

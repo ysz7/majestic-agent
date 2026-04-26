@@ -9,11 +9,12 @@ from typing import Iterator
 
 from .base import LLMProvider, LLMResponse, ToolCall, Usage, register
 
-_PRICING: dict[str, tuple[float, float]] = {
-    "claude-opus-4-7":           (15.0, 75.0),
-    "claude-sonnet-4-6":         (3.0,  15.0),
-    "claude-haiku-4-5-20251001": (0.8,   4.0),
-    "claude-haiku-4-5":          (0.8,   4.0),
+# (input, output, cache_write_multiplier, cache_read_multiplier)
+_PRICING: dict[str, tuple[float, float, float, float]] = {
+    "claude-opus-4-7":           (15.0, 75.0, 1.25, 0.10),
+    "claude-sonnet-4-6":         (3.0,  15.0, 1.25, 0.10),
+    "claude-haiku-4-5-20251001": (0.8,   4.0, 1.25, 0.10),
+    "claude-haiku-4-5":          (0.8,   4.0, 1.25, 0.10),
 }
 
 
@@ -35,8 +36,13 @@ class AnthropicProvider(LLMProvider):
         return self._model
 
     def estimated_cost(self, usage: Usage) -> float:
-        in_price, out_price = _PRICING.get(self._model, (3.0, 15.0))
-        return (usage.input_tokens * in_price + usage.output_tokens * out_price) / 1_000_000
+        in_p, out_p, cw_m, cr_m = _PRICING.get(self._model, (3.0, 15.0, 1.25, 0.10))
+        return (
+            usage.input_tokens       * in_p +
+            usage.output_tokens      * out_p +
+            usage.cache_write_tokens * in_p * cw_m +
+            usage.cache_read_tokens  * in_p * cr_m
+        ) / 1_000_000
 
     def _convert_messages(self, messages: list[dict]) -> list[dict]:
         """Convert normalized messages to Anthropic native format."""
@@ -92,10 +98,15 @@ class AnthropicProvider(LLMProvider):
             "temperature": self._temperature,
             "messages":    self._convert_messages(messages),
         }
+        # Prompt caching — system prompt and tool schemas are static per session,
+        # marking them ephemeral lets Anthropic cache them (~10x cheaper on reads).
         if system:
-            kwargs["system"] = system
+            kwargs["system"] = [{"type": "text", "text": system,
+                                  "cache_control": {"type": "ephemeral"}}]
         if tools:
-            kwargs["tools"] = tools  # already in Anthropic format
+            cached = list(tools)
+            cached[-1] = {**cached[-1], "cache_control": {"type": "ephemeral"}}
+            kwargs["tools"] = cached
 
         msg = client.messages.create(**kwargs)
 

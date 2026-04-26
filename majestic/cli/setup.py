@@ -32,19 +32,20 @@ _OPENROUTER_MODELS = [
     "meta-llama/llama-3.1-70b-instruct",
 ]
 
-_OLLAMA_MODELS = [
-    "gemma3",
-    "llama3.2",
-    "mistral",
-    "qwen2.5",
-]
-
 _MODELS: dict[str, list[str]] = {
     "anthropic":  _ANTHROPIC_MODELS,
     "openai":     _OPENAI_MODELS,
     "openrouter": _OPENROUTER_MODELS,
-    "ollama":     _OLLAMA_MODELS,
 }
+
+
+def _get_ollama_models() -> list[str]:
+    """Return models installed in Ollama; tries to start it if not running."""
+    from majestic.llm.ollama import list_local_models, start_ollama
+    if not list_local_models():   # not running yet — try to start briefly
+        start_ollama()
+    models = list_local_models()
+    return models or []
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -109,14 +110,24 @@ def run_setup() -> None:
             warn("No API key provided — you can add it later to ~/.majestic-agent/.env")
 
     # ── Model ─────────────────────────────────────────────────────────────────
-    model_list = _MODELS.get(provider, [])
-    current_model = data.get("llm", {}).get("model", model_list[0] if model_list else "")
-    midx = model_list.index(current_model) if current_model in model_list else 0
-    midx = choose("Model", model_list + ["Enter manually"], default=midx)
-    if midx == len(model_list):
-        model = ask("Model name")
-    else:
+    if provider == "ollama":
+        model_list = _get_ollama_models()
+        if not model_list:
+            warn("No Ollama models found. Run `ollama pull <model>` first.")
+            return
+        current_model = data.get("llm", {}).get("model", model_list[0])
+        midx = model_list.index(current_model) if current_model in model_list else 0
+        midx = choose("Model", model_list, default=midx)
         model = model_list[midx]
+    else:
+        model_list = _MODELS.get(provider, [])
+        current_model = data.get("llm", {}).get("model", model_list[0] if model_list else "")
+        midx = model_list.index(current_model) if current_model in model_list else 0
+        midx = choose("Model", model_list + ["Enter manually"], default=midx)
+        if midx == len(model_list):
+            model = ask("Model name")
+        else:
+            model = model_list[midx]
 
     data["llm"] = {"provider": provider, "model": model}
 
@@ -176,13 +187,22 @@ def select_model() -> None:
     pidx = choose("Provider", _providers, default=default_p)
     provider = _providers[pidx]
 
-    model_list = _MODELS.get(provider, [])
-    midx = model_list.index(current) if current in model_list else 0
-    midx = choose("Model", model_list + ["Enter manually"], default=midx)
-    if midx == len(model_list):
-        model = ask("Model name")
-    else:
+    if provider == "ollama":
+        model_list = _get_ollama_models()
+        if not model_list:
+            warn("No Ollama models found. Run `ollama pull <model>` first.")
+            return
+        midx = model_list.index(current) if current in model_list else 0
+        midx = choose("Model", model_list, default=midx)
         model = model_list[midx]
+    else:
+        model_list = _MODELS.get(provider, [])
+        midx = model_list.index(current) if current in model_list else 0
+        midx = choose("Model", model_list + ["Enter manually"], default=midx)
+        if midx == len(model_list):
+            model = ask("Model name")
+        else:
+            model = model_list[midx]
 
     cfg.set_value("llm.provider", provider)
     cfg.set_value("llm.model", model)

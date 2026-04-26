@@ -105,6 +105,7 @@ def run() -> None:
         from prompt_toolkit.formatted_text import FormattedText, HTML
         from prompt_toolkit.shortcuts.prompt import CompleteStyle
         from prompt_toolkit.styles import Style as PTStyle
+        from prompt_toolkit.patch_stdout import patch_stdout as _patch_stdout
 
         _STYLE = PTStyle.from_dict({
             "completion-menu":                    "bg:default noreverse",
@@ -165,7 +166,8 @@ def run() -> None:
     def _get_input() -> str:
         if _pt_prompt is not None:
             _pt_prompt.completer = _make_completer()
-            return _pt_prompt.prompt(_PROMPT_MSG).strip()
+            with _patch_stdout():
+                return _pt_prompt.prompt(_PROMPT_MSG).strip()
         import readline  # noqa: F401
         return input(f"  {C}majestic ▶ {R}").strip()
 
@@ -206,6 +208,11 @@ def run() -> None:
                     StateDB().close_session(session_id, tin, tout, cost, len(history) * 2)
                 except Exception:
                     pass
+            try:
+                from majestic.llm.ollama import shutdown_ollama
+                shutdown_ollama()
+            except Exception:
+                pass
             print(f"{DIM}Bye!{R}")
             break
 
@@ -299,7 +306,12 @@ def run() -> None:
         # ── File drag & drop ──────────────────────────────────────────────────
         elif looks_like_path(user):
             paths = split_paths(user)
-            if paths:
+            # Strip known paths from input to detect a question alongside the file
+            remainder = user
+            for p in paths:
+                remainder = remainder.replace(str(p), "").replace(f"'{p}'", "").replace(f'"{p}"', "")
+            has_question = remainder.strip().strip("'\"").strip()
+            if paths and not has_question:
                 handle_files(paths)
             else:
                 ans = run_agent(user, session_id, history)

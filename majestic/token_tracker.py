@@ -22,6 +22,7 @@ OUTPUT_PRICE_PER_M = 15.00
 
 _DEFAULTS: dict = {
     "tokens_in": 0, "tokens_out": 0, "requests": 0,
+    "cache_write": 0, "cache_read": 0,
     "cost_usd": 0.0, "reset_date": "", "history": [],
 }
 
@@ -42,17 +43,37 @@ def _save(d: dict) -> None:
     _PATH.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def track(tokens_in: int, tokens_out: int, operation: str = "query") -> None:
-    cost = (tokens_in / 1_000_000 * INPUT_PRICE_PER_M) + (tokens_out / 1_000_000 * OUTPUT_PRICE_PER_M)
+def track(
+    tokens_in: int,
+    tokens_out: int,
+    operation: str = "query",
+    cache_write: int = 0,
+    cache_read: int = 0,
+    cost_override: float | None = None,
+) -> None:
+    if cost_override is not None:
+        cost = cost_override
+    else:
+        cost = (tokens_in / 1_000_000 * INPUT_PRICE_PER_M) + (tokens_out / 1_000_000 * OUTPUT_PRICE_PER_M)
+        # Cache write costs 1.25x input, cache read costs 0.10x input
+        cost += (cache_write / 1_000_000 * INPUT_PRICE_PER_M * 1.25)
+        cost += (cache_read  / 1_000_000 * INPUT_PRICE_PER_M * 0.10)
     with _lock:
         d = _load()
         d.setdefault("reset_date", datetime.now().strftime("%Y-%m-%d"))
-        d["tokens_in"]  += tokens_in
-        d["tokens_out"] += tokens_out
-        d["requests"]   += 1
-        d["cost_usd"]    = round(d["cost_usd"] + cost, 6)
-        entry = {"ts": datetime.now().isoformat(timespec="seconds"),
-                 "operation": operation, "in": tokens_in, "out": tokens_out, "cost": round(cost, 6)}
+        d["tokens_in"]   += tokens_in
+        d["tokens_out"]  += tokens_out
+        d["cache_write"] = d.get("cache_write", 0) + cache_write
+        d["cache_read"]  = d.get("cache_read",  0) + cache_read
+        d["requests"]    += 1
+        d["cost_usd"]     = round(d["cost_usd"] + cost, 6)
+        entry = {
+            "ts": datetime.now().isoformat(timespec="seconds"),
+            "operation": operation,
+            "in": tokens_in, "out": tokens_out,
+            "cache_write": cache_write, "cache_read": cache_read,
+            "cost": round(cost, 6),
+        }
         d["history"] = ([entry] + d.get("history", []))[:30]
         _save(d)
 
@@ -87,14 +108,28 @@ def format_stats() -> str:
         e.get("cost", 0.0) for e in d.get("history", [])
         if _is_today(e.get("ts", ""), today)
     )
-    tin   = d.get("tokens_in", 0)
-    tout  = d.get("tokens_out", 0)
-    total = d.get("cost_usd", 0.0)
+    tin    = d.get("tokens_in", 0)
+    tout   = d.get("tokens_out", 0)
+    cwrite = d.get("cache_write", 0)
+    cread  = d.get("cache_read",  0)
+    total  = d.get("cost_usd", 0.0)
+
+    # What cread would have cost at full price vs cached price
+    saved  = cread / 1_000_000 * INPUT_PRICE_PER_M * (1 - 0.10) if cread else 0.0
+
     lines = [
         "📊 Token Usage",
-        f"  In:    {tin:>13,}  (${tin / 1_000_000 * INPUT_PRICE_PER_M:.2f})",
-        f"  Out:   {tout:>13,}  (${tout / 1_000_000 * OUTPUT_PRICE_PER_M:.2f})",
-        f"  Total: ${total:>9.4f}",
+        f"  In:          {tin:>10,}  (${tin  / 1_000_000 * INPUT_PRICE_PER_M:.4f})",
+        f"  Out:         {tout:>10,}  (${tout / 1_000_000 * OUTPUT_PRICE_PER_M:.4f})",
+    ]
+    if cwrite or cread:
+        lines += [
+            f"  Cache write: {cwrite:>10,}  (${cwrite / 1_000_000 * INPUT_PRICE_PER_M * 1.25:.4f})",
+            f"  Cache read:  {cread:>10,}  (${cread  / 1_000_000 * INPUT_PRICE_PER_M * 0.10:.4f})",
+            f"  Saved:                   ~${saved:.4f} via cache",
+        ]
+    lines += [
+        f"  Total: ${total:.4f}",
         f"  Today: ${cost_today:.4f}",
         f"  Since: {d.get('reset_date', '—')}",
     ]

@@ -163,7 +163,9 @@ def _collect_inner(on_progress=None) -> Dict:
             pass
         try:
             from majestic.db.state import StateDB
-            StateDB().add_news_items(new_items)
+            db = StateDB()
+            db.add_news_items(new_items)
+            _embed_news(db, new_items)
         except Exception:
             pass
 
@@ -181,6 +183,26 @@ def _collect_inner(on_progress=None) -> Dict:
         "timestamp":  datetime.now().isoformat(),
         "new_items":  new_items,
     }
+
+
+def _embed_news(db, items: List[Dict]) -> None:
+    """Embed news items into vector store grouped by source for semantic search."""
+    from collections import defaultdict
+    by_source: dict[str, list[str]] = defaultdict(list)
+    for item in items:
+        title = (item.get("title") or "").strip()
+        if not title:
+            continue
+        desc = (item.get("description") or item.get("selftext") or "").strip()[:300]
+        text = f"[{item.get('source', 'news')}] {title}"
+        if desc:
+            text += f"\n{desc}"
+        by_source[f"intel:{item.get('source', 'news')}"].append(text)
+    for fname, texts in by_source.items():
+        try:
+            db.embed_and_store(fname, texts)
+        except Exception:
+            pass
 
 
 def load_feed(source_filter: Optional[str] = None, limit: int = 100) -> List[Dict]:
