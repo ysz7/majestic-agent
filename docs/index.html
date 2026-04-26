@@ -508,7 +508,7 @@ footer {
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       </div>
       <div class="ft">Universal Search</div>
-      <p class="fd">One search across everything: news, reports, market data, documents, history. Hybrid FTS5 + vector.</p>
+      <p class="fd">One query across news, docs, market data, and all past conversations. Hybrid FTS5 + vector.</p>
       <span class="ftag">sqlite-vec · fts5</span>
     </div>
     <div class="fc">
@@ -516,9 +516,9 @@ footer {
       <div class="fc-icon">
         <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
       </div>
-      <div class="ft">Plug-in Tools</div>
-      <p class="fd">Drop a file in tools/ and the agent picks it up automatically. No wiring, no config changes needed.</p>
-      <span class="ftag">auto-registry</span>
+      <div class="ft">MCP Integration</div>
+      <p class="fd">Any MCP server becomes agent tools instantly. One config line — no Python code.</p>
+      <span class="ftag">mcp · stdio · sse</span>
     </div>
     <div class="fc">
       <span class="fc-num">05</span>
@@ -532,11 +532,38 @@ footer {
     <div class="fc">
       <span class="fc-num">06</span>
       <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+      </div>
+      <div class="ft">REST API</div>
+      <p class="fd">POST /chat, GET /health, GET /sessions — connect any frontend, script, or service. Optional API key auth.</p>
+      <span class="ftag">http · no-dep</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">07</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5z"></path><path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"></path><path d="M9.5 14c.83 0 1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5S8 21.33 8 20.5v-5c0-.83.67-1.5 1.5-1.5z"></path><path d="M3.5 14H5v1.5c0 .83-.67 1.5-1.5 1.5S2 16.33 2 15.5 2.67 14 3.5 14z"></path><path d="M14 14.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-5c-.83 0-1.5-.67-1.5-1.5z"></path><path d="M15.5 19H14v1.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"></path><path d="M10 9.5C10 8.67 9.33 8 8.5 8h-5C2.67 8 2 8.67 2 9.5S2.67 11 3.5 11h5c.83 0 1.5-.67 1.5-1.5z"></path><path d="M8.5 5H10V3.5C10 2.67 9.33 2 8.5 2S7 2.67 7 3.5 7.67 5 8.5 5z"></path></svg>
+      </div>
+      <div class="ft">4 LLM Providers</div>
+      <p class="fd">Anthropic, OpenAI, OpenRouter, Ollama. Switch anytime with <code>majestic model</code> or <code>/model</code>.</p>
+      <span class="ftag">anthropic · openai · openrouter · ollama</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">08</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+      </div>
+      <div class="ft">Agent Specialization</div>
+      <p class="fd">Set role and tool whitelist in config.yaml — fork for any domain without touching source code.</p>
+      <span class="ftag">agent.role · tools_enabled</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">09</span>
+      <div class="fc-icon">
         <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
       </div>
-      <div class="ft">One-File Backup</div>
-      <p class="fd">Everything in ~/.majestic/state.db — sessions, vectors, market data. One command to back up all.</p>
-      <span class="ftag">sqlite · portable</span>
+      <div class="ft">Plug-in Tools</div>
+      <p class="fd">Drop a file in tools/ and the agent picks it up automatically. No wiring, no config changes needed.</p>
+      <span class="ftag">auto-registry</span>
     </div>
   </div>
 </section>
@@ -559,11 +586,13 @@ footer {
     </div>
     <div class="tlist reveal">
       <div class="ti"><div class="tdot"></div><span class="tname">web / search · extract</span><span class="tbadge">web</span></div>
-      <div class="ti"><div class="tdot"></div><span class="tname">research / news · briefing · report</span><span class="tbadge">research</span></div>
+      <div class="ti"><div class="tdot"></div><span class="tname">research / news · briefing · report · ideas</span><span class="tbadge">research</span></div>
       <div class="ti"><div class="tdot"></div><span class="tname">research / market · crypto · forex</span><span class="tbadge">research</span></div>
       <div class="ti"><div class="tdot"></div><span class="tname">files / read · write · index</span><span class="tbadge">files</span></div>
       <div class="ti"><div class="tdot"></div><span class="tname">system / terminal</span><span class="tbadge">system</span></div>
-      <div class="ti"><div class="tdot" style="background:#FDA4AF"></div><span class="tname">db_search — universal search</span><span class="tbadge">core</span></div>
+      <div class="ti"><div class="tdot"></div><span class="tname">history_search — search past conversations</span><span class="tbadge">memory</span></div>
+      <div class="ti"><div class="tdot" style="background:#FDA4AF"></div><span class="tname">db_search — unified search</span><span class="tbadge">core</span></div>
+      <div class="ti"><div class="tdot" style="background:#7DD3FC"></div><span class="tname">mcp_{server}_{tool} — any MCP server</span><span class="tbadge">mcp</span></div>
       <div class="ti ti-add"><div class="tdot" style="background:var(--text-dim)"></div><span class="tname">your_integration/ ···</span><span class="tbadge">+ add</span></div>
     </div>
   </div>
@@ -615,23 +644,20 @@ footer {
     <p class="ssub ssub-center">Run on your laptop, a $5 VPS, or any server. Talk from any device, anywhere.</p>
   </div>
   <div class="plat-grid reveal">
-    <div class="pill-new"><div class="pill-dot"></div><span class="pill-name">macOS</span></div>
-    <div class="pill-new"><div class="pill-dot"></div><span class="pill-name">Linux</span></div>
-    <div class="pill-new"><div class="pill-dot"></div><span class="pill-name">VPS / Server</span></div>
-    <div class="pill-new"><div class="pill-dot"></div><span class="pill-name">Telegram</span></div>
-    <div class="pill-new"><div class="pill-dot"></div><span class="pill-name">Discord</span></div>
-    <div class="pill-new"><div class="pill-dot"></div><span class="pill-name">Slack</span></div>
-    <div class="pill-new"><div class="pill-dot"></div><span class="pill-name">WhatsApp</span></div>
-    <div class="pill-new"><div class="pill-dot"></div><span class="pill-name">Signal</span></div>
-    <div class="pill-new"><div class="pill-dot"></div><span class="pill-name">CLI</span></div>
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">CLI (terminal)</span></div>
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">Telegram bot</span></div>
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">Discord bot</span></div>
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">REST API</span></div>
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">Cron / scheduled</span></div>
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">VPS / Server</span></div>
   </div>
   <div class="plat-center reveal">
     <div class="gw-box">
-      <div><span style="color:#505050">MacBook → </span><span style="color:#7DD3FC">CLI</span><span style="color:#505050"> ───────┐</span></div>
-      <div><span style="color:#505050">Phone   → </span><span style="color:#7DD3FC">Telegram</span><span style="color:#505050"> ────┤</span></div>
-      <div><span style="color:#505050">Team    → </span><span style="color:#7DD3FC">Slack</span><span style="color:#505050"> ────────┤── </span><span style="color:var(--red)">majestic</span><span style="color:#505050"> → </span><span style="color:var(--green)">LLM</span></div>
-      <div><span style="color:#505050">VPS     → </span><span style="color:#7DD3FC">Discord</span><span style="color:#505050"> ───────┤</span></div>
-      <div><span style="color:#505050">Cron    → </span><span style="color:#7DD3FC">schedule</span><span style="color:#505050"> ─────┘</span></div>
+      <div><span style="color:#505050">Terminal → </span><span style="color:#7DD3FC">CLI</span><span style="color:#505050"> ──────────┐</span></div>
+      <div><span style="color:#505050">Phone    → </span><span style="color:#7DD3FC">Telegram</span><span style="color:#505050"> ───────┤</span></div>
+      <div><span style="color:#505050">Server   → </span><span style="color:#7DD3FC">Discord</span><span style="color:#505050"> ────────┤── </span><span style="color:var(--red)">majestic</span><span style="color:#505050"> → </span><span style="color:var(--green)">LLM</span></div>
+      <div><span style="color:#505050">Script   → </span><span style="color:#7DD3FC">REST API</span><span style="color:#505050"> ───────┤</span></div>
+      <div><span style="color:#505050">Timer    → </span><span style="color:#7DD3FC">Cron</span><span style="color:#505050"> ───────────┘</span></div>
     </div>
   </div>
 </section>

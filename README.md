@@ -9,7 +9,7 @@ Not a chatbot. Not a command menu. A universal agent-executor — runs on your l
 [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.11+-red.svg)](https://python.org)
 [![Version](https://img.shields.io/badge/version-0.1.0-red.svg)](https://github.com/ysz7/majestic-agent)
-[![Tests](https://img.shields.io/badge/tests-54%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-110%20passed-brightgreen.svg)](tests/)
 
 </div>
 
@@ -94,9 +94,14 @@ Data persists in `~/.majestic-agent/` on the host. Health check at `http://local
 | **Hybrid Search** | FTS5 + vector search across all data: news, docs, history, reports |
 | **Modular Tools** | Drop a file in `tools/` — registered automatically on next start |
 | **Automations** | Natural language scheduling delivered to any platform |
-| **Multi-Platform** | Telegram bot + CLI — same agent, any interface |
+| **4 LLM Providers** | Anthropic, OpenAI, OpenRouter, Ollama — switch with `majestic model` |
+| **REST API** | `POST /chat`, `GET /health`, `GET /sessions` — connect any UI or script |
+| **MCP Integration** | Any MCP server becomes agent tools instantly — no Python code |
+| **Discord Gateway** | Full Discord bot with slash commands, on par with Telegram |
+| **Agent Specialization** | Set `agent.role` + `tools_enabled` in config to fork for any domain |
+| **Conversation History** | `/history <query>` — search and summarize past conversations with LLM |
 | **Docker Ready** | One command deploy with persistent volume and health endpoint |
-| **Tested** | 54 unit tests across all critical paths, GitHub Actions CI |
+| **Tested** | 110 unit tests across all critical paths, GitHub Actions CI |
 
 ---
 
@@ -125,6 +130,9 @@ Data persists in `~/.majestic-agent/` on the host. Health check at `http://local
 
 ```
 /model                 switch LLM provider or model
+/set                   show or change agent.role, tools_enabled, tools_disabled
+/history <query>       search past conversations with LLM summarization
+/history last [N]      show last N sessions with one-line summaries
 /usage [reset]         token usage and cost stats
 /schedule list         list active cron schedules
 /schedule add <text>   add schedule in plain language
@@ -149,11 +157,19 @@ Tools are grouped by domain. The agent selects automatically based on the task.
 
 ```
 tools/
-├── web/         web_search · web_extract
-├── research/    news · briefing · report · predict · flows · ideas
-├── files/       read_file · write_file · index (pdf, docx, csv, md)
-├── system/      terminal
-└── db_search    unified search across all indexed data  ← core
+├── web/           web_search · web_extract
+├── research/      news · briefing · report · predict · flows · ideas
+├── files/         read_file · write_file · index (pdf, docx, csv, md)
+├── system/        terminal
+├── history_search search + LLM-summarize past conversations
+└── db_search      unified search across all indexed data  ← core
+```
+
+MCP tools are registered automatically from any configured MCP server:
+
+```bash
+majestic mcp add filesystem npx -y @modelcontextprotocol/server-filesystem /home/user
+majestic mcp list   # shows mcp_filesystem_read_file, mcp_filesystem_write_file, ...
 ```
 
 **Adding a custom tool:**
@@ -213,6 +229,8 @@ The scheduler runs in the background and delivers to Telegram or CLI.
 | Provider | Notes |
 |---|---|
 | **Anthropic** | `ANTHROPIC_API_KEY` — direct SDK, best tool use |
+| **OpenAI** | `OPENAI_API_KEY` — GPT-4o, o1, o3-mini |
+| **OpenRouter** | `OPENROUTER_API_KEY` — route to any model (Claude, GPT, Gemini, Llama) |
 | **Ollama** | local models — no API key, set `llm.provider: ollama` |
 
 ```bash
@@ -226,17 +244,35 @@ majestic model    # interactive model selector
 
 ```
 CLI (terminal)   ──┐
-Telegram bot     ──┤── majestic (local / VPS) ──→ LLM ──→ tools
+Telegram bot     ──┤
+Discord bot      ──┤── majestic (local / VPS) ──→ LLM ──→ tools
+REST API         ──┤
 Cron / schedule  ──┘
 ```
 
-Start the Telegram gateway:
-
 ```bash
-majestic gateway start
+majestic gateway start telegram   # Telegram only
+majestic gateway start discord    # Discord only
+majestic gateway start all        # Telegram + Discord simultaneously
+majestic api start                # REST API on port 8080
 # or as a systemd service:
 ./scripts/install.sh --service
 ```
+
+### REST API
+
+```bash
+majestic api start   # starts HTTP server on port 8080 (configurable via api.port)
+```
+
+```
+POST /chat      {message, session_id?}  →  {answer, tools_used, cost_usd, elapsed_s}
+POST /run       fire-and-forget background task  →  202 Accepted
+GET  /health    {"status": "ok", "version": "..."}
+GET  /sessions  list active sessions
+```
+
+Auth: set `api.key` in `config.yaml`, send as `X-API-Key` header.
 
 ---
 
@@ -263,6 +299,39 @@ tar -czf majestic-backup.tar.gz ~/.majestic-agent/
 
 ---
 
+## Specialization
+
+Fork for any domain without touching source code:
+
+```yaml
+# ~/.majestic-agent/config.yaml
+agent:
+  role: "You are a trading specialist. Focus on market analysis and signals."
+  tools_enabled:
+    - get_market_data
+    - web_search
+    - run_research
+```
+
+Or from within the REPL:
+```
+/set role You are a DevOps specialist focused on infrastructure.
+/set tools_enabled terminal,web_search,read_file
+```
+
+MCP servers in config — any MCP-compatible source becomes agent tools:
+```yaml
+mcp_servers:
+  - name: filesystem
+    command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/home/user"]
+  - name: github
+    command: ["npx", "-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+```
+
+---
+
 ## Architecture
 
 Max 300 lines per file, one responsibility per module:
@@ -270,12 +339,14 @@ Max 300 lines per file, one responsibility per module:
 ```
 majestic/
 ├── agent/        loop.py · prompt.py · delegate.py · runner.py
+├── api/          server.py  ← REST API (stdlib, no FastAPI dep)
 ├── db/           state.py · embedder.py · parser.py
-├── llm/          base.py · anthropic.py · ollama.py · openrouter.py
-├── memory/       store.py · nudge.py
-├── tools/        registry.py · web/ · research/ · files/ · system/
+├── llm/          base.py · anthropic.py · openai.py · openrouter.py · ollama.py
+├── mcp/          client.py · bridge.py  ← MCP stdio JSON-RPC client
+├── memory/       store.py · nudge.py · session_summarizer.py
+├── tools/        registry.py · web/ · research/ · files/ · system/ · history_search.py
 ├── skills/       loader.py
-├── gateway/      base.py · telegram.py · health.py · formatter.py
+├── gateway/      base.py · telegram.py · discord.py · health.py · formatter.py
 ├── cron/         scheduler.py · jobs.py
 └── cli/          main.py · repl.py · repl_helpers.py · display.py · setup.py
 ```
@@ -286,17 +357,21 @@ majestic/
 
 ```bash
 pytest tests/ -v
-# 54 passed in ~0.6s
+# 110 passed in ~1.2s
 ```
 
 | File | What's tested |
 |---|---|
 | `test_db.py` | Sessions, messages, FTS5 search, news, vector chunks |
 | `test_memory.py` | Load, append, dedup, forget, show |
-| `test_llm.py` | ToolCall, Usage, MockProvider |
+| `test_llm.py` | ToolCall, Usage, MockProvider, OpenAI/OpenRouter providers |
 | `test_tools.py` | Register, execute, schema, error handling |
 | `test_cron.py` | CRUD, get_due, mark_ran, nl_to_schedule |
 | `test_agent.py` | Single turn, history, tool calls, stop signal, iteration cap |
+| `test_api.py` | /health, /sessions, /chat, /run, auth, errors |
+| `test_history.py` | FTS5 search, grouped results, LLM summarization, /history command |
+| `test_mcp.py` | Client start/stop, tool listing, tool calls, bridge registration |
+| `test_discord.py` | render_discord, chunk_discord, DiscordPlatform interface |
 
 ---
 
