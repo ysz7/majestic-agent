@@ -14,7 +14,7 @@ from majestic.cli.repl_helpers import (
     run_agent, dispatch_shortcut,
     looks_like_path, split_paths, handle_files,
     cmd_schedule, cmd_memory, cmd_forget, cmd_skills,
-    cmd_remind, cmd_rss, cmd_reports,
+    cmd_remind, cmd_rss, cmd_reports, cmd_set,
 )
 
 _HELP = f"""
@@ -35,6 +35,7 @@ _HELP = f"""
 
 {B}Management:{R}
   /model                        → switch LLM provider/model
+  /set [key] [value]            → configure agent role and tools
   /usage [reset]                → token usage and cost
   /stop                         → stop current task
   /schedule [list|add|remove]   → manage cron schedules
@@ -115,7 +116,7 @@ def run() -> None:
             "/help", "/research", "/briefing", "/market", "/news", "/report",
             "/ideas", "/memory", "/forget", "/skills", "/model", "/usage",
             "/schedule", "/remind", "/reminders", "/rss", "/reports",
-            "/stop", "/exit",
+            "/set", "/stop", "/exit",
         ]
 
         class _SlashCompleter(Completer):
@@ -256,6 +257,9 @@ def run() -> None:
 
         elif user.lower().startswith("/reports"):
             cmd_reports(user[8:].strip())
+
+        elif user.lower().startswith("/set"):
+            cmd_set(user[4:].strip())
 
         # ── Unknown slash or skill invocation ─────────────────────────────────
         elif user.startswith("/"):

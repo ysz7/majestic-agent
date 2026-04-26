@@ -236,6 +236,26 @@ def handle_files(paths: list[Path]) -> None:
 
 # ── Management command handlers ───────────────────────────────────────────────
 
+def cmd_set(rest: str) -> None:
+    from majestic import config as _cfg
+    parts = rest.split(None, 1)
+    if len(parts) < 2:
+        cfg = _cfg.load()
+        agent = cfg.get("agent", {})
+        print(f"\n  {B}agent.role{R}          {DIM}{agent.get('role', '') or '(none)'}{R}")
+        print(f"  {B}agent.tools_enabled{R} {DIM}{agent.get('tools_enabled', []) or '(all)'}{R}")
+        print(f"  {B}agent.tools_disabled{R}{DIM}{agent.get('tools_disabled', []) or '(none)'}{R}\n")
+        print(f"  {DIM}Usage: /set <key> <value>{R}")
+        print(f"  {DIM}Keys: agent.role, agent.tools_enabled, agent.tools_disabled{R}\n")
+        return
+    key, val_str = parts[0], parts[1]
+    if key in ("agent.tools_enabled", "agent.tools_disabled"):
+        val = [v.strip() for v in val_str.split(",") if v.strip()] if val_str.strip() != "-" else []
+    else:
+        val = val_str if val_str.strip() != "-" else ""
+    _cfg.set_value(key, val)
+    print(f"  {G}✓ {key} = {val!r}{R}\n")
+
 def cmd_schedule(rest: str) -> None:
     from majestic.cron.jobs import list_schedules, add_schedule, remove_schedule, nl_to_schedule
     parts = rest.split(None, 1)

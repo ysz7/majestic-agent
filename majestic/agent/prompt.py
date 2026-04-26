@@ -24,6 +24,13 @@ Built-in capabilities (always available, no tools needed):
 def build_system(lang: str = "EN", memory: str = "") -> str:
     """Assemble the full system prompt with language and persistent memory."""
     system = _BASE + f"\n\nRespond in {lang}."
+    try:
+        from majestic import config as _cfg
+        role = _cfg.get("agent.role", "")
+        if role:
+            system += f"\n\n## Role\n{role}"
+    except Exception:
+        pass
     if memory:
         system += f"\n\n## Persistent memory\n{memory}"
     return system

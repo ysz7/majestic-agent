@@ -29,10 +29,23 @@ def tool(name: str, description: str, input_schema: dict):
 
 
 def get_schemas() -> list[dict]:
-    """Return tool definitions in Anthropic format for LLM tool_use."""
+    """Return tool definitions in Anthropic format, filtered by agent config."""
+    try:
+        from majestic import config as _cfg
+        enabled  = _cfg.get("agent.tools_enabled", []) or []
+        disabled = _cfg.get("agent.tools_disabled", []) or []
+    except Exception:
+        enabled, disabled = [], []
+
+    tools = list(_registry.values())
+    if enabled:
+        tools = [t for t in tools if t.name in enabled]
+    elif disabled:
+        tools = [t for t in tools if t.name not in disabled]
+
     return [
         {"name": t.name, "description": t.description, "input_schema": t.input_schema}
-        for t in _registry.values()
+        for t in tools
     ]
 
 

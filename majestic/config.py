@@ -14,6 +14,11 @@ _DEFAULTS: dict = {
         "provider": "anthropic",
         "model": "claude-sonnet-4-6",
     },
+    "agent": {
+        "role": "",
+        "tools_enabled": [],
+        "tools_disabled": [],
+    },
     "language": "EN",
     "currency": "USD",
     "search_mode": "all",
