@@ -83,3 +83,58 @@ def test_mock_provider_stream():
     provider = MockProvider([])
     chunks = list(provider.stream([{"role": "user", "content": "hi"}]))
     assert chunks == ["(stream)"]
+
+
+# ── OpenAI provider unit tests (no network) ───────────────────────────────────
+
+def test_openai_provider_registered():
+    from majestic.llm.base import _registry
+    assert "openai" in _registry
+
+
+def test_openai_provider_model_id():
+    from majestic.llm.openai import OpenAIProvider
+    p = OpenAIProvider(model="gpt-4o-mini")
+    assert p.model_id == "gpt-4o-mini"
+
+
+def test_openai_provider_estimated_cost():
+    from majestic.llm.openai import OpenAIProvider
+    p = OpenAIProvider(model="gpt-4o")
+    cost = p.estimated_cost(Usage(input_tokens=1_000_000, output_tokens=1_000_000))
+    assert abs(cost - 12.50) < 0.01  # 2.50 in + 10.00 out
+
+
+def test_openai_provider_cost_unknown_model():
+    from majestic.llm.openai import OpenAIProvider
+    p = OpenAIProvider(model="gpt-future-9000")
+    cost = p.estimated_cost(Usage(input_tokens=1_000_000, output_tokens=1_000_000))
+    assert cost > 0  # falls back to default pricing
+
+
+def test_openrouter_provider_registered():
+    from majestic.llm.base import _registry
+    assert "openrouter" in _registry
+
+
+def test_openrouter_tool_conversion():
+    from majestic.llm.openrouter import OpenRouterProvider
+    tools = [{"name": "search_web", "description": "Search", "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}}}]
+    converted = OpenRouterProvider._convert_tools(tools)
+    assert converted[0]["type"] == "function"
+    assert converted[0]["function"]["name"] == "search_web"
+    assert "parameters" in converted[0]["function"]
+
+
+def test_openrouter_message_conversion_tool_result():
+    from majestic.llm.openrouter import OpenRouterProvider
+    msgs = [{"role": "tool_result", "tool_call_id": "tc1", "content": "result text"}]
+    converted = OpenRouterProvider._convert_messages(msgs)
+    assert converted[0]["role"] == "tool"
+    assert converted[0]["tool_call_id"] == "tc1"
+
+
+def test_all_providers_registered():
+    from majestic.llm.base import _registry
+    for name in ("anthropic", "openai", "openrouter", "ollama"):
+        assert name in _registry, f"Provider '{name}' not registered"

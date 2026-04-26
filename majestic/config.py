@@ -125,6 +125,10 @@ def sync_env_from_config() -> None:
 
     if provider == "anthropic":
         os.environ.setdefault("ANTHROPIC_MODEL", model)
+    elif provider == "openai":
+        os.environ.setdefault("OPENAI_MODEL", model)
+    elif provider == "openrouter":
+        os.environ.setdefault("OPENROUTER_MODEL", model)
     else:
         os.environ.setdefault("OLLAMA_MODEL", model)
 

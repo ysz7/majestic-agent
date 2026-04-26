@@ -17,12 +17,34 @@ _ANTHROPIC_MODELS = [
     "claude-haiku-4-5-20251001",
 ]
 
+_OPENAI_MODELS = [
+    "gpt-4o",
+    "gpt-4o-mini",
+    "o1",
+    "o1-mini",
+    "o3-mini",
+]
+
 _OPENROUTER_MODELS = [
     "anthropic/claude-sonnet-4-6",
     "openai/gpt-4o",
     "google/gemini-2.5-pro",
     "meta-llama/llama-3.1-70b-instruct",
 ]
+
+_OLLAMA_MODELS = [
+    "gemma3",
+    "llama3.2",
+    "mistral",
+    "qwen2.5",
+]
+
+_MODELS: dict[str, list[str]] = {
+    "anthropic":  _ANTHROPIC_MODELS,
+    "openai":     _OPENAI_MODELS,
+    "openrouter": _OPENROUTER_MODELS,
+    "ollama":     _OLLAMA_MODELS,
+}
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -65,32 +87,30 @@ def run_setup() -> None:
 
     # ── LLM Provider ──────────────────────────────────────────────────────────
     current_provider = data.get("llm", {}).get("provider", "anthropic")
-    providers = ["anthropic", "openrouter"]
+    providers = ["anthropic", "openai", "openrouter", "ollama"]
     default_idx = providers.index(current_provider) if current_provider in providers else 0
     pidx = choose("LLM Provider", providers, default=default_idx)
     provider = providers[pidx]
 
     # ── API Key ───────────────────────────────────────────────────────────────
-    if provider == "anthropic":
-        current_key = env.get("ANTHROPIC_API_KEY", "")
+    _KEY_ENV = {
+        "anthropic":  "ANTHROPIC_API_KEY",
+        "openai":     "OPENAI_API_KEY",
+        "openrouter": "OPENROUTER_API_KEY",
+    }
+    if provider in _KEY_ENV:
+        env_key = _KEY_ENV[provider]
+        current_key = env.get(env_key, "")
         hint = f"***{current_key[-4:]}" if current_key else ""
-        key = ask("Anthropic API key", hint)
+        key = ask(f"{provider.capitalize()} API key", hint)
         if key and not key.startswith("***"):
-            env["ANTHROPIC_API_KEY"] = key
-        elif not key and not current_key:
-            warn("No API key provided — you can add it later to ~/.majestic-agent/.env")
-    else:
-        current_key = env.get("OPENROUTER_API_KEY", "")
-        hint = f"***{current_key[-4:]}" if current_key else ""
-        key = ask("OpenRouter API key", hint)
-        if key and not key.startswith("***"):
-            env["OPENROUTER_API_KEY"] = key
+            env[env_key] = key
         elif not key and not current_key:
             warn("No API key provided — you can add it later to ~/.majestic-agent/.env")
 
     # ── Model ─────────────────────────────────────────────────────────────────
-    model_list = _ANTHROPIC_MODELS if provider == "anthropic" else _OPENROUTER_MODELS
-    current_model = data.get("llm", {}).get("model", model_list[0])
+    model_list = _MODELS.get(provider, [])
+    current_model = data.get("llm", {}).get("model", model_list[0] if model_list else "")
     midx = model_list.index(current_model) if current_model in model_list else 0
     midx = choose("Model", model_list + ["Enter manually"], default=midx)
     if midx == len(model_list):
@@ -151,10 +171,12 @@ def select_model() -> None:
 
     print(f"\n  {B}Current:{R} {provider} / {current}\n")
 
-    pidx = choose("Provider", ["anthropic", "openrouter"], default=0 if provider == "anthropic" else 1)
-    provider = ["anthropic", "openrouter"][pidx]
+    _providers = ["anthropic", "openai", "openrouter", "ollama"]
+    default_p = _providers.index(provider) if provider in _providers else 0
+    pidx = choose("Provider", _providers, default=default_p)
+    provider = _providers[pidx]
 
-    model_list = _ANTHROPIC_MODELS if provider == "anthropic" else _OPENROUTER_MODELS
+    model_list = _MODELS.get(provider, [])
     midx = model_list.index(current) if current in model_list else 0
     midx = choose("Model", model_list + ["Enter manually"], default=midx)
     if midx == len(model_list):
@@ -259,19 +281,18 @@ def run_doctor() -> None:
     # LLM key
     cfg.load_env()
     provider = cfg.get("llm.provider", "anthropic")
-    if provider == "anthropic":
-        key = os.environ.get("ANTHROPIC_API_KEY", "")
+    _key_map = {
+        "anthropic":  "ANTHROPIC_API_KEY",
+        "openai":     "OPENAI_API_KEY",
+        "openrouter": "OPENROUTER_API_KEY",
+    }
+    if provider in _key_map:
+        env_key = _key_map[provider]
+        key = os.environ.get(env_key, "")
         if key:
-            ok(f"ANTHROPIC_API_KEY  set ({DIM}***{key[-4:]}{R})")
+            ok(f"{env_key}  set ({DIM}***{key[-4:]}{R})")
         else:
-            err("ANTHROPIC_API_KEY  not set  →  add to ~/.majestic-agent/.env")
-            problems += 1
-    elif provider == "openrouter":
-        key = os.environ.get("OPENROUTER_API_KEY", "")
-        if key:
-            ok(f"OPENROUTER_API_KEY  set ({DIM}***{key[-4:]}{R})")
-        else:
-            err("OPENROUTER_API_KEY  not set  →  add to ~/.majestic-agent/.env")
+            err(f"{env_key}  not set  →  add to ~/.majestic-agent/.env")
             problems += 1
 
     # LLM reachability
@@ -323,17 +344,24 @@ def _check_llm(provider: str) -> None:
             client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
             client.models.list()
             ok("Anthropic API  reachable")
+        elif provider == "openai":
+            from openai import OpenAI
+            client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", ""))
+            client.models.list()
+            ok("OpenAI API  reachable")
         elif provider == "openrouter":
-            import requests
-            r = requests.get(
-                "https://openrouter.ai/api/v1/models",
-                headers={"Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY', '')}"},
-                timeout=5,
+            from openai import OpenAI
+            client = OpenAI(
+                base_url="https://openrouter.ai/api/v1",
+                api_key=os.environ.get("OPENROUTER_API_KEY", ""),
             )
-            if r.status_code == 200:
-                ok("OpenRouter API  reachable")
-            else:
-                warn(f"OpenRouter API  HTTP {r.status_code}")
+            client.models.list()
+            ok("OpenRouter API  reachable")
+        elif provider == "ollama":
+            import urllib.request
+            with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=3) as r:
+                if r.status == 200:
+                    ok("Ollama  reachable")
     except ImportError as e:
         warn(f"LLM check skipped — missing package: {e}")
     except Exception as e:
