@@ -19,6 +19,10 @@ _DEFAULTS: dict = {
         "tools_enabled": [],
         "tools_disabled": [],
     },
+    "api": {
+        "port": 8080,
+        "key": "",
+    },
     "language": "EN",
     "currency": "USD",
     "search_mode": "all",

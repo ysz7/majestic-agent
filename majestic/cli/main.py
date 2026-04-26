@@ -23,6 +23,7 @@ Commands:
   config get KEY   Get a config value  (e.g. config get llm.provider)
   config set KEY V Set a config value  (e.g. config set language RU)
   doctor           Diagnose configuration problems
+  api start        Start REST API server (POST /chat, GET /health, GET /sessions)
   gateway start    Start gateway (Telegram + any configured platform)
   gateway setup    Configure platform connections interactively
 
@@ -92,6 +93,9 @@ def main() -> None:
         from majestic.cli.setup import run_doctor
         run_doctor()
 
+    elif cmd == "api":
+        _api_cmd(args[1:])
+
     elif cmd == "gateway":
         _gateway_cmd(args[1:])
 
@@ -101,6 +105,31 @@ def main() -> None:
     else:
         print(f"Unknown command: {cmd}\n")
         print(_HELP)
+        sys.exit(1)
+
+
+def _api_cmd(args: list[str]) -> None:
+    sub = args[0] if args else None
+    if sub == "start":
+        from majestic import config as cfg
+        from majestic.constants import CONFIG_FILE
+        if not CONFIG_FILE.exists():
+            from majestic.cli.display import warn
+            warn("No configuration found. Run `majestic setup` first.\n")
+            sys.exit(1)
+        cfg.sync_env_from_config()
+        port = cfg.get("api.port", 8080)
+        from majestic.api.server import start
+        import time
+        start(port=port)
+        print("  Press Ctrl+C to stop.")
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            print("\n  Stopped.")
+    else:
+        print("Usage: majestic api <start>")
         sys.exit(1)
 
 

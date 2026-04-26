@@ -286,6 +286,13 @@ class StateDB:
         self._conn.commit()
         return cur.lastrowid
 
+    def get_recent_sessions(self, limit: int = 20) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT id, source, model, started_at, ended_at, message_count FROM sessions ORDER BY started_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     def search_messages(self, query: str, k: int = 10) -> list[dict]:
         rows = self._conn.execute(
             """
