@@ -377,6 +377,45 @@ footer {
   .nav-links { display: none; }
   .hamburger { display: flex; }
   .plat-grid { grid-template-columns: repeat(2, 1fr); }
+
+  .nav-links.mobile-open {
+    display: flex; flex-direction: column; gap: 0;
+    position: fixed; top: 56px; left: 0; right: 0;
+    background: rgba(16,16,16,0.98);
+    backdrop-filter: blur(24px) saturate(1.2);
+    border-bottom: 1px solid var(--border);
+    z-index: 199;
+    padding: 0;
+  }
+  .nav-links.mobile-open li {
+    border-bottom: 1px solid var(--border);
+    width: 100%;
+  }
+  .nav-links.mobile-open li:last-child {
+    border-bottom: none;
+    padding: 16px 24px;
+  }
+  .nav-links.mobile-open a {
+    display: block; width: 100%;
+    padding: 16px 24px !important;
+    font-size: 14px !important; font-weight: 400 !important;
+    color: var(--text-mid) !important;
+    border-radius: 0 !important;
+    background: none !important;
+    border: none !important;
+    letter-spacing: 0.01em;
+  }
+  .nav-links.mobile-open a:hover { color: var(--text) !important; background: rgba(255,255,255,0.03) !important; }
+  .nav-links.mobile-open .nav-btn {
+    display: block;
+    padding: 10px 20px !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--border2) !important;
+    background: var(--bg3) !important;
+    color: var(--text) !important;
+    font-size: 13px !important;
+    text-align: center;
+  }
 }
 @media (max-width: 600px) {
   .hero { padding: 100px 16px 60px; }
@@ -387,7 +426,7 @@ footer {
   footer { padding: 24px 16px; }
   .cta { padding: 100px 24px; }
   .plat-grid { grid-template-columns: 1fr; }
-  .hero-title { font-size: clamp(60px, 20vw, 100px); }
+  .hero-title { font-size: clamp(60px, 15vw, 100px); }
 }
 </style>
 </head>
@@ -707,11 +746,7 @@ let menuOpen = false;
 function toggleMenu() {
   const links = document.querySelector('.nav-links');
   menuOpen = !menuOpen;
-  if (menuOpen) {
-    links.style.cssText = 'display:flex;flex-direction:column;position:fixed;top:56px;left:0;right:0;background:rgba(12,12,12,0.98);padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.055);backdrop-filter:blur(24px);gap:2px;z-index:199;';
-  } else {
-    links.style.cssText = 'display:none';
-  }
+  links.classList.toggle('mobile-open', menuOpen);
 }
 </script>
 </body>
