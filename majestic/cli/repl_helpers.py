@@ -22,15 +22,18 @@ class _LineSpinner:
     """Animates a single terminal line while a task runs, then finalizes it."""
 
     def __init__(self, out) -> None:
-        self._out   = out
-        self._stop  = threading.Event()
-        self._line  = ""
+        self._out    = out
+        self._stop   = threading.Event()
+        self._paused = threading.Event()
+        self._paused.set()
+        self._line   = ""
         self._thread: threading.Thread | None = None
 
     def start(self, line: str) -> None:
         self.stop()
         self._line = line
         self._stop.clear()
+        self._paused.set()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
@@ -40,16 +43,76 @@ class _LineSpinner:
             self._thread.join(timeout=1.0)
             self._thread = None
 
+    def pause(self) -> None:
+        """Pause animation and clear current line."""
+        self._paused.clear()
+        self._out.write("\r\033[2K")
+        self._out.flush()
+
+    def resume(self) -> None:
+        self._paused.set()
+
     def _run(self) -> None:
         i = 0
-        while not self._stop.wait(0.1):
-            frame = _SPIN_FRAMES[i % len(_SPIN_FRAMES)]
-            self._out.write(f"\r\033[2K{self._line} {DIM}{frame}{R}")
-            self._out.flush()
-            i += 1
+        while not self._stop.wait(0.08):
+            if self._paused.is_set():
+                frame = _SPIN_FRAMES[i % len(_SPIN_FRAMES)]
+                self._out.write(f"\r\033[2K{self._line} {DIM}{frame}{R}")
+                self._out.flush()
+                i += 1
         # Clear the working line, leave cursor at col 0 (no \n)
         self._out.write("\r\033[2K")
         self._out.flush()
+
+
+_ERR_DETAIL_MAX = 52
+
+
+def _fmt_progress(line: str) -> str:
+    """Format a tool sub-progress line: dim style, truncate error details."""
+    low = line.lower()
+    for kw in ("error:", "timeout —", "warning:"):
+        idx = low.find(kw)
+        if idx != -1:
+            end  = idx + len(kw)
+            detail = line[end:].strip()
+            if len(detail) > _ERR_DETAIL_MAX:
+                detail = detail[:_ERR_DETAIL_MAX] + "…"
+            prefix = line[:end].strip()
+            return f" {DIM}{prefix} {detail}{R}"
+    return f" {DIM}{line.strip()}{R}"
+
+
+class _SpinnerProxy:
+    """
+    Wraps sys.stdout during agent execution so tool sub-progress lines
+    (printed by collect_and_index / collectors) integrate cleanly with
+    the spinner instead of interleaving with it.
+    """
+
+    def __init__(self, real_out, spinner: _LineSpinner) -> None:
+        self._real    = real_out
+        self._spinner = spinner
+        self._buf     = ""
+
+    def write(self, data: str) -> int:
+        self._buf += data
+        while "\n" in self._buf:
+            line, self._buf = self._buf.split("\n", 1)
+            line = line.rstrip()
+            if not line:
+                continue
+            self._spinner.pause()
+            self._real.write(_fmt_progress(line) + "\n")
+            self._real.flush()
+            self._spinner.resume()
+        return len(data)
+
+    def flush(self) -> None:
+        self._real.flush()
+
+    def fileno(self) -> int:
+        return self._real.fileno()
 
 _TOOL_LABELS: dict[str, str] = {
     "search_knowledge":  "searching knowledge base",
@@ -99,6 +162,8 @@ def run_agent(user_input: str, session_id: str | None, history: list) -> str:
     except Exception:
         _cost_before = 0.0
 
+    _proxy = _SpinnerProxy(_sys.__stdout__, _spinner)
+    _sys.stdout = _proxy
     try:
         result = loop.run(
             user_input,
@@ -107,11 +172,14 @@ def run_agent(user_input: str, session_id: str | None, history: list) -> str:
             on_tool_call=_on_tool,
         )
     except KeyboardInterrupt:
+        _sys.stdout = _sys.__stdout__
         _spinner.stop()
         _agent_stop.set()
         _sys.__stdout__.write("\r\033[2K")
         print(f"\n  {Y}Stopped.{R}\n")
         return ""
+    finally:
+        _sys.stdout = _sys.__stdout__
 
     _spinner.stop()  # clears "Working..." line, cursor at col 0
 

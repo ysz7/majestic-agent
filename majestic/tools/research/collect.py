@@ -127,8 +127,8 @@ def _collect_inner(on_progress=None) -> Dict:
     import sys as _sys
 
     def _log(msg: str) -> None:
-        _sys.__stdout__.write(msg + "\n")
-        _sys.__stdout__.flush()
+        _sys.stdout.write(msg + "\n")
+        _sys.stdout.flush()
 
     seen      = _load_seen()
     all_items: List[Dict] = []
@@ -137,7 +137,7 @@ def _collect_inner(on_progress=None) -> Dict:
         if on_progress:
             on_progress(name, i, total)
         else:
-            _log(f"  ├ {name} [{i}/{total}]")
+            _log(f"├ {name} [{i}/{total}]")
         try:
             all_items += fn()
         except Exception:
@@ -168,7 +168,7 @@ def _collect_inner(on_progress=None) -> Dict:
         counts[s] = counts.get(s, 0) + 1
 
     if not on_progress:
-        _log(f"  └ Done · {len(new_items)} new items")
+        _log(f"└ Done · {len(new_items)} new items")
     return {
         "total_new":  len(new_items),
         "total_seen": len(all_items) - len(new_items),
