@@ -6,7 +6,16 @@ First call downloads ~80 MB model to ~/.cache/fastembed/.
 """
 from __future__ import annotations
 
+import os
 import threading
+import warnings
+
+# Suppress HuggingFace Hub download progress bars and auth warnings
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+os.environ.setdefault("HF_HUB_VERBOSITY", "error")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub")
+warnings.filterwarnings("ignore", message=".*HF_HUB_DISABLE_PROGRESS_BARS.*")
 
 _MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 _model = None

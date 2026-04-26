@@ -1,7 +1,4 @@
-"""
-Helper functions for the CLI REPL: agent runner, command handlers, file ops.
-Imported by repl.py to keep the main loop file under 300 lines.
-"""
+"""CLI REPL helpers: spinner, agent runner, file ops. Commands are in repl_commands.py."""
 from __future__ import annotations
 
 import re
@@ -26,6 +23,7 @@ class _LineSpinner:
         self._stop   = threading.Event()
         self._paused = threading.Event()
         self._paused.set()
+        self._wlock  = threading.Lock()   # serialises terminal writes — prevents race on pause
         self._line   = ""
         self._thread: threading.Thread | None = None
 
@@ -44,10 +42,9 @@ class _LineSpinner:
             self._thread = None
 
     def pause(self) -> None:
-        """Pause animation and clear current line."""
         self._paused.clear()
-        self._out.write("\r\033[2K")
-        self._out.flush()
+        with self._wlock:  # wait for any in-flight frame write before clearing line
+            self._out.write("\r\033[2K"); self._out.flush()
 
     def resume(self) -> None:
         self._paused.set()
@@ -56,25 +53,23 @@ class _LineSpinner:
         i = 0
         while not self._stop.wait(0.08):
             if self._paused.is_set():
-                frame = _SPIN_FRAMES[i % len(_SPIN_FRAMES)]
-                self._out.write(f"\r\033[2K{self._line} {DIM}{frame}{R}")
-                self._out.flush()
+                with self._wlock:
+                    self._out.write(f"\r\033[2K{self._line} {DIM}{_SPIN_FRAMES[i % 10]}{R}")
+                    self._out.flush()
                 i += 1
-        # Clear the working line, leave cursor at col 0 (no \n)
-        self._out.write("\r\033[2K")
-        self._out.flush()
+        with self._wlock:
+            self._out.write("\r\033[2K"); self._out.flush()
 
 
 _ERR_DETAIL_MAX = 52
 
 
 def _fmt_progress(line: str) -> str:
-    """Format a tool sub-progress line: dim style, truncate error details."""
     low = line.lower()
     for kw in ("error:", "timeout —", "warning:"):
         idx = low.find(kw)
         if idx != -1:
-            end  = idx + len(kw)
+            end    = idx + len(kw)
             detail = line[end:].strip()
             if len(detail) > _ERR_DETAIL_MAX:
                 detail = detail[:_ERR_DETAIL_MAX] + "…"
@@ -84,12 +79,6 @@ def _fmt_progress(line: str) -> str:
 
 
 class _SpinnerProxy:
-    """
-    Wraps sys.stdout during agent execution so tool sub-progress lines
-    (printed by collect_and_index / collectors) integrate cleanly with
-    the spinner instead of interleaving with it.
-    """
-
     def __init__(self, real_out, spinner: _LineSpinner) -> None:
         self._real    = real_out
         self._spinner = spinner
@@ -108,11 +97,9 @@ class _SpinnerProxy:
             self._spinner.resume()
         return len(data)
 
-    def flush(self) -> None:
-        self._real.flush()
+    def flush(self) -> None: self._real.flush()
+    def fileno(self) -> int: return self._real.fileno()
 
-    def fileno(self) -> int:
-        return self._real.fileno()
 
 _TOOL_LABELS: dict[str, str] = {
     "search_knowledge":  "searching knowledge base",
@@ -128,10 +115,25 @@ _TOOL_LABELS: dict[str, str] = {
     "read_file":         "reading file",
     "write_file":        "writing file",
     "run_command":       "running command",
+    "workspace_list":    "listing workspace",
+    "workspace_search":  "searching workspace",
+    "workspace_delete":  "deleting file",
+    "workspace_move":    "moving file",
 }
 
+_ARG_KEYS = ("query", "topic", "task", "prompt", "subject", "keyword", "text", "name", "path")
+_LABEL_MAX = 32
 
-# ── Agent runner ──────────────────────────────────────────────────────────────
+
+def _tool_label(name: str, args: dict) -> str:
+    base = _TOOL_LABELS.get(name, name.replace("_", " "))
+    for key in _ARG_KEYS:
+        val = (args.get(key) or "").strip()
+        if val and isinstance(val, str) and len(val) >= 2:
+            short = val[:_LABEL_MAX] + ("…" if len(val) > _LABEL_MAX else "")
+            return f"{base} · {short}"
+    return base
+
 
 def run_agent(user_input: str, session_id: str | None, history: list) -> str:
     from majestic.agent.loop import AgentLoop
@@ -144,16 +146,16 @@ def run_agent(user_input: str, session_id: str | None, history: list) -> str:
     _spinner = _LineSpinner(_sys.__stdout__)
 
     def _on_tool(name: str, _args: dict) -> None:
-        _spinner.stop()  # clears "Working..." or "thinking..." line, cursor at col 0
+        _spinner.stop()
         _tools_used.append(name)
         prefix = f"{DIM}┌{R}" if not _had_tools[0] else f"{DIM}├{R}"
         _had_tools[0] = True
         _sys.__stdout__.write(f" {prefix} {C}{name}{R}\n")
         _sys.__stdout__.flush()
-        _spinner.start(f" {DIM}├ Working...{R}")
+        label = _tool_label(name, _args)
+        _spinner.start(f" {DIM}├ Working [{label}]{R}")
 
     loop = AgentLoop(stop_event=_agent_stop)
-
     _spinner.start(f" {DIM}· thinking...{R}")
 
     try:
@@ -181,7 +183,7 @@ def run_agent(user_input: str, session_id: str | None, history: list) -> str:
     finally:
         _sys.stdout = _sys.__stdout__
 
-    _spinner.stop()  # clears "Working..." line, cursor at col 0
+    _spinner.stop()
 
     elapsed = _time.time() - _start
     try:
@@ -241,7 +243,11 @@ def dispatch_shortcut(cmd: str, rest: str) -> None:
     spinner = _LineSpinner(_sys.__stdout__)
     _sys.__stdout__.write(f" {DIM}┌{R} {C}{cmd}{R}\n")
     _sys.__stdout__.flush()
-    spinner.start(f" {DIM}├ Working...{R}")
+    label = _TOOL_LABELS.get(cmd, cmd.replace("_", " "))
+    if args.get("topic"):
+        short = args["topic"][:_LABEL_MAX] + ("…" if len(args["topic"]) > _LABEL_MAX else "")
+        label = f"{label} · {short}"
+    spinner.start(f" {DIM}├ Working [{label}]{R}")
 
     try:
         from majestic.token_tracker import get_stats as _gs
@@ -253,7 +259,7 @@ def dispatch_shortcut(cmd: str, rest: str) -> None:
     result = dispatch(cmd, args)
     elapsed = _time.time() - _start
 
-    spinner.stop()  # clears "Working..." line, cursor at col 0
+    spinner.stop()
 
     try:
         from majestic.token_tracker import get_stats as _gs
@@ -272,8 +278,6 @@ def dispatch_shortcut(cmd: str, rest: str) -> None:
     indented = "\n".join("  " + line if line else "" for line in text.splitlines())
     print(f"\n{indented}\n")
 
-
-# ── File handling ─────────────────────────────────────────────────────────────
 
 def looks_like_path(text: str) -> bool:
     return len(split_paths(text.strip())) > 0
@@ -300,220 +304,3 @@ def handle_files(paths: list[Path]) -> None:
         with Spinner(f"Indexing {p.name}..."):
             _tools.execute("index_file", {"path": str(p)})
         print(f"  {G}✓ Indexed {p.name}{R}\n")
-
-
-# ── Management command handlers ───────────────────────────────────────────────
-
-def cmd_set(rest: str) -> None:
-    from majestic import config as _cfg
-    parts = rest.split(None, 1)
-    if len(parts) < 2:
-        cfg = _cfg.load()
-        agent = cfg.get("agent", {})
-        print(f"\n  {B}agent.role{R}          {DIM}{agent.get('role', '') or '(none)'}{R}")
-        print(f"  {B}agent.tools_enabled{R} {DIM}{agent.get('tools_enabled', []) or '(all)'}{R}")
-        print(f"  {B}agent.tools_disabled{R}{DIM}{agent.get('tools_disabled', []) or '(none)'}{R}\n")
-        print(f"  {DIM}Usage: /set <key> <value>{R}")
-        print(f"  {DIM}Keys: agent.role, agent.tools_enabled, agent.tools_disabled{R}\n")
-        return
-    key, val_str = parts[0], parts[1]
-    if key in ("agent.tools_enabled", "agent.tools_disabled"):
-        val = [v.strip() for v in val_str.split(",") if v.strip()] if val_str.strip() != "-" else []
-    else:
-        val = val_str if val_str.strip() != "-" else ""
-    _cfg.set_value(key, val)
-    print(f"  {G}✓ {key} = {val!r}{R}\n")
-
-def cmd_history(rest: str) -> None:
-    from majestic.db.state import StateDB
-    db = StateDB()
-    parts = rest.strip().split(None, 1)
-    sub = parts[0].lower() if parts else "last"
-    arg = parts[1] if len(parts) > 1 else ""
-
-    if sub == "last" or not rest.strip():
-        try:
-            n = int(arg) if arg else 10
-        except ValueError:
-            n = 10
-        rows = db.get_recent_sessions(limit=n)
-        if not rows:
-            print(f"  {DIM}No sessions found.{R}\n")
-            return
-        print()
-        for r in rows:
-            date  = (r.get("started_at") or "")[:16].replace("T", " ")
-            title = r.get("title") or f"{DIM}(no summary){R}"
-            msgs  = r.get("message_count", 0)
-            print(f"  {DIM}{date}{R}  {title}  {DIM}{msgs} msgs{R}")
-        print()
-    else:
-        query = rest.strip()
-        if not query:
-            print(f"  {Y}Usage: /history <query> | last [N]{R}\n")
-            return
-        with Spinner("Searching history..."):
-            from majestic.tools.history_search import history_search
-            result = history_search(query)
-        try:
-            from majestic.gateway.formatter import render_cli
-            text = render_cli(result)
-        except Exception:
-            text = result
-        indented = "\n".join("  " + line if line else "" for line in text.splitlines())
-        print(f"\n{indented}\n")
-
-
-def cmd_schedule(rest: str) -> None:
-    from majestic.cron.jobs import list_schedules, add_schedule, remove_schedule, nl_to_schedule
-    parts = rest.split(None, 1)
-    sub   = parts[0].lower() if parts else "list"
-    arg   = parts[1] if len(parts) > 1 else ""
-
-    if not sub or sub == "list":
-        rows = list_schedules()
-        if not rows:
-            print(f"  {DIM}No schedules.{R}\n")
-        else:
-            for r in rows:
-                dot = f"{G}●{R}" if r.get("enabled") else f"{DIM}○{R}"
-                print(f"  {dot} [{r['id']}] {r['name']:30s} {DIM}{r['cron_expr']}{R}")
-            print()
-    elif sub == "add":
-        if not arg:
-            print(f"  {Y}Usage: /schedule add <description>{R}\n")
-            return
-        with Spinner("Parsing schedule..."):
-            sched = nl_to_schedule(arg)
-        add_schedule(
-            name=sched["name"],
-            cron_expr=sched["cron"],
-            prompt=sched["prompt"],
-            delivery_target=sched.get("target", "cli"),
-        )
-        print(f"  {G}✓ Added:{R} {sched['name']} ({sched['cron']})\n")
-    elif sub == "remove":
-        try:
-            remove_schedule(int(arg))
-            print(f"  {G}✓ Removed schedule {arg}{R}\n")
-        except (ValueError, Exception) as e:
-            print(f"  {Y}Error: {e}{R}\n")
-    else:
-        print(f"  {Y}Usage: /schedule [list|add|remove]{R}\n")
-
-
-def cmd_memory() -> None:
-    try:
-        from majestic.memory.store import show
-        try:
-            from majestic.gateway.formatter import render_cli
-            print(f"\n{render_cli(show())}\n")
-        except Exception:
-            print(f"\n{show()}\n")
-    except Exception as e:
-        print(f"  {Y}Memory unavailable: {e}{R}\n")
-
-
-def cmd_forget(topic: str) -> None:
-    if not topic:
-        print(f"  {Y}Usage: /forget <topic>{R}\n")
-        return
-    try:
-        from majestic.memory.store import forget
-        n = forget(topic)
-        if n:
-            print(f"  {G}✓ Removed {n} entr{'y' if n == 1 else 'ies'} mentioning «{topic}»{R}\n")
-        else:
-            print(f"  {DIM}Nothing found mentioning «{topic}»{R}\n")
-    except Exception as e:
-        print(f"  {Y}Error: {e}{R}\n")
-
-
-def cmd_skills() -> None:
-    from majestic.skills.loader import list_skills
-    skills = list_skills()
-    if not skills:
-        print(f"  {DIM}No skills saved yet.{R}\n")
-        return
-    for s in skills:
-        print(f"  {G}/{s['name']}{R}  {DIM}{s.get('description', '')}  (used {s.get('usage_count', 0)}x){R}")
-    print()
-
-
-def cmd_remind(rest: str, is_list: bool = False) -> None:
-    if is_list or not rest:
-        try:
-            from majestic.reminders import list_reminders
-            rows = list_reminders()
-            if not rows:
-                print(f"  {DIM}No active reminders.{R}\n")
-            else:
-                for r in rows:
-                    print(f"  {DIM}{r['dt'][:16]}{R}  {r['text']}")
-                print()
-        except Exception as e:
-            print(f"  {Y}Error: {e}{R}\n")
-    else:
-        try:
-            from majestic.reminders import add_reminder
-            add_reminder(rest)
-            print(f"  {G}✓ Reminder set.{R}\n")
-        except Exception as e:
-            print(f"  {Y}Error: {e}{R}\n")
-
-
-def cmd_rss(rest: str) -> None:
-    try:
-        from majestic.tools.web.rss import list_feeds, add_feed, remove_feed
-        parts = rest.split(None, 1)
-        sub   = parts[0].lower() if parts else "list"
-        arg   = parts[1] if len(parts) > 1 else ""
-        if sub == "add":
-            add_feed(arg)
-            print(f"  {G}✓ Feed added.{R}\n")
-        elif sub == "remove":
-            remove_feed(int(arg))
-            print(f"  {G}✓ Feed removed.{R}\n")
-        else:
-            feeds = list_feeds()
-            if not feeds:
-                print(f"  {DIM}No RSS feeds configured.{R}\n")
-            else:
-                for i, f in enumerate(feeds, 1):
-                    print(f"  {i}. {f.get('url', f)}")
-                print()
-    except Exception as e:
-        print(f"  {Y}Error: {e}{R}\n")
-
-
-def cmd_reports(rest: str) -> None:
-    from majestic.constants import EXPORTS_DIR
-    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    reports = sorted(EXPORTS_DIR.glob("*.md"))
-    parts = rest.split(None, 1)
-    sub   = parts[0].lower() if parts else ""
-    arg   = parts[1] if len(parts) > 1 else ""
-
-    if not sub:
-        if not reports:
-            print(f"  {DIM}No reports saved.{R}\n")
-        else:
-            for i, p in enumerate(reports, 1):
-                print(f"  {i}. {p.stem}")
-            print()
-    elif sub == "view":
-        try:
-            content = reports[int(arg) - 1].read_text(encoding="utf-8")
-            try:
-                from majestic.gateway.formatter import render_cli
-                print(render_cli(content))
-            except Exception:
-                print(content)
-        except (ValueError, IndexError):
-            print(f"  {Y}Invalid report number.{R}\n")
-    elif sub == "del":
-        try:
-            reports[int(arg) - 1].unlink()
-            print(f"  {G}✓ Deleted.{R}\n")
-        except (ValueError, IndexError):
-            print(f"  {Y}Invalid report number.{R}\n")

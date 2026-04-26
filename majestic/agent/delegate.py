@@ -8,12 +8,14 @@ Max 3 concurrent sub-agents (configurable via _MAX_WORKERS).
 from __future__ import annotations
 
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutureTimeout
 from typing import Optional
 
 from majestic.tools.registry import tool
 
-_MAX_WORKERS = 3
+_MAX_WORKERS     = 3
+_SUBTASK_TIMEOUT = 60   # seconds — hard ceiling per sub-task
+_MAX_ITER_SUB    = 3    # sub-agents: minimal iterations to cut token cost
 
 # Registry of active child stop events — parent signals all on /stop
 _active_children: list[threading.Event] = []
@@ -43,10 +45,9 @@ def stop_all_children() -> None:
 @tool(
     name="delegate_task",
     description=(
-        "Delegate a sub-task to an isolated agent that has its own tools and session. "
-        "The sub-agent runs independently and returns only its final answer. "
-        "Use when a part of the work can be handled separately: "
-        "research a sub-topic, process a file, run analysis in parallel."
+        "HEAVY: spawns a separate agent (uses extra LLM calls + tokens). "
+        "Use ONLY when a task is truly independent and too complex for a single tool call. "
+        "Do NOT use for simple lookups, DB checks, or single-tool operations — call the tool directly instead."
     ),
     input_schema={
         "type": "object",
@@ -76,10 +77,10 @@ def delegate_task(task: str, context: str = "") -> str:
 @tool(
     name="delegate_parallel",
     description=(
-        "Run multiple independent sub-tasks in parallel (max 3 at a time). "
-        "Each task runs in its own isolated agent. "
-        "Use when you have several independent pieces of work that can run simultaneously. "
-        "Returns a list of results in the same order as the input tasks."
+        "VERY HEAVY: spawns up to 3 parallel agents — each costs extra LLM calls and tokens. "
+        "Use ONLY for genuinely parallel multi-source research (e.g. research 3 different markets at once). "
+        "Do NOT use for: DB checks, simple questions, single-tool calls, answering from history. "
+        "When in doubt, do the work inline instead of delegating."
     ),
     input_schema={
         "type": "object",
@@ -102,7 +103,8 @@ def delegate_parallel(tasks: list[str]) -> str:
     for ev in stop_events:
         _register_child(ev)
 
-    results: list[str] = [""] * len(tasks)
+    results: list[str] = [f"[timed out after {_SUBTASK_TIMEOUT}s]"] * len(tasks)
+    overall_timeout = _SUBTASK_TIMEOUT * min(len(tasks), _MAX_WORKERS)
 
     try:
         with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as executor:
@@ -110,12 +112,17 @@ def delegate_parallel(tasks: list[str]) -> str:
                 executor.submit(_run_subtask, task, "", stop_events[i]): i
                 for i, task in enumerate(tasks)
             }
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                try:
-                    results[idx] = future.result(timeout=120)
-                except Exception as e:
-                    results[idx] = f"[sub-agent error] {e}"
+            try:
+                for future in as_completed(future_to_idx, timeout=overall_timeout):
+                    idx = future_to_idx[future]
+                    try:
+                        results[idx] = future.result()
+                    except Exception as e:
+                        results[idx] = f"[sub-agent error] {e}"
+            except FutureTimeout:
+                # Signal all remaining sub-agents to stop so threads exit quickly
+                for ev in stop_events:
+                    ev.set()
     finally:
         for ev in stop_events:
             _unregister_child(ev)
@@ -132,12 +139,15 @@ def _run_subtask(
     stop_event: threading.Event,
 ) -> str:
     from majestic.agent.loop import AgentLoop
+    from majestic.agent.prompt import build_sub_system
+    from majestic.config import get
 
     if stop_event.is_set():
         return "[Stopped before start]"
 
     input_text = f"Context:\n{context}\n\nTask:\n{task}" if context.strip() else task
+    system = build_sub_system(lang=get("language", "EN"))
 
-    loop = AgentLoop(stop_event=stop_event)
-    result = loop.run(input_text)
+    loop = AgentLoop(stop_event=stop_event, max_iterations=_MAX_ITER_SUB)
+    result = loop.run(input_text, system=system)
     return result.get("answer", "(no output)")

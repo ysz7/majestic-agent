@@ -13,8 +13,11 @@ from majestic.cli.repl_helpers import (
     _agent_stop,
     run_agent, dispatch_shortcut,
     looks_like_path, split_paths, handle_files,
+)
+from majestic.cli.repl_commands import (
     cmd_schedule, cmd_memory, cmd_forget, cmd_skills,
     cmd_remind, cmd_rss, cmd_reports, cmd_set, cmd_history,
+    cmd_workspace,
 )
 
 _HELP = f"""
@@ -29,6 +32,7 @@ _HELP = f"""
   Drag & drop or paste a path   → index .pdf .docx .csv .txt .md
 
 {B}Memory & skills:{R}
+  /workspace [view|search|del|move|mkdir] → manage workspace files
   /memory                       → view persistent memory
   /forget <topic>               → remove memory entries
   /skills                       → list saved skills
@@ -117,7 +121,7 @@ def run() -> None:
             "/help", "/research", "/briefing", "/market", "/news", "/report",
             "/ideas", "/memory", "/forget", "/skills", "/model", "/usage",
             "/schedule", "/remind", "/reminders", "/rss", "/reports",
-            "/history", "/set", "/stop", "/exit",
+            "/history", "/set", "/workspace", "/stop", "/exit",
         ]
 
         class _SlashCompleter(Completer):
@@ -270,6 +274,9 @@ def run() -> None:
 
         elif user.lower().startswith("/set"):
             cmd_set(user[4:].strip())
+
+        elif user.lower().startswith("/workspace"):
+            cmd_workspace(user[10:].strip())
 
         # ── Unknown slash or skill invocation ─────────────────────────────────
         elif user.startswith("/"):

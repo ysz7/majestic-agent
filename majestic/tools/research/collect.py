@@ -136,12 +136,17 @@ def _collect_inner(on_progress=None) -> Dict:
     for i, (name, fn) in enumerate(sources, 1):
         if on_progress:
             on_progress(name, i, total)
+            try:
+                all_items += fn()
+            except Exception:
+                pass
         else:
-            _log(f"├ {name} [{i}/{total}]")
-        try:
-            all_items += fn()
-        except Exception:
-            pass
+            try:
+                items = fn()
+                all_items += items
+                _log(f"├ {name} [{i}/{total}]")
+            except Exception:
+                _log(f"├ {name} [{i}/{total}]  [skip]")
 
     new_items = []
     for item in all_items:

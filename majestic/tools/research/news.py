@@ -5,9 +5,10 @@ from majestic.tools.registry import tool
 @tool(
     name="run_research",
     description=(
-        "Collect fresh signals from all sources (HN, Reddit, GitHub, Arxiv, RSS, etc.) "
-        "and index them. Returns a summary of what was found. "
-        "Use when the user asks to research, gather intel, or update news feed."
+        "HEAVY operation: collect and index signals from 9+ sources (HN, Reddit, GitHub, ArXiv, RSS…). "
+        "Takes 30-120s and makes many HTTP requests. "
+        "Use ONLY when the user explicitly says 'run research', 'gather intel', 'update news feed', or 'refresh data'. "
+        "Do NOT use to answer news questions — use search_web or get_news instead."
     ),
     input_schema={"type": "object", "properties": {}},
 )

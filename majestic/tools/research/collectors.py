@@ -65,9 +65,8 @@ def fetch_hackernews(limit: int = 40) -> List[Dict]:
                 if item:
                     results.append(item)
         return results
-    except Exception as e:
-        print(f"[HN] error: {e}")
-        return []
+    except Exception:
+        raise
 
 
 def fetch_reddit(subreddits: List[str] = None, limit_per_sub: int = 15) -> List[Dict]:
@@ -95,8 +94,8 @@ def fetch_reddit(subreddits: List[str] = None, limit_per_sub: int = 15) -> List[
                     "ts":        datetime.now().isoformat(),
                 })
             time.sleep(0.5)
-        except Exception as e:
-            print(f"[Reddit] r/{sub} error: {e}")
+        except Exception:
+            pass
     return results
 
 
@@ -133,9 +132,8 @@ def fetch_github_trending(period: str = "daily") -> List[Dict]:
                 })
             except Exception:
                 continue
-    except Exception as e:
-        print(f"[GitHub] error: {e}")
-    return results
+    except Exception:
+        raise
 
 
 def fetch_producthunt() -> List[Dict]:
@@ -169,8 +167,7 @@ def _fetch_ph_rss() -> List[Dict]:
                 "ts":          datetime.now().isoformat(),
             })
         return results
-    except Exception as e:
-        print(f"[ProductHunt RSS] {e}")
+    except Exception:
         return []
 
 
@@ -202,6 +199,5 @@ def _fetch_ph_scrape() -> List[Dict]:
             if len(results) >= 20:
                 break
         return results
-    except Exception as e:
-        print(f"[ProductHunt scrape] {e}")
+    except Exception:
         return []

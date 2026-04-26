@@ -39,9 +39,8 @@ def fetch_mastodon(limit: int = 20) -> List[Dict]:
                 "by":          post.get("account", {}).get("acct", ""),
                 "ts":          datetime.now().isoformat(),
             })
-    except Exception as e:
-        print(f"[Mastodon] error: {e}")
-    return results
+    except Exception:
+        raise
 
 
 def fetch_devto(top_days: int = 3, limit: int = 30) -> List[Dict]:
@@ -71,9 +70,8 @@ def fetch_devto(top_days: int = 3, limit: int = 30) -> List[Dict]:
                 "score":       art.get("public_reactions_count", 0) + art.get("comments_count", 0),
                 "ts":          datetime.now().isoformat(),
             })
-    except Exception as e:
-        print(f"[Dev.to] error: {e}")
-    return results
+    except Exception:
+        raise
 
 
 def fetch_newsapi(limit_per_category: int = 10) -> List[Dict]:
@@ -110,8 +108,8 @@ def fetch_newsapi(limit_per_category: int = 10) -> List[Dict]:
                     "description": f"[{source_name}] {desc}" if source_name else desc,
                     "ts":          datetime.now().isoformat(),
                 })
-        except Exception as e:
-            print(f"[NewsAPI] {category} error: {e}")
+        except Exception:
+            pass
     return results
 
 
@@ -143,9 +141,8 @@ def fetch_arxiv(max_results: int = 30) -> List[Dict]:
                 "description": f"[{cats}] {summary}" if cats else summary,
                 "ts":          datetime.now().isoformat(),
             })
-    except Exception as e:
-        print(f"[arXiv] error: {e}")
-    return results
+    except Exception:
+        raise
 
 
 def fetch_google_trends(limit: int = 20) -> List[Dict]:
@@ -182,9 +179,5 @@ def fetch_google_trends(limit: int = 20) -> List[Dict]:
                 "ts":          datetime.now().isoformat(),
             })
         return results
-    except concurrent.futures.TimeoutError:
-        print("[Google Trends] timeout — rate-limited, skipping")
-        return []
-    except Exception as e:
-        print(f"[Google Trends] error: {e}")
-        return []
+    except Exception:
+        raise
