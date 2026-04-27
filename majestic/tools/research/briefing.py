@@ -193,7 +193,7 @@ def _llm_call(prompt: str, operation: str) -> str:
 def generate_briefing(days: int = 14) -> str:
     from majestic.tools.research.intel_context import _build_briefing_context
     from majestic.tools.research.market_data import market_context_for_llm
-    from majestic.constants import EXPORTS_DIR
+    from majestic.constants import WORKSPACE_DIR
 
     news_ctx   = _build_briefing_context(days=days, top_per_source=60)
     if not news_ctx:
@@ -203,8 +203,8 @@ def generate_briefing(days: int = 14) -> str:
     prompt     = BRIEFING_PROMPT.format(days=days, news_context=news_ctx[:12000], market_context=market_ctx[:3000], date=date_str)
     result     = _llm_call(prompt, "trends.briefing")
     try:
-        EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        (EXPORTS_DIR / f"briefing_{datetime.now().strftime('%Y%m%d_%H%M')}.md").write_text(result, encoding="utf-8")
+        (WORKSPACE_DIR / "briefings").mkdir(parents=True, exist_ok=True)
+        (WORKSPACE_DIR / "briefings" / f"briefing_{datetime.now().strftime('%Y%m%d_%H%M')}.md").write_text(result, encoding="utf-8")
     except Exception:
         pass
     return result
@@ -213,7 +213,7 @@ def generate_briefing(days: int = 14) -> str:
 def generate_predictions(days: int = 14) -> str:
     from majestic.tools.research.intel_context import _build_thematic_context
     from majestic.tools.research.market_data import market_context_for_llm
-    from majestic.constants import EXPORTS_DIR
+    from majestic.constants import WORKSPACE_DIR
 
     news_ctx   = _build_thematic_context(days=days)
     if not news_ctx:
@@ -223,8 +223,8 @@ def generate_predictions(days: int = 14) -> str:
     prompt     = PREDICTIONS_PROMPT.format(days=days, news_context=news_ctx[:14000], market_context=market_ctx[:3000], date=date_str)
     result     = _llm_call(prompt, "trends.predictions")
     try:
-        EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        (EXPORTS_DIR / f"predictions_{datetime.now().strftime('%Y%m%d_%H%M')}.md").write_text(result, encoding="utf-8")
+        (WORKSPACE_DIR / "briefings").mkdir(parents=True, exist_ok=True)
+        (WORKSPACE_DIR / "briefings" / f"predictions_{datetime.now().strftime('%Y%m%d_%H%M')}.md").write_text(result, encoding="utf-8")
     except Exception:
         pass
     return result
@@ -232,7 +232,7 @@ def generate_predictions(days: int = 14) -> str:
 
 def generate_money_flows(days: int = 14) -> str:
     from majestic.tools.research.intel_context import _build_briefing_context
-    from majestic.constants import EXPORTS_DIR
+    from majestic.constants import WORKSPACE_DIR
 
     news_ctx = _build_briefing_context(days=days, top_per_source=60)
     if not news_ctx:
@@ -241,8 +241,8 @@ def generate_money_flows(days: int = 14) -> str:
     prompt   = MONEY_FLOWS_PROMPT.format(days=days, news_context=news_ctx[:14000], date=date_str)
     result   = _llm_call(prompt, "trends.money_flows")
     try:
-        EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        (EXPORTS_DIR / f"money_flows_{datetime.now().strftime('%Y%m%d_%H%M')}.md").write_text(result, encoding="utf-8")
+        (WORKSPACE_DIR / "briefings").mkdir(parents=True, exist_ok=True)
+        (WORKSPACE_DIR / "briefings" / f"money_flows_{datetime.now().strftime('%Y%m%d_%H%M')}.md").write_text(result, encoding="utf-8")
     except Exception:
         pass
     return result

@@ -50,7 +50,8 @@ class TelegramPlatform(Platform):
             handle_research, handle_briefing, handle_market,
             handle_news, handle_report, handle_skills, handle_memory,
             handle_tokens, handle_stats, handle_set, handle_logs,
-            handle_remind, handle_reminders, handle_schedule, handle_document,
+            handle_remind, handle_reminders, handle_schedule,
+            handle_document, handle_voice,
         )
 
         sync_env_from_config()
@@ -103,6 +104,7 @@ class TelegramPlatform(Platform):
         app.add_handler(CommandHandler("reminders",  handle_reminders))
         app.add_handler(CommandHandler("schedule",   handle_schedule))
         app.add_handler(MessageHandler(filters.Document.ALL,            handle_document))
+        app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO,  handle_voice))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
         _start_services(notify_fn=_sync_notify)

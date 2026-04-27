@@ -48,6 +48,30 @@ def _reexec_with_venv_if_needed() -> None:
     os.execv(str(venv_python), [str(venv_python)] + sys.argv)
 
 
+def _migrate_exports_to_workspace() -> None:
+    """One-time migration: move files from exports/ into workspace subfolders."""
+    try:
+        from majestic.constants import MAJESTIC_HOME, WORKSPACE_DIR
+        exports = MAJESTIC_HOME / "exports"
+        if not exports.exists():
+            return
+        _MAP = {
+            "briefing_": "briefings", "predictions_": "briefings", "money_flows_": "briefings",
+            "report_": "reports", "ideas_": "ideas",
+        }
+        for f in exports.glob("*.md"):
+            dest_sub = next((v for k, v in _MAP.items() if f.name.startswith(k)), "reports")
+            dest_dir = WORKSPACE_DIR / dest_sub
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest = dest_dir / f.name
+            if not dest.exists():
+                f.rename(dest)
+        if not any(exports.iterdir()):
+            exports.rmdir()
+    except Exception:
+        pass
+
+
 def _launch_agent() -> None:
     from majestic import config as cfg
     from majestic.constants import CONFIG_FILE
@@ -60,6 +84,7 @@ def _launch_agent() -> None:
         return
 
     cfg.sync_env_from_config()
+    _migrate_exports_to_workspace()
     from majestic.cli.repl import run
     run()
 
@@ -222,11 +247,14 @@ def _gateway_start(target: str = "all") -> None:
     from majestic.gateway import Gateway
     from majestic.gateway.telegram import TelegramPlatform
     from majestic.gateway.discord import DiscordPlatform
+    from majestic.gateway.email_gw import EmailPlatform
 
     gw = Gateway()
     if target in ("telegram", "all"):
         gw.add(TelegramPlatform())
     if target in ("discord", "all"):
         gw.add(DiscordPlatform())
+    if target in ("email", "all"):
+        gw.add(EmailPlatform())
 
     asyncio.run(gw.run())

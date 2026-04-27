@@ -305,6 +305,72 @@ async def handle_schedule(update, context):
         )
 
 
+async def handle_voice(update, context):
+    """Transcribe voice/audio message via Whisper and run through agent."""
+    if not _allowed(update): return await _deny(update)
+    from majestic import config as cfg
+    if not cfg.get("telegram.voice_transcription", True):
+        await update.message.reply_text("🎙 Voice transcription is disabled.")
+        return
+
+    voice = update.message.voice or update.message.audio
+    if not voice:
+        return
+
+    msg = await update.message.reply_text("🎙 Transcribing…")
+    try:
+        import tempfile, os
+        tg_file = await context.bot.get_file(voice.file_id)
+        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp:
+            tmp_path = tmp.name
+        await tg_file.download_to_drive(tmp_path)
+
+        transcript = await asyncio.to_thread(_whisper_transcribe, tmp_path)
+        os.unlink(tmp_path)
+
+        if not transcript:
+            await msg.edit_text("❌ Could not transcribe audio.")
+            return
+
+        await msg.edit_text(f"🎙 <i>{transcript}</i>\n\n⏳ Thinking…", parse_mode="HTML")
+        uid     = update.effective_user.id
+        history = _history.get(uid, [])
+        session_id = await asyncio.to_thread(_get_session, uid)
+
+        from majestic.agent.loop import AgentLoop
+        result = await asyncio.to_thread(AgentLoop().run, transcript, session_id, history)
+        answer = result.get("answer", "")
+
+        from majestic.gateway.formatter import render_telegram
+        text = render_telegram(answer) or "—"
+        await msg.edit_text(text, parse_mode="HTML")
+
+        if answer:
+            history = list(history) + [(transcript, answer)]
+            _history[uid] = history[-_SESSION_MAX:]
+    except Exception as e:
+        await msg.edit_text(f"❌ {e}")
+
+
+def _whisper_transcribe(path: str) -> str:
+    import os
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    if openai_key:
+        from openai import OpenAI
+        client = OpenAI(api_key=openai_key)
+        with open(path, "rb") as f:
+            resp = client.audio.transcriptions.create(model="whisper-1", file=f)
+        return resp.text.strip()
+    # Fallback: faster-whisper local
+    try:
+        from faster_whisper import WhisperModel
+        model = WhisperModel("base", device="cpu", compute_type="int8")
+        segments, _ = model.transcribe(path)
+        return " ".join(s.text for s in segments).strip()
+    except ImportError:
+        raise RuntimeError("No transcription backend available. Set OPENAI_API_KEY or install faster-whisper.")
+
+
 async def handle_document(update, context):
     if not _allowed(update): return await _deny(update)
     doc = update.message.document

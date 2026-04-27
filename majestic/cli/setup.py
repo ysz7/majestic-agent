@@ -32,10 +32,17 @@ _OPENROUTER_MODELS = [
     "meta-llama/llama-3.1-70b-instruct",
 ]
 
+_MINIMAX_MODELS = [
+    "MiniMax-Text-01",
+    "abab6.5s-chat",
+    "abab6.5g-chat",
+]
+
 _MODELS: dict[str, list[str]] = {
     "anthropic":  _ANTHROPIC_MODELS,
     "openai":     _OPENAI_MODELS,
     "openrouter": _OPENROUTER_MODELS,
+    "minimax":    _MINIMAX_MODELS,
 }
 
 
@@ -88,7 +95,7 @@ def run_setup() -> None:
 
     # ── LLM Provider ──────────────────────────────────────────────────────────
     current_provider = data.get("llm", {}).get("provider", "anthropic")
-    providers = ["anthropic", "openai", "openrouter", "ollama"]
+    providers = ["anthropic", "openai", "openrouter", "ollama", "minimax"]
     default_idx = providers.index(current_provider) if current_provider in providers else 0
     pidx = choose("LLM Provider", providers, default=default_idx)
     provider = providers[pidx]
@@ -98,6 +105,7 @@ def run_setup() -> None:
         "anthropic":  "ANTHROPIC_API_KEY",
         "openai":     "OPENAI_API_KEY",
         "openrouter": "OPENROUTER_API_KEY",
+        "minimax":    "MINIMAX_API_KEY",
     }
     if provider in _KEY_ENV:
         env_key = _KEY_ENV[provider]
@@ -182,7 +190,7 @@ def select_model() -> None:
 
     print(f"\n  {B}Current:{R} {provider} / {current}\n")
 
-    _providers = ["anthropic", "openai", "openrouter", "ollama"]
+    _providers = ["anthropic", "openai", "openrouter", "ollama", "minimax"]
     default_p = _providers.index(provider) if provider in _providers else 0
     pidx = choose("Provider", _providers, default=default_p)
     provider = _providers[pidx]

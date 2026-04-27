@@ -55,15 +55,15 @@ def get_report(topic: str) -> str:
         except Exception as e:
             answer = answer or f"Could not generate report: {e}"
 
-    # Save to exports
+    # Save to workspace/reports/
     try:
         from datetime import datetime
-        from majestic.constants import EXPORTS_DIR
-        export_dir = EXPORTS_DIR
-        export_dir.mkdir(parents=True, exist_ok=True)
+        from majestic.constants import WORKSPACE_DIR
+        report_dir = WORKSPACE_DIR / "reports"
+        report_dir.mkdir(parents=True, exist_ok=True)
         ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
         slug = topic[:40].replace(" ", "_").replace("/", "-")
-        out  = export_dir / f"report_{slug}_{ts}.md"
+        out  = report_dir / f"report_{slug}_{ts}.md"
         out.write_text(
             f"# Report: {topic}\n_Created: {datetime.now().strftime('%Y-%m-%d %H:%M')}_\n\n{answer}",
             encoding="utf-8",

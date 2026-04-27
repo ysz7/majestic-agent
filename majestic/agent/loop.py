@@ -52,6 +52,18 @@ class AgentLoop:
             from majestic.agent.prompt import build_system
             system = build_system(lang=get("language", "EN"), memory=load_both())
 
+        # Inject per-project context from AGENTS.md if present in cwd
+        import os
+        from pathlib import Path
+        _agents_md = Path(os.getcwd()) / "AGENTS.md"
+        if _agents_md.exists():
+            try:
+                _project_ctx = _agents_md.read_text(encoding="utf-8").strip()
+                if _project_ctx:
+                    system += f"\n\n[Project context]\n{_project_ctx}"
+            except Exception:
+                pass
+
         # Build initial messages from history (last 5 turns for context)
         messages = _build_initial_messages(user_input, history)
 

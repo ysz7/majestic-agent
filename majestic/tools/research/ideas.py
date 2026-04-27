@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from majestic.tools.registry import tool
-from majestic.constants import EXPORTS_DIR, MAJESTIC_HOME
+from majestic.constants import WORKSPACE_DIR, MAJESTIC_HOME
 
 _IDEAS_LOG = MAJESTIC_HOME / "ideas_log.json"
 
@@ -123,8 +123,8 @@ def _generate_ideas(force: bool = False) -> str:
     _save_log(log)
 
     try:
-        EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        (EXPORTS_DIR / f"ideas_{datetime.now().strftime('%Y%m%d')}.md").write_text(
+        (WORKSPACE_DIR / "ideas").mkdir(parents=True, exist_ok=True)
+        (WORKSPACE_DIR / "ideas" / f"ideas_{datetime.now().strftime('%Y%m%d')}.md").write_text(
             f"# 💡 Ideas — {datetime.now().strftime('%Y-%m-%d')}\n\n{ideas}", encoding="utf-8"
         )
     except Exception:

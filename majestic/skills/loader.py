@@ -12,23 +12,37 @@ from typing import Optional
 
 from majestic.constants import SKILLS_DIR
 
+_BUILTIN_DIR = Path(__file__).parent / "builtin"
+
 
 def list_skills() -> list[dict]:
-    """Return metadata for all skills (without body)."""
+    """Return metadata for all skills — user skills override builtins with same name."""
     SKILLS_DIR.mkdir(parents=True, exist_ok=True)
-    skills = []
+    seen: set[str] = set()
+    skills: list[dict] = []
+    # User skills first (take priority)
     for path in sorted(SKILLS_DIR.glob("*.md")):
         meta = _read_meta(path)
+        seen.add(meta.get("name", path.stem))
         skills.append(meta)
+    # Built-in skills (only if not overridden by user)
+    for path in sorted(_BUILTIN_DIR.glob("*.md")):
+        meta = _read_meta(path)
+        if meta.get("name", path.stem) not in seen:
+            skills.append(meta)
     return skills
 
 
 def load_skill(name: str) -> Optional[dict]:
-    """Load skill by name. Returns {meta, body} or None."""
+    """Load skill by name — user skill takes priority over builtin."""
     path = _path_for(name)
-    if not path.exists():
-        return None
-    return _read_full(path)
+    if path.exists():
+        return _read_full(path)
+    # Fall back to builtin
+    builtin = _BUILTIN_DIR / f"{name}.md"
+    if builtin.exists():
+        return _read_full(builtin)
+    return None
 
 
 def save_skill(
