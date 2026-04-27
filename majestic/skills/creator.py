@@ -1,10 +1,15 @@
 """
 Background skill management — creation and improvement via LLM.
 
-suggest_skill()    — after a complex multi-tool task, decide if worth saving
-maybe_improve()    — after every 3rd use of a skill, LLM improves its steps
+suggest_skill()             — after a complex multi-tool task, decide if worth saving
+maybe_improve()             — after every 3rd use, silently improve skill in background
+queue_improvement_check()   — after skill invocation, run improvement in BG; user confirms
+pop_pending_improvement()   — REPL polls this before each prompt; returns (name, body) or None
 """
 import threading
+
+_pending: dict[str, str] = {}   # name → improved body waiting for user confirmation
+_pending_lock = threading.Lock()
 
 _SAVE_PROMPT = """\
 You are a skill manager for an AI agent called Majestic.
@@ -65,7 +70,7 @@ def suggest_skill(
 
 
 def maybe_improve(name: str, user_input: str, result_summary: str) -> None:
-    """Trigger background skill improvement after every 3rd use."""
+    """Trigger background skill improvement after every 3rd use (silent)."""
     from majestic.skills.loader import load_skill
     skill = load_skill(name)
     if not skill:
@@ -78,6 +83,52 @@ def maybe_improve(name: str, user_input: str, result_summary: str) -> None:
         daemon=True,
         name="skill-improve",
     ).start()
+
+
+def queue_improvement_check(name: str, user_input: str, result_summary: str) -> None:
+    """
+    After skill invocation: check if LLM suggests a better body every 3rd use.
+    Result queued in _pending — REPL picks it up before the next prompt.
+    """
+    from majestic.skills.loader import load_skill
+    skill = load_skill(name)
+    if not skill:
+        return
+    if skill["meta"].get("usage_count", 0) % 3 != 0:
+        return
+
+    def _run() -> None:
+        try:
+            improved = _get_improved_body(name, skill, user_input, result_summary)
+            if improved and improved.strip() != skill["body"].strip():
+                with _pending_lock:
+                    _pending[name] = improved
+        except Exception:
+            pass
+
+    threading.Thread(target=_run, daemon=True, name="skill-improve-check").start()
+
+
+def pop_pending_improvement() -> tuple[str, str] | None:
+    """Return one pending (name, improved_body) and remove it, or None."""
+    with _pending_lock:
+        if not _pending:
+            return None
+        name = next(iter(_pending))
+        return name, _pending.pop(name)
+
+
+def _get_improved_body(name: str, skill: dict, user_input: str, result_summary: str) -> str:
+    """Run LLM to get an improved skill body. Returns empty string on failure."""
+    from majestic.llm import get_provider
+    prompt = _IMPROVE_PROMPT.format(
+        usage_count=skill["meta"].get("usage_count", 0),
+        skill_body=skill["body"][:1200],
+        user_input=user_input[:300],
+        result_summary=result_summary[:500],
+    )
+    resp = get_provider().complete([{"role": "user", "content": prompt}])
+    return (resp.content or "").strip()
 
 
 # ── Background workers ────────────────────────────────────────────────────────
@@ -117,17 +168,8 @@ def _run_suggest(
 
 def _run_improve(name: str, skill: dict, user_input: str, result_summary: str) -> None:
     try:
-        from majestic.llm import get_provider
         from majestic.skills.loader import update_body
-
-        prompt = _IMPROVE_PROMPT.format(
-            usage_count=skill["meta"].get("usage_count", 0),
-            skill_body=skill["body"][:1000],
-            user_input=user_input[:300],
-            result_summary=result_summary[:500],
-        )
-        resp = get_provider().complete([{"role": "user", "content": prompt}])
-        improved = resp.content.strip()
+        improved = _get_improved_body(name, skill, user_input, result_summary)
         if improved:
             update_body(name, improved)
     except Exception:

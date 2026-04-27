@@ -9,13 +9,34 @@ def cmd_set(rest: str) -> None:
     if len(parts) < 2:
         cfg = _cfg.load()
         agent = cfg.get("agent", {})
+        try:
+            from majestic.tools.toolsets import current_toolset
+            ts = current_toolset() or "(custom)"
+        except Exception:
+            ts = "—"
         print(f"\n  {B}agent.role{R}          {DIM}{agent.get('role', '') or '(none)'}{R}")
+        print(f"  {B}agent.toolset{R}       {DIM}{ts}{R}")
         print(f"  {B}agent.tools_enabled{R} {DIM}{agent.get('tools_enabled', []) or '(all)'}{R}")
         print(f"  {B}agent.tools_disabled{R}{DIM}{agent.get('tools_disabled', []) or '(none)'}{R}\n")
         print(f"  {DIM}Usage: /set <key> <value>{R}")
-        print(f"  {DIM}Keys: agent.role, agent.tools_enabled, agent.tools_disabled{R}\n")
+        print(f"  {DIM}Keys: agent.role, toolset, agent.tools_enabled, agent.tools_disabled{R}\n")
         return
+
     key, val_str = parts[0], parts[1]
+
+    # /set toolset <name>
+    if key == "toolset":
+        try:
+            from majestic.tools.toolsets import apply_toolset, list_toolsets
+            if apply_toolset(val_str.strip()):
+                print(f"  {G}✓ Toolset → {val_str.strip()}{R}\n")
+            else:
+                available = ", ".join(list_toolsets().keys())
+                print(f"  {Y}Unknown toolset. Available: {available}{R}\n")
+        except Exception as e:
+            print(f"  {Y}Error: {e}{R}\n")
+        return
+
     if key in ("agent.tools_enabled", "agent.tools_disabled"):
         val = [v.strip() for v in val_str.split(",") if v.strip()] if val_str.strip() != "-" else []
     else:

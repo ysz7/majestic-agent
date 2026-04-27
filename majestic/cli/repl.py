@@ -42,6 +42,8 @@ _HELP = f"""
 {B}Management:{R}
   /model                        → switch LLM provider/model
   /set [key] [value]            → configure agent role and tools
+  /set toolset <name>           → switch toolset (research/coding/market/full)
+  /toolsets                     → list available toolsets
   /usage [reset]                → token usage and cost
   /insights [days]              → usage analytics by day (default 7)
   /new                          → start fresh session (clear history)
@@ -188,6 +190,22 @@ def run() -> None:
         return input(f"  {C}majestic ▶ {R}").strip()
 
     while True:
+        # ── Pending skill improvement (queued in background) ─────────────────
+        try:
+            from majestic.skills.creator import pop_pending_improvement as _pop_imp
+            _imp = _pop_imp()
+            if _imp:
+                _iname, _ibody = _imp
+                print(f"\n  💡 /{_iname} used 3x — improvement ready. Apply? [y/N] ", end="", flush=True)
+                if input().strip().lower() == "y":
+                    from majestic.skills.loader import update_body as _upd
+                    _upd(_iname, _ibody)
+                    print(f"  {G}✓ Skill /{_iname} updated.{R}\n")
+                else:
+                    print()
+        except Exception:
+            pass
+
         try:
             user = _get_input()
         except EOFError:
@@ -272,6 +290,13 @@ def run() -> None:
         elif user.lower().startswith("/set"):
             cmd_set(user[4:].strip())
 
+        elif user.lower() == "/toolsets":
+            try:
+                from majestic.tools.configurator import print_toolsets
+                print_toolsets()
+            except Exception as e:
+                print(f"  {Y}Error: {e}{R}\n")
+
         elif user.lower().startswith("/workspace"):
             cmd_workspace(user[10:].strip())
 
@@ -290,6 +315,11 @@ def run() -> None:
                     ans = run_agent(prompt, session_id, history)
                     if ans:
                         _push(user, ans)
+                        try:
+                            from majestic.skills.creator import queue_improvement_check
+                            queue_improvement_check(cmd, sarg or user, ans[:500])
+                        except Exception:
+                            pass
             else:
                 print(f"  {Y}Unknown command. Type /help{R}\n")
 

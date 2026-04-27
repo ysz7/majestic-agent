@@ -23,6 +23,8 @@ Commands:
   config get KEY   Get a config value  (e.g. config get llm.provider)
   config set KEY V Set a config value  (e.g. config set language RU)
   doctor           Diagnose configuration problems
+  tools            Interactive tool checklist (enable/disable tools)
+  tools list       Show available toolsets
   api start        Start REST API server (POST /chat, GET /health, GET /sessions)
   mcp list         List configured MCP servers and their tools
   mcp add NAME CMD Add MCP server (CMD is space-separated command)
@@ -123,6 +125,9 @@ def main() -> None:
     elif cmd == "api":
         _api_cmd(args[1:])
 
+    elif cmd == "tools":
+        _tools_cmd(args[1:])
+
     elif cmd == "mcp":
         _mcp_cmd(args[1:])
 
@@ -136,6 +141,24 @@ def main() -> None:
         print(f"Unknown command: {cmd}\n")
         print(_HELP)
         sys.exit(1)
+
+
+def _tools_cmd(args: list[str]) -> None:
+    from majestic import config as cfg
+    from majestic.constants import CONFIG_FILE
+    if not CONFIG_FILE.exists():
+        from majestic.cli.display import warn
+        warn("No configuration found. Run `majestic setup` first.\n")
+        sys.exit(1)
+    cfg.sync_env_from_config()
+
+    sub = args[0] if args else ""
+    if sub == "list":
+        from majestic.tools.configurator import print_toolsets
+        print_toolsets()
+    else:
+        from majestic.tools.configurator import run_configurator
+        run_configurator()
 
 
 def _mcp_cmd(args: list[str]) -> None:

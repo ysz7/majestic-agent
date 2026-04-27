@@ -3,13 +3,19 @@ from majestic.cli.display import G, Y, DIM, R
 
 
 def cmd_exit(session_id, history: list, session_start_tokens: dict) -> None:
-    """Run exit cleanup: memory nudge, session summary, DB close, Ollama shutdown."""
+    """Run exit cleanup: memory dedup, nudge, session summary, DB close, Ollama shutdown."""
     if history:
         try:
             from majestic.memory.nudge import nudge_after_session
             from majestic import config as _cfg
             print(f"  {DIM}Saving session memory...{R}")
             nudge_after_session(history, lang=_cfg.get("language", "EN"), blocking=True)
+        except Exception:
+            pass
+        try:
+            from majestic.memory.dedup import dedup_memory
+            if dedup_memory():
+                print(f"  {DIM}Memory deduplicated.{R}")
         except Exception:
             pass
     if session_id:
