@@ -17,17 +17,21 @@ def add_schedule(
     cron_expr: str,
     prompt: str,
     delivery_target: str = "cli",
+    parallel: bool = False,
+    subtasks: list[str] | None = None,
 ) -> dict:
     """Insert a new schedule. Returns the created row as dict."""
+    import json as _json
     from majestic.db.state import StateDB
     from croniter import croniter
 
     next_run = croniter(cron_expr, datetime.now()).get_next(datetime).isoformat()
     db = StateDB()
     db._conn.execute(
-        """INSERT INTO schedules(name, cron_expr, prompt, delivery_target, next_run, enabled)
-           VALUES (?, ?, ?, ?, ?, 1)""",
-        (name, cron_expr, prompt, delivery_target, next_run),
+        """INSERT INTO schedules(name, cron_expr, prompt, delivery_target, next_run, enabled, parallel, subtasks)
+           VALUES (?, ?, ?, ?, ?, 1, ?, ?)""",
+        (name, cron_expr, prompt, delivery_target, next_run,
+         int(parallel), _json.dumps(subtasks) if subtasks else None),
     )
     db._conn.commit()
     row = db._conn.execute(
@@ -110,13 +114,18 @@ Request: "{text}"
 Return JSON with these fields:
 - "name": short identifier (kebab-case, e.g. "daily-briefing")
 - "cron": valid cron expression (5 fields: min hour dom mon dow)
-- "prompt": what the agent should do (the task part of the request)
+- "prompt": what the agent should do (for single tasks; empty string if parallel=true)
 - "target": delivery target — "telegram" if mentioned, otherwise "cli"
+- "parallel": true if the request describes multiple independent tasks to run simultaneously
+- "subtasks": array of task strings when parallel=true (omit or null for single tasks)
 
 Examples:
-  "every day at 9am do a briefing" → {{"name":"daily-briefing","cron":"0 9 * * *","prompt":"generate briefing","target":"cli"}}
-  "every monday at 8am research and send to telegram" → {{"name":"monday-research","cron":"0 8 * * 1","prompt":"run research","target":"telegram"}}
-  "every 6 hours check market" → {{"name":"market-check","cron":"0 */6 * * *","prompt":"get market data","target":"cli"}}
+  "every day at 9am do a briefing" →
+    {{"name":"daily-briefing","cron":"0 9 * * *","prompt":"generate briefing","target":"cli","parallel":false}}
+  "every monday at 8am research and send to telegram" →
+    {{"name":"monday-research","cron":"0 8 * * 1","prompt":"run research","target":"telegram","parallel":false}}
+  "every morning research BTC, ETH and SOL in parallel" →
+    {{"name":"morning-crypto","cron":"0 9 * * *","prompt":"","target":"cli","parallel":true,"subtasks":["research BTC price and news","research ETH price and news","research SOL price and news"]}}
 
 Respond ONLY with JSON, no explanation.\
 """

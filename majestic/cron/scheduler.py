@@ -65,13 +65,20 @@ class CronScheduler:
                 logger.error(f"Failed to start schedule {schedule['name']}: {e}")
 
     def _run_schedule(self, schedule: dict) -> None:
-        name    = schedule["name"]
-        prompt  = schedule["prompt"]
-        target  = schedule.get("delivery_target") or "cli"
-        logger.info(f"Running schedule '{name}': {prompt!r}")
+        name     = schedule["name"]
+        prompt   = schedule["prompt"]
+        target   = schedule.get("delivery_target") or "cli"
+        parallel = bool(schedule.get("parallel"))
+        raw_sub  = schedule.get("subtasks")
+        logger.info(f"Running schedule '{name}': {prompt!r} parallel={parallel}")
 
         try:
-            result = _execute_prompt(prompt)
+            if parallel and raw_sub:
+                import json as _json
+                subtasks = _json.loads(raw_sub) if isinstance(raw_sub, str) else raw_sub
+                result = _execute_parallel(subtasks) if subtasks else _execute_prompt(prompt)
+            else:
+                result = _execute_prompt(prompt)
         except Exception as e:
             result = f"Schedule '{name}' failed: {e}"
             logger.error(result)
@@ -107,10 +114,37 @@ def _execute_prompt(prompt: str) -> str:
     if key in _SHORTHAND:
         return tools.execute(_SHORTHAND[key], {})
 
-    # Full AgentLoop for arbitrary prompts
     from majestic.agent.loop import AgentLoop
     result = AgentLoop().run(prompt)
     return result.get("answer", "(no answer)")
+
+
+_SUBTASK_TIMEOUT = 120  # seconds per parallel subtask
+
+
+def _execute_parallel(subtasks: list[str]) -> str:
+    """Run subtasks concurrently, wait for all, combine results."""
+    import threading
+
+    results: list[str] = [f"[timed out after {_SUBTASK_TIMEOUT}s]"] * len(subtasks)
+
+    def _run(i: int, task: str) -> None:
+        try:
+            results[i] = _execute_prompt(task)
+        except Exception as e:
+            results[i] = f"[error] {e}"
+
+    threads = [
+        threading.Thread(target=_run, args=(i, t), daemon=True)
+        for i, t in enumerate(subtasks)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=_SUBTASK_TIMEOUT)
+
+    parts = [f"**{subtasks[i]}**\n{results[i]}" for i in range(len(subtasks))]
+    return "\n\n---\n\n".join(parts)
 
 
 # ── Module-level singleton ────────────────────────────────────────────────────

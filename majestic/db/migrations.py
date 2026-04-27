@@ -4,7 +4,7 @@ Each migration is a list of SQL statements keyed by target version.
 apply(conn) brings the DB up to SCHEMA_VERSION from whatever it currently is.
 """
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # ── Version 1 — initial schema ─────────────────────────────────────────────────
 _V1 = [
@@ -141,9 +141,16 @@ _V1 = [
     "CREATE INDEX IF NOT EXISTS idx_chunks_file ON vector_chunks(file_name)",
 ]
 
+# ── Version 2 — parallel schedules ────────────────────────────────────────────
+_V2 = [
+    "ALTER TABLE schedules ADD COLUMN parallel INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE schedules ADD COLUMN subtasks  TEXT",
+]
+
 # Map version → statements that bring DB TO that version
 _MIGRATIONS: dict[int, list[str]] = {
     1: _V1,
+    2: _V2,
 }
 
 

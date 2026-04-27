@@ -93,7 +93,8 @@ def cmd_schedule(rest: str) -> None:
         else:
             for r in rows:
                 dot = f"{G}●{R}" if r.get("enabled") else f"{DIM}○{R}"
-                print(f"  {dot} [{r['id']}] {r['name']:30s} {DIM}{r['cron_expr']}{R}")
+                par = f" {C}[parallel]{R}" if r.get("parallel") else ""
+                print(f"  {dot} [{r['id']}] {r['name']:30s} {DIM}{r['cron_expr']}{R}{par}")
             print()
     elif sub == "add":
         if not arg:
@@ -104,10 +105,13 @@ def cmd_schedule(rest: str) -> None:
         add_schedule(
             name=sched["name"],
             cron_expr=sched["cron"],
-            prompt=sched["prompt"],
+            prompt=sched.get("prompt", ""),
             delivery_target=sched.get("target", "cli"),
+            parallel=sched.get("parallel", False),
+            subtasks=sched.get("subtasks"),
         )
-        print(f"  {G}✓ Added:{R} {sched['name']} ({sched['cron']})\n")
+        par_tag = f" {C}[parallel]{R}" if sched.get("parallel") else ""
+        print(f"  {G}✓ Added:{R} {sched['name']} ({sched['cron']}){par_tag}\n")
     elif sub == "remove":
         try:
             remove_schedule(int(arg))
