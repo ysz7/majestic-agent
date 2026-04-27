@@ -19,6 +19,7 @@ from majestic.cli.repl_commands import (
     cmd_remind, cmd_rss, cmd_reports, cmd_set, cmd_history,
     cmd_workspace,
 )
+from majestic.cli.repl_stats import cmd_usage, cmd_insights, cmd_exit
 
 _HELP = f"""
 {B}Agent:{R}
@@ -42,6 +43,8 @@ _HELP = f"""
   /model                        → switch LLM provider/model
   /set [key] [value]            → configure agent role and tools
   /usage [reset]                → token usage and cost
+  /insights [days]              → usage analytics by day (default 7)
+  /new                          → start fresh session (clear history)
   /stop                         → stop current task
   /schedule [list|add|remove]   → manage cron schedules
   /remind <text>                → add reminder
@@ -106,6 +109,7 @@ def run() -> None:
         from prompt_toolkit.shortcuts.prompt import CompleteStyle
         from prompt_toolkit.styles import Style as PTStyle
         from prompt_toolkit.patch_stdout import patch_stdout as _patch_stdout
+        from prompt_toolkit.key_binding import KeyBindings
 
         _STYLE = PTStyle.from_dict({
             "completion-menu":                    "bg:default noreverse",
@@ -121,8 +125,8 @@ def run() -> None:
         _STATIC_CMDS = [
             "/help", "/research", "/briefing", "/market", "/news", "/report",
             "/ideas", "/memory", "/forget", "/skills", "/model", "/usage",
-            "/schedule", "/remind", "/reminders", "/rss", "/reports",
-            "/history", "/set", "/workspace", "/stop", "/exit",
+            "/insights", "/new", "/reset", "/schedule", "/remind", "/reminders",
+            "/rss", "/reports", "/history", "/set", "/workspace", "/stop", "/exit",
         ]
 
         class _SlashCompleter(Completer):
@@ -152,6 +156,16 @@ def run() -> None:
             except Exception:
                 return HTML(f' <b>♛</b> <ansidarkgray>{label}  │  Tab for commands</ansidarkgray>')
 
+        _kb = KeyBindings()
+
+        @_kb.add("enter")
+        def _kb_submit(event):
+            event.app.current_buffer.validate_and_handle()
+
+        @_kb.add("escape", "enter")
+        def _kb_newline(event):
+            event.app.current_buffer.insert_text("\n")
+
         _pt_prompt = PromptSession(
             completer=_make_completer(),
             complete_while_typing=True,
@@ -159,6 +173,8 @@ def run() -> None:
             bottom_toolbar=_toolbar,
             refresh_interval=2,
             style=_STYLE,
+            key_bindings=_kb,
+            multiline=True,
         )
     except Exception:
         pass
@@ -174,46 +190,18 @@ def run() -> None:
     while True:
         try:
             user = _get_input()
-        except (EOFError, KeyboardInterrupt):
-            print()
+        except EOFError:
             user = "/exit"
+        except KeyboardInterrupt:
+            print()
+            continue
 
         if not user:
             continue
 
         # ── Exit ──────────────────────────────────────────────────────────────
         if user.lower() in ("/exit", "/quit", "exit", "quit"):
-            if history:
-                try:
-                    from majestic.memory.nudge import nudge_after_session
-                    from majestic import config as _cfg
-                    print(f"  {DIM}Saving session memory...{R}")
-                    nudge_after_session(history, lang=_cfg.get("language", "EN"), blocking=True)
-                except Exception:
-                    pass
-            if session_id:
-                try:
-                    from majestic.memory.session_summarizer import summarize_session
-                    summarize_session(session_id)
-                except Exception:
-                    pass
-            if session_id:
-                try:
-                    from majestic.db.state import StateDB
-                    from majestic.token_tracker import get_stats
-                    end = get_stats()
-                    tin  = max(0, end.get("tokens_in", 0)  - session_start_tokens.get("tokens_in", 0))
-                    tout = max(0, end.get("tokens_out", 0) - session_start_tokens.get("tokens_out", 0))
-                    cost = max(0.0, end.get("cost_usd", 0.0) - session_start_tokens.get("cost_usd", 0.0))
-                    StateDB().close_session(session_id, tin, tout, cost, len(history) * 2)
-                except Exception:
-                    pass
-            try:
-                from majestic.llm.ollama import shutdown_ollama
-                shutdown_ollama()
-            except Exception:
-                pass
-            print(f"{DIM}Bye!{R}")
+            cmd_exit(session_id, history, session_start_tokens)
             break
 
         elif user == "/help":
@@ -237,20 +225,22 @@ def run() -> None:
             except Exception as e:
                 print(f"  {Y}Error: {e}{R}\n")
 
-        elif user.startswith("/usage"):
+        elif user.lower().startswith("/usage"):
+            cmd_usage(reset="reset" in user.lower())
+
+        elif user.lower().startswith("/insights"):
+            cmd_insights(user[9:].strip())
+
+        elif user.lower() in ("/new", "/reset"):
+            history.clear()
             try:
-                from majestic.token_tracker import get_stats, reset_stats
-                if "reset" in user:
-                    reset_stats()
-                    print(f"  {G}✓ Token counter reset.{R}\n")
-                else:
-                    s = get_stats()
-                    print(f"\n  {B}Token usage{R}\n"
-                          f"  In:   {s.get('tokens_in', 0):,}\n"
-                          f"  Out:  {s.get('tokens_out', 0):,}\n"
-                          f"  Cost: ${s.get('cost_usd', 0.0):.4f}\n")
-            except Exception as e:
-                print(f"  {Y}Usage unavailable: {e}{R}\n")
+                from majestic.db.state import StateDB
+                from majestic import config as _cfg
+                label = f"{_cfg.get('llm.provider')}/{_cfg.get('llm.model')}"
+                session_id = StateDB().create_session(source="cli", model=label)
+            except Exception:
+                session_id = None
+            print(f"  {G}✓ New session started.{R}\n")
 
         elif user == "/memory":
             cmd_memory()

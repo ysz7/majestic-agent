@@ -213,13 +213,8 @@ def run_agent(user_input: str, session_id: str | None, history: list) -> str:
 
 
 def _print_answer(result: dict) -> None:
-    try:
-        from majestic.gateway.formatter import render_cli
-        text = render_cli(result.get("answer", ""))
-    except Exception:
-        text = result.get("answer", "")
-    indented = "\n".join("  " + line if line else "" for line in text.splitlines())
-    print(f"\n{indented}\n")
+    from majestic.gateway.formatter import print_cli
+    print_cli(result.get("answer", "") or "")
 
 
 def dispatch_shortcut(cmd: str, rest: str) -> None:
@@ -271,12 +266,10 @@ def dispatch_shortcut(cmd: str, rest: str) -> None:
     _sys.__stdout__.flush()
 
     try:
-        from majestic.gateway.formatter import render_cli
-        text = render_cli(result)
+        from majestic.gateway.formatter import print_cli
+        print_cli(result)
     except Exception:
-        text = result
-    indented = "\n".join("  " + line if line else "" for line in text.splitlines())
-    print(f"\n{indented}\n")
+        print(f"\n{result}\n")
 
 
 def looks_like_path(text: str) -> bool:

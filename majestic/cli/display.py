@@ -6,6 +6,8 @@ import time
 from datetime import datetime, date
 from pathlib import Path
 
+_ANSI_ESC = re.compile(r'\033(?:\[[0-9;]*m|\]8;;[^\033]*\033\\)')
+
 R   = "\033[0m"
 B   = "\033[1m"
 C   = "\033[38;2;217;87;103m"
@@ -13,8 +15,6 @@ G   = "\033[32m"
 Y   = "\033[33m"
 DIM = "\033[2m"
 RED = "\033[31m"
-
-_ANSI_ESC = re.compile(r'\033(?:\[[0-9;]*m|\]8;;[^\033]*\033\\)')
 
 _LOGO_LINES = [
     "███╗   ███╗ █████╗      ██╗███████╗███████╗████████╗██╗ ██████╗ ",
@@ -61,7 +61,7 @@ class Spinner:
 
 
 def _vis(s: str) -> int:
-    """Visual (printable) length of a string, stripping ANSI escape codes."""
+    """Visual (printable) width of a string — strips ANSI escape codes."""
     return len(_ANSI_ESC.sub('', s))
 
 
@@ -113,10 +113,10 @@ def _gather_startup() -> dict:
 
 
 def print_startup() -> None:
-    """Rich startup panel matching the docs/banner.html design."""
+    """Two-column startup panel."""
     d = _gather_startup()
 
-    # ── Logo ──────────────────────────────────────────────────────────────────
+    # ── Logo ─────────────────────────────────────────────────────────────────
     print()
     for line in _LOGO_LINES:
         print(f"  {C}{B}{line}{R}")
@@ -127,10 +127,10 @@ def print_startup() -> None:
     print(f"  {DIM}{'─' * 68}{R}")
     print()
 
-    # ── Column widths (inner content visual widths) ───────────────────────────
-    LW, RW = 30, 56  # box row totals: LW+4=34, RW+4=60; total line: ~96 chars
+    # ── Column widths ────────────────────────────────────────────────────────
+    LW, RW = 30, 56
 
-    # ── Left column ───────────────────────────────────────────────────────────
+    # ── Left column ──────────────────────────────────────────────────────────
     model    = (d['model'] or '—')[:19]
     provider = d['provider']
     api_dot  = f"{G}●{R}" if d['api_ok'] else f"{RED}●{R}"
@@ -161,20 +161,17 @@ def print_startup() -> None:
         for src, ts in d['recent']:
             try:
                 delta = datetime.now() - datetime.fromisoformat(ts)
-                if delta.days == 0:
-                    rel = "today"
-                elif delta.days == 1:
-                    rel = "yesterday"
-                else:
-                    rel = f"{delta.days}d ago"
+                if delta.days == 0:    rel = "today"
+                elif delta.days == 1:  rel = "yesterday"
+                else:                  rel = f"{delta.days}d ago"
                 left.append(f"{DIM}·{R} {DIM}{rel:<10}{R}{src}")
             except Exception:
                 left.append(f"{DIM}· {src}{R}")
     else:
         left.append(f"{DIM}no activity yet{R}")
 
-    # ── Right column ──────────────────────────────────────────────────────────
-    def sec(title: str) -> str:
+    # ── Right column ─────────────────────────────────────────────────────────
+    def _sec(title: str) -> str:
         dashes = '─' * max(0, RW - len(title) - 1)
         return f"{C}{title}{R} {DIM}{dashes}{R}"
 
@@ -183,7 +180,7 @@ def print_startup() -> None:
     uf        = d['user_first']
 
     right: list[str] = [
-        sec("AVAILABLE TOOLS"),
+        _sec("AVAILABLE TOOLS"),
         f"{DIM}web:        {R}web_search, web_extract",
         f"{DIM}research:   {R}news, briefing, report, predict",
         f"{DIM}market:     {R}crypto, stocks, forex, flows",
@@ -191,7 +188,7 @@ def print_startup() -> None:
         f"{DIM}system:     {R}terminal",
         f"{DIM}core:       {R}{C}db_search{R}",
         "",
-        sec("AVAILABLE SKILLS"),
+        _sec("AVAILABLE SKILLS"),
     ]
     if skills:
         for sk in skills[:3]:
@@ -202,20 +199,20 @@ def print_startup() -> None:
             right.append(f"{DIM}+ {skill_cnt - 3} more{R}")
     else:
         right.append(f"{DIM}none yet — add to ~/.majestic-agent/skills/{R}")
-    right += ["", sec("MEMORY SNAPSHOT")]
+    right += ["", _sec("MEMORY SNAPSHOT")]
     right.append(f"{DIM}user:  {R}{uf if uf else DIM + '(empty)' + R}")
     right.append(f"{DIM}agent: {R}{mc} fact{'s' if mc != 1 else ''}")
 
-    # ── Two-column render ─────────────────────────────────────────────────────
+    # ── Render two-column box ─────────────────────────────────────────────────
     height     = max(len(left), len(right))
     left_rows  = left  + [''] * (height - len(left))
     right_rows = right + [''] * (height - len(right))
 
     print(f" ┌{'─' * (LW + 2)}┐  ┌{'─' * (RW + 2)}┐")
-    for l, r in zip(left_rows, right_rows):
-        lp = ' ' * max(0, LW - _vis(l))
-        rp = ' ' * max(0, RW - _vis(r))
-        print(f" │ {l}{lp} │  │ {r}{rp} │")
+    for lc, rc in zip(left_rows, right_rows):
+        lp = ' ' * max(0, LW - _vis(lc))
+        rp = ' ' * max(0, RW - _vis(rc))
+        print(f" │ {lc}{lp} │  │ {rc}{rp} │")
     print(f" └{'─' * (LW + 2)}┘  └{'─' * (RW + 2)}┘")
 
     print()

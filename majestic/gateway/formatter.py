@@ -149,6 +149,20 @@ def render_discord(text: str) -> str:
     return result.strip()
 
 
+def print_cli(text: str) -> None:
+    """Print Markdown to terminal using rich (with syntax highlighting and proper formatting)."""
+    if not text:
+        return
+    try:
+        from rich.console import Console
+        from rich.markdown import Markdown
+        from rich.padding import Padding
+        Console().print(Padding(Markdown(text), (1, 0, 1, 2)))
+    except Exception:
+        indented = "\n".join("  " + ln if ln else "" for ln in render_cli(text).splitlines())
+        print(f"\n{indented}\n")
+
+
 def chunk_discord(text: str, limit: int = 1900) -> list[str]:
     """Split text into chunks that fit Discord's 2000-char message limit."""
     if len(text) <= limit:

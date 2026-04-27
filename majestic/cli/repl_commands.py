@@ -2,6 +2,7 @@
 from majestic.cli.display import R, B, C, G, Y, DIM, Spinner
 
 
+
 def cmd_set(rest: str) -> None:
     from majestic import config as _cfg
     parts = rest.split(None, 1)
@@ -54,13 +55,8 @@ def cmd_history(rest: str) -> None:
         with Spinner("Searching history..."):
             from majestic.tools.history_search import history_search
             result = history_search(query)
-        try:
-            from majestic.gateway.formatter import render_cli
-            text = render_cli(result)
-        except Exception:
-            text = result
-        indented = "\n".join("  " + line if line else "" for line in text.splitlines())
-        print(f"\n{indented}\n")
+        from majestic.gateway.formatter import print_cli
+        print_cli(result)
 
 
 def cmd_schedule(rest: str) -> None:
@@ -104,11 +100,8 @@ def cmd_schedule(rest: str) -> None:
 def cmd_memory() -> None:
     try:
         from majestic.memory.store import show
-        try:
-            from majestic.gateway.formatter import render_cli
-            print(f"\n{render_cli(show())}\n")
-        except Exception:
-            print(f"\n{show()}\n")
+        from majestic.gateway.formatter import print_cli
+        print_cli(show())
     except Exception as e:
         print(f"  {Y}Memory unavailable: {e}{R}\n")
 
@@ -197,15 +190,9 @@ def cmd_workspace(rest: str) -> None:
             print()
             return
         text = _read_any(p)
-        try:
-            from majestic.gateway.formatter import render_cli
-            text = render_cli(text)
-        except Exception:
-            pass
-        print(f"\n  {B}{arg}{R}\n")
-        for line in text.splitlines():
-            print(f"  {line}")
-        print()
+        print(f"\n  {B}{arg}{R}")
+        from majestic.gateway.formatter import print_cli
+        print_cli(text)
 
     elif sub == "search":
         if not arg:
@@ -290,11 +277,8 @@ def cmd_reports(rest: str) -> None:
     elif sub == "view":
         try:
             content = reports[int(arg) - 1].read_text(encoding="utf-8")
-            try:
-                from majestic.gateway.formatter import render_cli
-                print(render_cli(content))
-            except Exception:
-                print(content)
+            from majestic.gateway.formatter import print_cli
+            print_cli(content)
         except (ValueError, IndexError):
             print(f"  {Y}Invalid report number.{R}\n")
     elif sub == "del":
@@ -303,3 +287,5 @@ def cmd_reports(rest: str) -> None:
             print(f"  {G}✓ Deleted.{R}\n")
         except (ValueError, IndexError):
             print(f"  {Y}Invalid report number.{R}\n")
+
+
