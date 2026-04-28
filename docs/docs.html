@@ -1,0 +1,1999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Majestic — Documentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #ffffff;
+      --bg-subtle: #fafafa;
+      --bg-hover:  #f4f4f5;
+      --border:    #e4e4e7;
+      --border-strong: #d4d4d8;
+      --text:      #09090b;
+      --text-2:    #52525b;
+      --text-3:    #a1a1aa;
+      --accent:    oklch(0.52 0.16 250);
+      --accent-bg: oklch(0.97 0.03 250);
+      --accent-border: oklch(0.88 0.07 250);
+      --code-bg:   #f4f4f5;
+      --code-block-bg: #18181b;
+      --green:     oklch(0.55 0.15 150);
+      --green-bg:  oklch(0.97 0.03 150);
+      --orange:    oklch(0.65 0.18 55);
+      --orange-bg: oklch(0.98 0.03 55);
+      --red:       oklch(0.55 0.2 25);
+      --red-bg:    oklch(0.97 0.04 25);
+      --sidebar-w: 260px;
+      --toc-w:     220px;
+      --nav-h:     56px;
+      --radius:    6px;
+      --font:      'Geist', sans-serif;
+      --mono:      'JetBrains Mono', monospace;
+    }
+
+    html { font-size: 15px; scroll-behavior: smooth; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+    #root { display: flex; flex-direction: column; min-height: 100vh; }
+    .layout { display: flex; flex: 1; padding-top: var(--nav-h); }
+
+    .topnav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: var(--nav-h);
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 20px;
+      gap: 12px;
+    }
+    .topnav-logo {
+      display: flex; align-items: center; gap: 8px;
+      font-weight: 600; font-size: 15px; color: var(--text);
+      text-decoration: none; flex-shrink: 0;
+      margin-right: 8px;
+    }
+    .logo-mark {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .logo-mark svg { display: block; }
+    .nav-divider { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+    .nav-badge {
+      font-size: 11px; font-weight: 500; color: var(--text-2);
+      background: var(--bg-subtle); border: 1px solid var(--border);
+      border-radius: 4px; padding: 1px 7px; flex-shrink: 0;
+    }
+    .nav-search {
+      flex: 1; max-width: 320px; margin-left: auto;
+      display: flex; align-items: center; gap: 8px;
+      background: var(--bg-subtle); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0 10px; height: 32px;
+      cursor: text; color: var(--text-3); font-family: var(--font); font-size: 13px;
+      transition: border-color 0.15s;
+    }
+    .nav-search:focus-within { border-color: var(--accent); color: var(--text); }
+    .nav-search input {
+      border: none; background: transparent; outline: none;
+      font-family: var(--font); font-size: 13px; color: var(--text); flex: 1;
+    }
+    .nav-search input::placeholder { color: var(--text-3); }
+    .search-kbd {
+      font-size: 11px; background: var(--bg-hover); border: 1px solid var(--border);
+      border-radius: 4px; padding: 0 5px; color: var(--text-3);
+      font-family: var(--mono); flex-shrink: 0;
+    }
+    .nav-links { display: flex; align-items: center; gap: 4px; margin-left: 8px; }
+    .nav-link {
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: var(--radius);
+      font-size: 13px; color: var(--text-2); text-decoration: none;
+      transition: background 0.12s, color 0.12s;
+    }
+    .nav-link:hover { background: var(--bg-hover); color: var(--text); }
+    .nav-link.active { color: var(--text); font-weight: 500; }
+    .nav-version {
+      font-size: 11px; color: var(--text-3); font-family: var(--mono);
+      padding: 4px 8px; background: var(--bg-subtle); border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .sidebar {
+      position: fixed; top: var(--nav-h); left: 0;
+      width: var(--sidebar-w); height: calc(100vh - var(--nav-h));
+      overflow-y: auto; overflow-x: hidden;
+      border-right: 1px solid var(--border);
+      padding: 24px 0 48px;
+      background: var(--bg);
+    }
+    .sidebar-section { margin-bottom: 4px; }
+    .sidebar-group-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--text-3);
+      padding: 0 16px 6px; margin-top: 16px;
+    }
+    .sidebar-group-label:first-child { margin-top: 0; }
+    .sidebar-link {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 5px 16px; font-size: 13.5px; color: var(--text-2);
+      text-decoration: none; border-radius: 0;
+      transition: background 0.1s, color 0.1s;
+      cursor: pointer; user-select: none;
+      border: none; background: none; width: 100%; text-align: left;
+    }
+    .sidebar-link:hover { background: var(--bg-hover); color: var(--text); }
+    .sidebar-link.active {
+      color: var(--accent); background: var(--accent-bg);
+      font-weight: 500;
+    }
+    .sidebar-link-inner { display: flex; align-items: center; gap: 8px; }
+    .sidebar-chevron {
+      font-size: 10px; color: var(--text-3); transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+    .sidebar-chevron.open { transform: rotate(90deg); }
+    .sidebar-sub { overflow: hidden; }
+    .sidebar-sub-link {
+      display: block; padding: 4px 16px 4px 36px;
+      font-size: 13px; color: var(--text-2);
+      text-decoration: none;
+      transition: background 0.1s, color 0.1s;
+      position: relative;
+    }
+    .sidebar-sub-link::before {
+      content: ''; position: absolute; left: 24px; top: 50%;
+      transform: translateY(-50%);
+      width: 1px; height: 100%; background: var(--border);
+    }
+    .sidebar-sub-link:hover { background: var(--bg-hover); color: var(--text); }
+    .sidebar-sub-link.active { color: var(--accent); font-weight: 500; }
+
+    .content-area {
+      margin-left: var(--sidebar-w);
+      margin-right: var(--toc-w);
+      flex: 1; min-width: 0;
+      padding: 48px 56px 96px;
+      max-width: 860px;
+    }
+    @media (max-width: 1100px) { .toc { display: none; } .content-area { margin-right: 0; } }
+    @media (max-width: 768px) { .sidebar { display: none; } .content-area { margin-left: 0; padding: 32px 24px; } }
+
+    .toc {
+      position: fixed; top: var(--nav-h); right: 0;
+      width: var(--toc-w); height: calc(100vh - var(--nav-h));
+      padding: 32px 20px 48px;
+      overflow-y: auto;
+    }
+    .toc-title {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--text-3); margin-bottom: 12px;
+    }
+    .toc-link {
+      display: block; font-size: 12.5px; color: var(--text-3);
+      text-decoration: none; padding: 3px 0 3px 10px;
+      border-left: 1px solid transparent;
+      transition: color 0.12s, border-color 0.12s;
+      line-height: 1.5;
+    }
+    .toc-link:hover { color: var(--text-2); border-left-color: var(--border); }
+    .toc-link.active { color: var(--accent); border-left-color: var(--accent); font-weight: 500; }
+    .toc-link.h3 { padding-left: 22px; font-size: 12px; }
+
+    .page-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+    }
+    .page-title {
+      font-size: 32px; font-weight: 700; line-height: 1.2;
+      letter-spacing: -0.02em; color: var(--text); margin-bottom: 12px;
+    }
+    .page-desc {
+      font-size: 16px; color: var(--text-2); line-height: 1.65;
+      margin-bottom: 32px; max-width: 600px;
+    }
+    .page-divider { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+
+    h2.section-title {
+      font-size: 22px; font-weight: 600; letter-spacing: -0.015em;
+      color: var(--text); margin: 48px 0 16px;
+      padding-top: 8px;
+      scroll-margin-top: calc(var(--nav-h) + 16px);
+    }
+    h2.section-title:first-of-type { margin-top: 0; }
+
+    h3.subsection-title {
+      font-size: 16px; font-weight: 600; color: var(--text);
+      margin: 28px 0 10px;
+      scroll-margin-top: calc(var(--nav-h) + 16px);
+    }
+
+    .prose p { margin-bottom: 16px; color: var(--text-2); font-size: 14.5px; line-height: 1.75; }
+    .prose ul, .prose ol { margin: 0 0 16px 20px; color: var(--text-2); font-size: 14.5px; line-height: 1.75; }
+    .prose li { margin-bottom: 6px; }
+    .prose a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-border); }
+    .prose a:hover { border-bottom-color: var(--accent); }
+    .prose strong { color: var(--text); font-weight: 600; }
+    .prose code {
+      font-family: var(--mono); font-size: 12.5px;
+      background: var(--code-bg); color: var(--text);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    .code-block {
+      background: var(--code-block-bg); border-radius: var(--radius);
+      margin: 20px 0; overflow: hidden;
+      border: 1px solid #27272a;
+    }
+    .code-block-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; background: #1c1c1f;
+      border-bottom: 1px solid #27272a;
+    }
+    .code-block-lang {
+      font-family: var(--mono); font-size: 11px;
+      color: #71717a; text-transform: lowercase;
+    }
+    .code-block-filename {
+      font-family: var(--mono); font-size: 11px; color: #a1a1aa;
+    }
+    .code-copy-btn {
+      font-family: var(--font); font-size: 11px;
+      background: #27272a; border: none; color: #a1a1aa;
+      padding: 3px 10px; border-radius: 4px; cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .code-copy-btn:hover { background: #3f3f46; color: #e4e4e7; }
+    .code-copy-btn.copied { color: #4ade80; }
+    .code-block pre {
+      padding: 18px 20px; overflow-x: auto;
+      font-family: var(--mono); font-size: 13px; line-height: 1.65;
+      color: #e4e4e7; white-space: pre;
+    }
+
+    .callout {
+      display: flex; gap: 12px;
+      padding: 14px 16px; border-radius: var(--radius);
+      margin: 20px 0; font-size: 13.5px; line-height: 1.65;
+    }
+    .callout-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .callout p { margin: 0; }
+    .callout.info { background: var(--accent-bg); border: 1px solid var(--accent-border); color: var(--accent); }
+    .callout.warning { background: var(--orange-bg); border: 1px solid oklch(0.88 0.1 55); color: var(--orange); }
+    .callout.tip { background: var(--green-bg); border: 1px solid oklch(0.88 0.1 150); color: var(--green); }
+
+    .steps { display: flex; flex-direction: column; gap: 0; margin: 24px 0; position: relative; }
+    .steps::before {
+      content: ''; position: absolute; left: 18px; top: 36px;
+      bottom: 36px; width: 1px; background: var(--border);
+    }
+    .step { display: flex; gap: 16px; padding: 0 0 28px; position: relative; }
+    .step:last-child { padding-bottom: 0; }
+    .step-num {
+      width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      z-index: 1;
+    }
+    .step-body { flex: 1; padding-top: 7px; }
+    .step-title { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .step-desc { font-size: 13.5px; color: var(--text-2); line-height: 1.65; }
+
+    .api-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13.5px; }
+    .api-table thead th {
+      text-align: left; padding: 8px 12px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+      text-transform: uppercase; color: var(--text-3);
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .api-table tbody td {
+      padding: 10px 12px; border-bottom: 1px solid var(--border);
+      color: var(--text-2); vertical-align: top; line-height: 1.55;
+    }
+    .api-table tbody tr:last-child td { border-bottom: none; }
+    .api-table tbody tr:hover td { background: var(--bg-subtle); }
+    .api-table td code {
+      font-family: var(--mono); font-size: 12px;
+      background: var(--code-bg); color: var(--text);
+      padding: 1px 5px; border-radius: 3px;
+      border: 1px solid var(--border); white-space: nowrap;
+    }
+    .badge {
+      display: inline-flex; align-items: center;
+      font-family: var(--mono); font-size: 11px; font-weight: 500;
+      padding: 1px 7px; border-radius: 4px; white-space: nowrap;
+    }
+    .badge.req { background: var(--red-bg); color: var(--red); border: 1px solid oklch(0.88 0.1 25); }
+    .badge.opt { background: var(--bg-hover); color: var(--text-3); border: 1px solid var(--border); }
+    .badge.get { background: oklch(0.96 0.04 250); color: oklch(0.45 0.18 250); border: 1px solid oklch(0.88 0.09 250); }
+    .badge.post { background: oklch(0.97 0.03 150); color: oklch(0.45 0.18 150); border: 1px solid oklch(0.88 0.1 150); }
+    .badge.del { background: var(--red-bg); color: var(--red); border: 1px solid oklch(0.88 0.1 25); }
+
+    .endpoint-card {
+      border: 1px solid var(--border); border-radius: var(--radius);
+      margin: 20px 0; overflow: hidden;
+    }
+    .endpoint-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border);
+    }
+    .endpoint-path {
+      font-family: var(--mono); font-size: 13px; color: var(--text);
+    }
+    .endpoint-desc { padding: 12px 16px; font-size: 13.5px; color: var(--text-2); }
+
+    .config-grid { display: grid; gap: 12px; margin: 16px 0; }
+    .config-card {
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px 16px;
+      transition: border-color 0.15s;
+    }
+    .config-card:hover { border-color: var(--border-strong); }
+    .config-key { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+    .config-type { font-size: 11px; color: var(--text-3); font-family: var(--mono); margin-bottom: 6px; }
+    .config-desc { font-size: 13px; color: var(--text-2); line-height: 1.55; }
+    .config-default { font-family: var(--mono); font-size: 11px; background: var(--code-bg); border: 1px solid var(--border); padding: 1px 6px; border-radius: 3px; color: var(--text-3); margin-top: 8px; display: inline-block; }
+
+    .page-nav { display: flex; gap: 12px; margin-top: 56px; }
+    .page-nav-btn {
+      flex: 1; display: flex; flex-direction: column; gap: 4px;
+      padding: 14px 16px; border: 1px solid var(--border);
+      border-radius: var(--radius); text-decoration: none;
+      transition: border-color 0.15s, background 0.15s;
+      cursor: pointer;
+    }
+    .page-nav-btn:hover { border-color: var(--border-strong); background: var(--bg-subtle); }
+    .page-nav-btn.next { text-align: right; }
+    .page-nav-label { font-size: 11px; color: var(--text-3); }
+    .page-nav-title { font-size: 14px; font-weight: 500; color: var(--accent); }
+
+    .sidebar-hr { border: none; border-top: 1px solid var(--border); margin: 12px 16px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const NAV = [
+      {
+        group: "Getting Started",
+        items: [
+          { id: "introduction", label: "Introduction" },
+          { id: "quickstart",   label: "Quick Start"  },
+        ]
+      },
+      {
+        group: "Using Majestic",
+        items: [
+          { id: "cli-commands",  label: "CLI Commands"    },
+          { id: "tools",         label: "Tools & Toolsets" },
+          { id: "memory-skills", label: "Memory & Skills"  },
+          { id: "scheduling",    label: "Scheduling"       },
+        ]
+      },
+      {
+        group: "Configuration",
+        items: [
+          { id: "configuration", label: "config.yaml"   },
+          { id: "llm-providers", label: "LLM Providers" },
+        ]
+      },
+      {
+        group: "Integrations",
+        items: [
+          { id: "rest-api",  label: "REST API"     },
+          { id: "gateways",  label: "Gateways"     },
+          { id: "mcp",       label: "MCP Servers"  },
+        ]
+      },
+      {
+        group: "Customization",
+        items: [
+          { id: "specialization", label: "Specialization" },
+          { id: "local-tools",    label: "Local Tools"    },
+          { id: "update",         label: "Updating"       },
+        ]
+      },
+    ];
+
+    const PAGE_ORDER = [
+      "introduction","quickstart","cli-commands","tools","memory-skills",
+      "scheduling","configuration","llm-providers","rest-api","gateways",
+      "mcp","specialization","local-tools","update"
+    ];
+    const PAGE_LABELS = {
+      "introduction":  "Introduction",
+      "quickstart":    "Quick Start",
+      "cli-commands":  "CLI Commands",
+      "tools":         "Tools & Toolsets",
+      "memory-skills": "Memory & Skills",
+      "scheduling":    "Scheduling",
+      "configuration": "Configuration",
+      "llm-providers": "LLM Providers",
+      "rest-api":      "REST API",
+      "gateways":      "Gateways",
+      "mcp":           "MCP Servers",
+      "specialization":"Specialization",
+      "local-tools":   "Local Tools",
+      "update":        "Updating",
+    };
+
+    function CodeBlock({ lang = "bash", filename, children }) {
+      const [copied, setCopied] = useState(false);
+      const copy = () => {
+        const text = typeof children === "string"
+          ? children.replace(/<[^>]+>/g, "")
+          : "";
+        navigator.clipboard.writeText(text).catch(() => {});
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      };
+      return (
+        <div className="code-block">
+          <div className="code-block-header">
+            {filename
+              ? <span className="code-block-filename">{filename}</span>
+              : <span className="code-block-lang">{lang}</span>
+            }
+            <button className={"code-copy-btn" + (copied ? " copied" : "")} onClick={copy}>
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+          <pre dangerouslySetInnerHTML={{ __html: children }} />
+        </div>
+      );
+    }
+
+    function Callout({ type = "info", children }) {
+      const icons = { info: "ℹ", warning: "⚠", tip: "✦" };
+      return (
+        <div className={`callout ${type}`}>
+          <span className="callout-icon">{icons[type]}</span>
+          <div>{children}</div>
+        </div>
+      );
+    }
+
+    function PageNav({ current }) {
+      const [, setPage] = useState(null);
+      return null;
+    }
+
+    /* ── Introduction ────────────────────────────────────────────────────────── */
+    function SectionIntroduction({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Overview</div>
+          <h1 className="page-title">Introduction</h1>
+          <p className="page-desc">
+            Majestic is a self-hosted AI agent that runs on your laptop or VPS
+            and executes any task you describe in plain language.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="what-is">What is Majestic?</h2>
+          <div className="prose">
+            <p>
+              Majestic is a <strong>universal agent-executor</strong>. You give it a task — it picks
+              the right tools, calls them in sequence, and returns a result. No workflows to configure,
+              no API schemas to write. Research, market data, file operations, automations — all from
+              one agent, driven by your words.
+            </p>
+            <p>
+              Everything runs on your own machine. Your API keys, your data, your models.
+              Nothing is sent to a third-party service beyond the LLM provider you choose.
+            </p>
+          </div>
+
+          <CodeBlock lang="text">{`  ▶ Research BTC market and send a briefing to Telegram
+
+ ┌ web_search · BTC price today
+ ├ Working...
+ ├ get_market_data · BTC,ETH,SOL
+ ├ Working...
+ ├ send_telegram · briefing
+ └ Done · 3 tool calls · $0.004 · 8.2s
+
+  BTC is trading at $67,420 (+2.4%)...`}</CodeBlock>
+
+          <h2 className="section-title" id="how-it-works">How it works</h2>
+          <div className="prose">
+            <p>
+              Each request enters an <strong>agent loop</strong> (up to 10 iterations):
+            </p>
+            <ol>
+              <li>Your message is sent to the LLM with the full tool registry as context.</li>
+              <li>The LLM decides which tool to call and with what arguments.</li>
+              <li>Majestic executes the tool and feeds the result back to the LLM.</li>
+              <li>The loop continues until the LLM produces a final text answer.</li>
+            </ol>
+            <p>
+              The agent maintains <strong>session history</strong> (last 10 turns) and loads
+              <strong> persistent memory</strong> on startup — so it knows your preferences, past
+              decisions, and ongoing context.
+            </p>
+          </div>
+
+          <h2 className="section-title" id="features">Key features</h2>
+          <table className="api-table">
+            <thead><tr><th>Feature</th><th>Details</th></tr></thead>
+            <tbody>
+              {[
+                ["Plain-language execution", "Any task described in natural language — agent picks the tools"],
+                ["Persistent memory", "Remembers preferences, context, and learned behaviors across sessions"],
+                ["Hybrid search", "FTS5 + vector search across news, documents, history, and reports"],
+                ["4 LLM providers", "Anthropic, OpenAI, OpenRouter, Ollama — switch without restart"],
+                ["Scheduling", "Natural-language cron jobs delivered to any platform"],
+                ["REST API", "POST /chat, GET /health, GET /sessions — connect any UI or script"],
+                ["Gateways", "Telegram, Discord, Email — same agent, all platforms"],
+                ["MCP integration", "Any MCP server becomes agent tools instantly, no Python needed"],
+                ["Skills", "Reusable procedures stored as Markdown, invoked as /skill-name"],
+                ["Command approval", "Shell commands require explicit approval before execution"],
+                ["Docker ready", "Single-command deploy with persistent volume"],
+              ].map(([f, d]) => (
+                <tr key={f}><td><strong>{f}</strong></td><td>{d}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h2 className="section-title" id="architecture">Architecture</h2>
+          <div className="prose">
+            <p>
+              One Python package, no framework overhead. Every file is kept under 300 lines.
+            </p>
+          </div>
+          <CodeBlock lang="text">{`majestic/
+├── agent/        loop.py · prompt.py · runner.py
+├── api/          server.py            REST API
+├── cli/          main.py · repl.py · setup.py
+├── cron/         scheduler.py · jobs.py
+├── db/           state.py · embedder.py · parser.py
+├── gateway/      telegram.py · discord.py · email_gw.py · formatter.py
+├── llm/          anthropic.py · openai.py · openrouter.py · ollama.py
+├── mcp/          client.py · bridge.py
+├── memory/       store.py · nudge.py
+├── skills/       loader.py · creator.py
+└── tools/        registry.py · web/ · research/ · files/ · system/`}</CodeBlock>
+
+          <Callout type="info">
+            <p>All runtime data lives under <code>~/.majestic-agent/</code> — config, keys, memory, skills, workspace, and backups.</p>
+          </Callout>
+
+          <NavButtons current="introduction" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── Quick Start ─────────────────────────────────────────────────────────── */
+    function SectionQuickStart({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Getting Started</div>
+          <h1 className="page-title">Quick Start</h1>
+          <p className="page-desc">Get Majestic running in under five minutes.</p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="qs-requirements">Requirements</h2>
+          <div className="prose">
+            <ul>
+              <li><strong>Python 3.11+</strong></li>
+              <li><strong>Git</strong></li>
+              <li><strong>macOS or Linux</strong> (Windows via WSL)</li>
+              <li>At least one LLM API key (Anthropic recommended)</li>
+            </ul>
+          </div>
+
+          <h2 className="section-title" id="qs-install">Installation</h2>
+          <div className="steps">
+            <div className="step">
+              <div className="step-num">1</div>
+              <div className="step-body">
+                <div className="step-title">Run the installer</div>
+                <div className="step-desc">One command clones the repo, creates a virtualenv, and puts <code>majestic</code> on your PATH.</div>
+                <CodeBlock lang="bash">{`curl -fsSL https://raw.githubusercontent.com/ysz7/majestic-agent/main/scripts/install.sh | bash`}</CodeBlock>
+                <div className="step-desc">Restart your terminal (or <code>source ~/.bashrc</code>) after install.</div>
+              </div>
+            </div>
+            <div className="step">
+              <div className="step-num">2</div>
+              <div className="step-body">
+                <div className="step-title">Run the setup wizard</div>
+                <div className="step-desc">Walks you through choosing an LLM provider, entering your API key, and setting preferences.</div>
+                <CodeBlock lang="bash">{`majestic setup`}</CodeBlock>
+              </div>
+            </div>
+            <div className="step">
+              <div className="step-num">3</div>
+              <div className="step-body">
+                <div className="step-title">Launch the agent</div>
+                <CodeBlock lang="bash">{`majestic`}</CodeBlock>
+                <div className="step-desc">You'll see the prompt <code>▶</code>. Type any question or command to begin.</div>
+              </div>
+            </div>
+          </div>
+
+          <h2 className="section-title" id="qs-manual">Manual install</h2>
+          <CodeBlock lang="bash">{`git clone https://github.com/ysz7/majestic-agent
+cd majestic-agent
+./scripts/install.sh
+
+# Or set up venv manually:
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+majestic setup`}</CodeBlock>
+
+          <h2 className="section-title" id="qs-service">Auto-start as a service</h2>
+          <div className="prose">
+            <p>To start the Telegram gateway automatically on system boot:</p>
+          </div>
+          <CodeBlock lang="bash">{`./scripts/install.sh --service`}</CodeBlock>
+
+          <h2 className="section-title" id="qs-docker">Docker</h2>
+          <CodeBlock lang="bash">{`cp .env.example .env
+# Fill ANTHROPIC_API_KEY and TELEGRAM_BOT_TOKEN in .env
+docker compose up -d`}</CodeBlock>
+          <div className="prose">
+            <p>Data persists in <code>~/.majestic-agent/</code> on the host. Health endpoint: <code>http://localhost:8080/health</code>.</p>
+          </div>
+
+          <Callout type="tip">
+            <p>Run <code>majestic doctor</code> at any time to diagnose configuration problems.</p>
+          </Callout>
+
+          <NavButtons current="quickstart" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── CLI Commands ────────────────────────────────────────────────────────── */
+    function SectionCLICommands({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Reference</div>
+          <h1 className="page-title">CLI Commands</h1>
+          <p className="page-desc">
+            Majestic has two command layers: top-level <code>majestic &lt;cmd&gt;</code> commands
+            run from the shell, and slash commands used inside the interactive REPL session.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="cli-top">Shell commands</h2>
+          <div className="prose"><p>Run from any terminal. These manage the agent itself.</p></div>
+          <table className="api-table">
+            <thead><tr><th>Command</th><th>Description</th></tr></thead>
+            <tbody>
+              {[
+                ["majestic", "Launch the interactive REPL"],
+                ["majestic setup", "Interactive first-run wizard — API keys, model, language"],
+                ["majestic model", "Switch LLM provider or model interactively"],
+                ["majestic config", "Show current config values"],
+                ["majestic config get KEY", "Get a single config value (e.g. config get llm.provider)"],
+                ["majestic config set KEY VAL", "Set a config value (e.g. config set language RU)"],
+                ["majestic doctor", "Diagnose configuration problems and security warnings"],
+                ["majestic update", "Pull latest changes from GitHub, preserve local customizations"],
+                ["majestic tools", "Interactive checklist to enable/disable individual tools"],
+                ["majestic tools list", "Show available toolsets"],
+                ["majestic api start", "Start the REST API server (default port 8080)"],
+                ["majestic mcp list", "List configured MCP servers and their tools"],
+                ["majestic mcp add NAME CMD", "Add an MCP server"],
+                ["majestic mcp remove NAME", "Remove an MCP server"],
+                ["majestic gateway start telegram", "Start Telegram bot"],
+                ["majestic gateway start discord", "Start Discord bot"],
+                ["majestic gateway start all", "Start all configured gateways simultaneously"],
+                ["majestic gateway setup", "Configure platform connections interactively"],
+              ].map(([cmd, desc]) => (
+                <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h2 className="section-title" id="cli-agent">Agent tools (REPL)</h2>
+          <div className="prose"><p>Research and intelligence commands. Each triggers the agent with specialized tooling.</p></div>
+          <table className="api-table">
+            <thead><tr><th>Command</th><th>Description</th></tr></thead>
+            <tbody>
+              {[
+                ["/research", "Collect intel from all sources (HN, Reddit, GitHub, arXiv, newsapi...)"],
+                ["/briefing [days]", "Market + tech briefing, default 14 days"],
+                ["/market", "Crypto, stocks, forex snapshot"],
+                ["/news [N]", "Latest N news items sorted by relevance (default 10)"],
+                ["/report <topic>", "Deep research report on any topic, saved to workspace"],
+                ["/ideas", "Business ideas generated from recent cross-source signals"],
+              ].map(([cmd, desc]) => (
+                <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h2 className="section-title" id="cli-memory">Memory & workspace (REPL)</h2>
+          <table className="api-table">
+            <thead><tr><th>Command</th><th>Description</th></tr></thead>
+            <tbody>
+              {[
+                ["/memory", "View persistent agent memory"],
+                ["/forget <topic>", "Remove memory entries mentioning a keyword"],
+                ["/skills", "List user-defined skills"],
+                ["/agent-skills", "List skills auto-created by the agent"],
+                ["/history <query>", "Search past conversations with LLM summarization"],
+                ["/history last [N]", "Show last N sessions with one-line summaries (default 10)"],
+                ["/workspace", "Show workspace file tree"],
+                ["/workspace view <path>", "View a file or folder in workspace"],
+                ["/workspace search <query>", "Full-text search across workspace files"],
+                ["/workspace del <path>", "Delete a workspace file (prompts for confirmation)"],
+                ["/workspace move <src> <dst>", "Move or rename a workspace file"],
+                ["/workspace mkdir <folder>", "Create a folder in workspace"],
+              ].map(([cmd, desc]) => (
+                <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h2 className="section-title" id="cli-management">Management (REPL)</h2>
+          <table className="api-table">
+            <thead><tr><th>Command</th><th>Description</th></tr></thead>
+            <tbody>
+              {[
+                ["/model", "Switch LLM provider or model"],
+                ["/set", "Show current agent.role, toolset, tools_enabled, tools_disabled"],
+                ["/set agent.role <text>", "Set agent persona/role"],
+                ["/set toolset <name>", "Switch toolset (research / coding / market / full)"],
+                ["/set agent.tools_enabled <list>", "Comma-separated whitelist of tool names"],
+                ["/set agent.tools_disabled <list>", "Comma-separated blacklist of tool names"],
+                ["/toolsets", "List available toolsets with descriptions"],
+                ["/usage [reset]", "Token usage and cost stats for the current session"],
+                ["/insights [days]", "Usage analytics by day (default 7)"],
+                ["/schedule list", "List active cron schedules"],
+                ["/schedule add <text>", "Add schedule described in plain language"],
+                ["/schedule remove <id>", "Remove a schedule by ID"],
+                ["/remind <text>", "Add a natural-language reminder"],
+                ["/reminders", "List active reminders"],
+                ["/rss list", "List configured RSS feeds"],
+                ["/rss add <url>", "Add an RSS feed"],
+                ["/rss remove <id>", "Remove an RSS feed by ID"],
+                ["/reports", "List saved reports"],
+                ["/reports view <N>", "View report number N"],
+                ["/reports del <N>", "Delete report number N"],
+                ["/new", "Start a fresh session (clears history)"],
+                ["/stop", "Interrupt the current running task"],
+                ["/exit", "Save session summary to memory and quit"],
+              ].map(([cmd, desc]) => (
+                <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <Callout type="tip">
+            <p>Type <code>/help</code> inside the REPL for a condensed reference. Press <strong>Tab</strong> to autocomplete slash commands.</p>
+          </Callout>
+
+          <NavButtons current="cli-commands" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── Tools & Toolsets ────────────────────────────────────────────────────── */
+    function SectionTools({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Reference</div>
+          <h1 className="page-title">Tools & Toolsets</h1>
+          <p className="page-desc">
+            Tools are the atomic capabilities the agent can invoke. Toolsets group them by domain
+            so you can switch the agent's focus without touching config manually.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="tools-builtin">Built-in tools</h2>
+          <table className="api-table">
+            <thead><tr><th>Tool</th><th>Module</th><th>Description</th></tr></thead>
+            <tbody>
+              {[
+                ["web_search",       "tools/web/websearch.py",        "Web search via DuckDuckGo (free) or Tavily (if key set)"],
+                ["web_extract",      "tools/web/websearch.py",        "Extract readable text from a URL"],
+                ["run_research",     "tools/research/collect.py",     "Collect and index intel from HN, Reddit, GitHub, arXiv, news"],
+                ["get_briefing",     "tools/research/briefing.py",    "Generate market/tech briefing from indexed intel"],
+                ["generate_report",  "tools/research/briefing.py",    "Deep report on a topic, saved to workspace"],
+                ["generate_ideas",   "tools/research/ideas.py",       "Business ideas from recent cross-source signals"],
+                ["get_market_data",  "tools/research/market_data.py", "Crypto, stocks, forex snapshot (CoinGecko, Alpha Vantage)"],
+                ["read_file",        "tools/files/workspace.py",      "Read a file from workspace"],
+                ["write_file",       "tools/files/workspace.py",      "Write a file to workspace"],
+                ["index_document",   "tools/files/workspace.py",      "Index PDF, DOCX, CSV, TXT, MD for RAG search"],
+                ["db_search",        "tools/db_search.py",            "Unified FTS5 + vector search across all indexed data"],
+                ["history_search",   "tools/history_search.py",       "Search and LLM-summarize past conversations"],
+                ["run_command",      "tools/system/terminal.py",      "Execute a shell command (requires user approval)"],
+                ["save_memory",      "memory/store.py",               "Save a fact or preference to persistent memory"],
+              ].map(([t, m, d]) => (
+                <tr key={t}><td><code>{t}</code></td><td><code style={{fontSize:11}}>{m}</code></td><td>{d}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h2 className="section-title" id="tools-toolsets">Toolsets</h2>
+          <div className="prose">
+            <p>
+              A toolset is a named group of tools. Switching toolsets instantly changes which tools
+              the agent can use without modifying config by hand.
+            </p>
+          </div>
+          <table className="api-table">
+            <thead><tr><th>Toolset</th><th>Included tools</th></tr></thead>
+            <tbody>
+              {[
+                ["research", "web_search, web_extract, run_research, get_briefing, generate_report, generate_ideas, db_search, history_search, save_memory"],
+                ["market",   "get_market_data, web_search, get_briefing, db_search, save_memory"],
+                ["coding",   "run_command, read_file, write_file, index_document, web_search, db_search, save_memory"],
+                ["full",     "All tools enabled (default)"],
+              ].map(([n, t]) => (
+                <tr key={n}><td><code>{n}</code></td><td style={{fontSize:13}}>{t}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h2 className="section-title" id="tools-switch">Switching toolsets</h2>
+          <CodeBlock lang="bash">{`# From within the REPL:
+/set toolset research
+/set toolset coding
+/toolsets            # list all available toolsets
+
+# Or via shell:
+majestic tools list  # show toolsets
+majestic tools       # interactive checkbox selector`}</CodeBlock>
+
+          <h2 className="section-title" id="tools-approval">Command approval</h2>
+          <div className="prose">
+            <p>
+              Before executing any shell command, Majestic asks for approval in interactive sessions.
+              This prevents the agent from accidentally running destructive operations.
+            </p>
+          </div>
+          <CodeBlock lang="text">{`  [approve] 'ls -la'
+  Allow? [y / N / always]`}</CodeBlock>
+          <div className="prose">
+            <ul>
+              <li><strong>y</strong> — allow this one time</li>
+              <li><strong>N</strong> (default) — deny and return an error to the agent</li>
+              <li><strong>always</strong> — permanently add this command to <code>agent.allowed_commands</code> in config (never asked again)</li>
+            </ul>
+            <p>
+              In non-interactive mode (gateway, cron), commands are blocked by default unless
+              <code> agent.allow_commands: true</code> is set in config.
+            </p>
+          </div>
+          <Callout type="warning">
+            <p>Setting <code>agent.allow_commands: true</code> with a gateway enabled means remote users can run any shell command. <code>majestic doctor</code> will warn you.</p>
+          </Callout>
+
+          <NavButtons current="tools" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── Memory & Skills ─────────────────────────────────────────────────────── */
+    function SectionMemorySkills({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Reference</div>
+          <h1 className="page-title">Memory & Skills</h1>
+          <p className="page-desc">
+            Memory persists facts and preferences across sessions.
+            Skills are reusable procedures stored as Markdown and invoked as slash commands.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="memory-how">How memory works</h2>
+          <div className="prose">
+            <p>
+              Memory is stored as two plain Markdown files under <code>~/.majestic-agent/memory/</code>.
+              The agent loads both on startup and appends to them during the session.
+              On <code>/exit</code>, the agent summarizes the session and performs a dedup pass
+              to merge contradicting entries.
+            </p>
+          </div>
+          <CodeBlock lang="text">{`~/.majestic-agent/memory/
+├── memory.md   # Agent facts: knowledge, decisions, learned behaviors
+└── user.md     # User profile: preferences, habits, background`}</CodeBlock>
+          <div className="prose">
+            <p>
+              You can edit these files directly in any text editor — they are plain Markdown,
+              no special format required.
+            </p>
+          </div>
+
+          <h2 className="section-title" id="memory-commands">Memory commands</h2>
+          <CodeBlock lang="bash">{`/memory          # view everything in memory.md + user.md
+/forget bitcoin  # remove all entries mentioning "bitcoin"`}</CodeBlock>
+
+          <h2 className="section-title" id="skills-how">How skills work</h2>
+          <div className="prose">
+            <p>
+              A skill is a Markdown file with a YAML frontmatter header. It describes a reusable
+              multi-step procedure. When you invoke <code>/skill-name</code>, Majestic sends the
+              skill body as a system instruction to the agent, which then executes it.
+            </p>
+          </div>
+          <CodeBlock lang="yaml" filename="~/.majestic-agent/skills/my-skill.md">{`---
+name: my-skill
+description: Analyze a GitHub repo and summarize its architecture
+source: user
+---
+
+## Goal
+Analyze the given GitHub repository and produce a concise architecture summary.
+
+## Steps
+1. Use web_extract to fetch the repo README
+2. List the top-level directory structure
+3. Identify the main entry points and key modules
+4. Write a 200-word architecture summary
+
+## Examples
+- /my-skill https://github.com/owner/repo`}</CodeBlock>
+
+          <h2 className="section-title" id="skills-user">User skills</h2>
+          <div className="prose">
+            <p>
+              User skills are created manually (or copied from builtins). They appear in
+              tab-completion and can be invoked as <code>/skill-name [args]</code>.
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`/skills          # list all user skills with usage counts
+/my-skill        # invoke a skill
+/my-skill topic  # invoke with extra user input`}</CodeBlock>
+
+          <h2 className="section-title" id="skills-agent">Agent-created skills</h2>
+          <div className="prose">
+            <p>
+              After complex multi-tool interactions, the agent automatically suggests saving the
+              pattern as a reusable skill. These are stored with <code>source: agent</code> in
+              frontmatter and are <em>not</em> shown in tab-completion — they are internal hints
+              the agent uses to approach similar tasks more efficiently.
+            </p>
+            <p>
+              Every third invocation, the agent silently proposes an improved skill body and
+              asks for your confirmation before applying it.
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`/agent-skills    # list skills auto-created by the agent`}</CodeBlock>
+
+          <Callout type="tip">
+            <p>Built-in skills for <code>/research</code>, <code>/briefing</code>, <code>/report</code>, and <code>/ideas</code> are pre-installed in <code>~/.majestic-agent/skills/</code> during <code>majestic setup</code>.</p>
+          </Callout>
+
+          <NavButtons current="memory-skills" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── Scheduling ──────────────────────────────────────────────────────────── */
+    function SectionScheduling({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Reference</div>
+          <h1 className="page-title">Scheduling</h1>
+          <p className="page-desc">
+            Run any agent task on a schedule, described in plain language.
+            Results are delivered to CLI, Telegram, or Discord.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="sched-basics">Managing schedules</h2>
+          <CodeBlock lang="bash">{`/schedule list                          # list active schedules
+/schedule add "every Monday at 9am, send me a market briefing on Telegram"
+/schedule add "daily at 7am, research AI news and brief me"
+/schedule remove 2                      # remove schedule by ID`}</CodeBlock>
+
+          <div className="prose">
+            <p>
+              When you add a schedule in plain language, the LLM parses it into a cron expression,
+              a task prompt, and a delivery target. The background scheduler checks for due jobs
+              every minute.
+            </p>
+          </div>
+
+          <h2 className="section-title" id="sched-examples">Natural language examples</h2>
+          <table className="api-table">
+            <thead><tr><th>Plain language</th><th>Interpreted as</th></tr></thead>
+            <tbody>
+              {[
+                ["every Monday at 9am, market briefing to Telegram", "0 9 * * 1 → get_briefing, deliver via Telegram"],
+                ["daily at 7am, research AI news", "0 7 * * * → run_research + summarize, deliver to CLI"],
+                ["every weekday at 8am, check my crypto portfolio", "0 8 * * 1-5 → get_market_data, deliver to CLI"],
+                ["every hour, fetch new HN stories", "0 * * * * → run_research, deliver to CLI"],
+              ].map(([nl, interp]) => (
+                <tr key={nl}><td>{nl}</td><td style={{fontSize:12}}>{interp}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h2 className="section-title" id="sched-parallel">Parallel subtasks</h2>
+          <div className="prose">
+            <p>
+              Schedules can run multiple subtasks in parallel threads. The agent detects parallelism
+              from natural language and marks the schedule with a <code>[parallel]</code> tag.
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`/schedule add "every morning at 8am, in parallel: research AI news, check BTC price, and scan GitHub trending"
+
+# Schedule list shows:
+# ● [3] morning-parallel-brief     0 8 * * *  [parallel]`}</CodeBlock>
+          <div className="prose">
+            <p>
+              Parallel subtasks run concurrently and their results are merged into one delivery.
+              Each subtask has a 120-second timeout.
+            </p>
+          </div>
+
+          <h2 className="section-title" id="sched-reminders">Reminders</h2>
+          <div className="prose">
+            <p>
+              One-shot reminders fire once at the specified time and are then removed automatically.
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`/remind call the dentist tomorrow at 10am
+/remind submit report in 2 hours
+/reminders   # list active reminders`}</CodeBlock>
+
+          <NavButtons current="scheduling" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── Configuration ───────────────────────────────────────────────────────── */
+    function SectionConfiguration({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Reference</div>
+          <h1 className="page-title">Configuration</h1>
+          <p className="page-desc">
+            All settings live in <code>~/.majestic-agent/config.yaml</code>.
+            API keys go in <code>~/.majestic-agent/.env</code> (never committed).
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="config-full">Full example</h2>
+          <CodeBlock lang="yaml" filename="~/.majestic-agent/config.yaml">{`language: EN
+currency: USD
+search_mode: all          # all | docs | intel
+
+llm:
+  provider: anthropic     # anthropic | openai | openrouter | ollama
+  model: claude-sonnet-4-5
+
+agent:
+  role: ""                # extra system prompt block (optional)
+  toolset: full           # research | coding | market | full
+  tools_enabled: []       # whitelist (empty = all active)
+  tools_disabled: []      # blacklist
+  allowed_commands: []    # shell commands approved with "always"
+  allow_commands: false   # true = skip approval entirely (use carefully)
+
+telegram:
+  token: ""
+  allowed_user_ids: []    # leave empty to allow anyone
+  voice_transcription: false
+
+discord:
+  token: ""
+
+email:
+  imap_host: imap.gmail.com
+  smtp_host: smtp.gmail.com
+  username: ""
+  password: ""
+  poll_interval: 60
+  allowed_senders: []
+
+api:
+  port: 8080
+  key: ""                 # set to require X-API-Key header
+
+mcp_servers:
+  - name: filesystem
+    command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/home/user"]
+  - name: github
+    command: ["npx", "-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"`}</CodeBlock>
+
+          <h2 className="section-title" id="config-llm">LLM section</h2>
+          <div className="config-grid">
+            {[
+              { key: "llm.provider", type: "string", desc: "LLM backend to use.", def: "anthropic" },
+              { key: "llm.model",    type: "string", desc: "Model name. Must match the provider's model IDs.", def: "claude-sonnet-4-5" },
+            ].map(c => (
+              <div className="config-card" key={c.key}>
+                <div className="config-key">{c.key}</div>
+                <div className="config-type">{c.type}</div>
+                <div className="config-desc">{c.desc}</div>
+                {c.def && <div className="config-default">default: {c.def}</div>}
+              </div>
+            ))}
+          </div>
+
+          <h2 className="section-title" id="config-agent">Agent section</h2>
+          <div className="config-grid">
+            {[
+              { key: "agent.role",             type: "string",   desc: "Extra system prompt injected at the top of every request. Use to specialize the agent for a domain.", def: '""' },
+              { key: "agent.toolset",          type: "string",   desc: "Named toolset to activate. Overrides tools_enabled/disabled.", def: "full" },
+              { key: "agent.tools_enabled",    type: "string[]", desc: "Whitelist of tool names. If non-empty, only these tools are active.", def: "[]" },
+              { key: "agent.tools_disabled",   type: "string[]", desc: "Blacklist of tool names to exclude.", def: "[]" },
+              { key: "agent.allowed_commands", type: "string[]", desc: "Shell command names approved permanently via 'always' prompt.", def: "[]" },
+              { key: "agent.allow_commands",   type: "boolean",  desc: "Skip approval entirely. Use only in fully trusted environments.", def: "false" },
+            ].map(c => (
+              <div className="config-card" key={c.key}>
+                <div className="config-key">{c.key}</div>
+                <div className="config-type">{c.type}</div>
+                <div className="config-desc">{c.desc}</div>
+                {c.def && <div className="config-default">default: {c.def}</div>}
+              </div>
+            ))}
+          </div>
+
+          <h2 className="section-title" id="config-search">Search mode</h2>
+          <table className="api-table">
+            <thead><tr><th>Value</th><th>Searches</th></tr></thead>
+            <tbody>
+              {[
+                ["all",   "Vector chunks + news FTS5 — broadest context"],
+                ["docs",  "Locally indexed documents only (uploaded files)"],
+                ["intel", "Collected research intel only"],
+              ].map(([v, d]) => <tr key={v}><td><code>{v}</code></td><td>{d}</td></tr>)}
+            </tbody>
+          </table>
+
+          <h2 className="section-title" id="config-keys">API keys (.env)</h2>
+          <CodeBlock lang="bash" filename="~/.majestic-agent/.env">{`ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+OPENROUTER_API_KEY=sk-or-...
+TELEGRAM_BOT_TOKEN=123456:...
+DISCORD_BOT_TOKEN=...
+NEWSAPI_KEY=...
+TAVILY_API_KEY=...
+ALPHA_VANTAGE_KEY=...`}</CodeBlock>
+
+          <NavButtons current="configuration" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── LLM Providers ───────────────────────────────────────────────────────── */
+    function SectionLLMProviders({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Configuration</div>
+          <h1 className="page-title">LLM Providers</h1>
+          <p className="page-desc">
+            Majestic supports four LLM backends. Switch at any time — no restart required.
+          </p>
+          <hr className="page-divider" />
+
+          <table className="api-table">
+            <thead><tr><th>Provider</th><th>Key in config</th><th>Env var</th><th>Notes</th></tr></thead>
+            <tbody>
+              {[
+                ["Anthropic", "anthropic", "ANTHROPIC_API_KEY", "Best tool use, recommended default"],
+                ["OpenAI",    "openai",    "OPENAI_API_KEY",    "GPT-4o, o1, o3-mini"],
+                ["OpenRouter","openrouter","OPENROUTER_API_KEY","Route to any model: Claude, GPT, Gemini, Llama"],
+                ["Ollama",    "ollama",    "(none)",            "Local models, no API key required"],
+              ].map(([name, key, env, note]) => (
+                <tr key={name}>
+                  <td><strong>{name}</strong></td>
+                  <td><code>{key}</code></td>
+                  <td><code>{env}</code></td>
+                  <td>{note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h2 className="section-title" id="llm-switch">Switching providers</h2>
+          <CodeBlock lang="bash">{`# Interactive selector (from shell):
+majestic model
+
+# Interactive selector (from REPL):
+/model
+
+# Direct config edit:
+majestic config set llm.provider openai
+majestic config set llm.model gpt-4o`}</CodeBlock>
+
+          <h2 className="section-title" id="llm-anthropic">Anthropic</h2>
+          <div className="prose">
+            <p>Uses the Anthropic Python SDK with native tool-use support. Recommended for the best agent performance.</p>
+          </div>
+          <CodeBlock lang="yaml">{`llm:
+  provider: anthropic
+  model: claude-sonnet-4-5    # or claude-opus-4-5, claude-haiku-4-5`}</CodeBlock>
+
+          <h2 className="section-title" id="llm-openai">OpenAI</h2>
+          <div className="prose">
+            <p>OpenAI-compatible endpoint. Tool use is mapped automatically from Anthropic schema to OpenAI function-calling format.</p>
+          </div>
+          <CodeBlock lang="yaml">{`llm:
+  provider: openai
+  model: gpt-4o               # or o1, o3-mini, gpt-4-turbo`}</CodeBlock>
+
+          <h2 className="section-title" id="llm-openrouter">OpenRouter</h2>
+          <div className="prose">
+            <p>Routes to any available model. Cost fallback and model routing are handled by OpenRouter. Uses the same OpenAI-compatible interface.</p>
+          </div>
+          <CodeBlock lang="yaml">{`llm:
+  provider: openrouter
+  model: anthropic/claude-sonnet-4-5  # or openai/gpt-4o, meta-llama/llama-3.1-70b`}</CodeBlock>
+
+          <h2 className="section-title" id="llm-ollama">Ollama</h2>
+          <div className="prose">
+            <p>Runs models locally. No API key required. Ollama must be running on the same machine (default <code>http://localhost:11434</code>).</p>
+          </div>
+          <CodeBlock lang="yaml">{`llm:
+  provider: ollama
+  model: llama3.1             # or mistral, phi3, gemma2, etc.`}</CodeBlock>
+          <Callout type="info">
+            <p>Ollama tool use quality varies by model. Llama 3.1 70B and above give the best results for multi-tool tasks.</p>
+          </Callout>
+
+          <NavButtons current="llm-providers" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── REST API ────────────────────────────────────────────────────────────── */
+    function SectionRestAPI({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Integrations</div>
+          <h1 className="page-title">REST API</h1>
+          <p className="page-desc">
+            The REST API exposes the agent over HTTP so any script, UI, or service can use it.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="api-start">Starting the server</h2>
+          <CodeBlock lang="bash">{`majestic api start
+# Server starts on http://localhost:8080 (configurable via api.port)`}</CodeBlock>
+          <div className="prose">
+            <p>
+              The server also starts automatically as part of <code>docker compose up</code>.
+              Health endpoint is always available at <code>/health</code> even when running
+              via <code>majestic gateway start all</code>.
+            </p>
+          </div>
+
+          <h2 className="section-title" id="api-auth">Authentication</h2>
+          <div className="prose">
+            <p>
+              Set <code>api.key</code> in <code>config.yaml</code> to require authentication.
+              Send the key in the <code>X-API-Key</code> header. If <code>api.key</code> is empty,
+              the server accepts all requests.
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`curl -H "X-API-Key: your-key" http://localhost:8080/health`}</CodeBlock>
+
+          <h2 className="section-title" id="api-endpoints">Endpoints</h2>
+
+          <div className="endpoint-card">
+            <div className="endpoint-header">
+              <span className="badge post">POST</span>
+              <span className="endpoint-path">/chat</span>
+            </div>
+            <div className="endpoint-desc">
+              Send a message to the agent. Returns the answer, tools used, cost, and elapsed time.
+            </div>
+          </div>
+          <CodeBlock lang="bash">{`curl -X POST http://localhost:8080/chat \\
+  -H "Content-Type: application/json" \\
+  -d '{"message": "What is the BTC price today?"}'`}</CodeBlock>
+          <CodeBlock lang="json">{`{
+  "answer": "BTC is currently trading at $67,420...",
+  "tools_used": ["get_market_data"],
+  "cost_usd": 0.0031,
+  "elapsed_s": 4.2
+}`}</CodeBlock>
+          <h3 className="subsection-title">Request body</h3>
+          <table className="api-table">
+            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>message</code></td><td><code>string</code></td><td><span className="badge req">required</span></td><td>The user's message.</td></tr>
+              <tr><td><code>session_id</code></td><td><code>string</code></td><td><span className="badge opt">optional</span></td><td>Session ID for conversation continuity. Omit to start a new session.</td></tr>
+            </tbody>
+          </table>
+
+          <div className="endpoint-card">
+            <div className="endpoint-header">
+              <span className="badge post">POST</span>
+              <span className="endpoint-path">/run</span>
+            </div>
+            <div className="endpoint-desc">
+              Fire-and-forget task execution. Returns 202 immediately; the agent runs the task in the background.
+            </div>
+          </div>
+          <CodeBlock lang="bash">{`curl -X POST http://localhost:8080/run \\
+  -H "Content-Type: application/json" \\
+  -d '{"message": "Research AI news and save a report to workspace"}'`}</CodeBlock>
+
+          <div className="endpoint-card">
+            <div className="endpoint-header">
+              <span className="badge get">GET</span>
+              <span className="endpoint-path">/health</span>
+            </div>
+            <div className="endpoint-desc">Returns server status and version. Always available, no auth required.</div>
+          </div>
+          <CodeBlock lang="json">{`{"status": "ok", "version": "0.1.0"}`}</CodeBlock>
+
+          <div className="endpoint-card">
+            <div className="endpoint-header">
+              <span className="badge get">GET</span>
+              <span className="endpoint-path">/sessions</span>
+            </div>
+            <div className="endpoint-desc">List recent sessions with message counts and start times.</div>
+          </div>
+
+          <NavButtons current="rest-api" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── Gateways ────────────────────────────────────────────────────────────── */
+    function SectionGateways({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Integrations</div>
+          <h1 className="page-title">Gateways</h1>
+          <p className="page-desc">
+            Gateways connect Majestic to messaging platforms.
+            The same agent, same tools, same memory — just a different delivery channel.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="gw-start">Starting gateways</h2>
+          <CodeBlock lang="bash">{`majestic gateway start telegram   # Telegram only
+majestic gateway start discord    # Discord only
+majestic gateway start all        # All configured platforms simultaneously
+
+# Interactive setup wizard:
+majestic gateway setup`}</CodeBlock>
+          <div className="prose">
+            <p>
+              Platforms that are not configured (no token set) are silently skipped when using
+              <code> start all</code>. The health endpoint starts on port 8080 regardless.
+            </p>
+          </div>
+
+          <h2 className="section-title" id="gw-telegram">Telegram</h2>
+          <div className="prose">
+            <p>
+              Create a bot via <a href="#">@BotFather</a> and copy the token to config.
+              Optionally restrict access to specific user IDs.
+            </p>
+          </div>
+          <CodeBlock lang="yaml">{`telegram:
+  token: "123456:ABC-DEF..."
+  allowed_user_ids: [123456789]   # leave empty to allow anyone
+  voice_transcription: false       # transcribe voice messages via Whisper`}</CodeBlock>
+          <h3 className="subsection-title">Bot commands</h3>
+          <table className="api-table">
+            <thead><tr><th>Command</th><th>Description</th></tr></thead>
+            <tbody>
+              {[
+                ["/ask <text>", "Send any question to the agent"],
+                ["/briefing", "Generate market/tech briefing"],
+                ["/research", "Collect and index intel from all sources"],
+                ["/remind <text>", "Add a natural-language reminder"],
+                ["/schedule <text>", "Add or list schedules"],
+              ].map(([c, d]) => <tr key={c}><td><code>{c}</code></td><td>{d}</td></tr>)}
+            </tbody>
+          </table>
+          <Callout type="tip">
+            <p>Enable <code>voice_transcription: true</code> to have voice messages automatically transcribed via OpenAI Whisper and forwarded to the agent as text. Requires <code>OPENAI_API_KEY</code>.</p>
+          </Callout>
+
+          <h2 className="section-title" id="gw-discord">Discord</h2>
+          <div className="prose">
+            <p>
+              Create a bot in the Discord Developer Portal, grant the <code>MESSAGE_CONTENT</code> intent,
+              and copy the bot token to config.
+            </p>
+          </div>
+          <CodeBlock lang="yaml">{`discord:
+  token: "..."
+  allowed_user_ids: []    # leave empty to allow all guild members`}</CodeBlock>
+          <div className="prose">
+            <p>Discord supports the same slash commands as Telegram: <code>/ask</code>, <code>/briefing</code>, <code>/research</code>, <code>/remind</code>, <code>/schedule</code>.</p>
+          </div>
+
+          <h2 className="section-title" id="gw-email">Email</h2>
+          <div className="prose">
+            <p>
+              The email gateway polls an IMAP inbox and replies via SMTP. The subject line of
+              each email becomes the agent's prompt; the reply contains the agent's answer.
+            </p>
+          </div>
+          <CodeBlock lang="yaml">{`email:
+  imap_host: imap.gmail.com
+  smtp_host: smtp.gmail.com
+  username: you@gmail.com
+  password: app-password       # use an App Password, not your main password
+  poll_interval: 60            # seconds between inbox checks
+  allowed_senders:
+    - trusted@example.com      # whitelist; leave empty to accept all`}</CodeBlock>
+          <CodeBlock lang="bash">{`majestic gateway start email`}</CodeBlock>
+
+          <NavButtons current="gateways" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── MCP Servers ─────────────────────────────────────────────────────────── */
+    function SectionMCP({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Integrations</div>
+          <h1 className="page-title">MCP Servers</h1>
+          <p className="page-desc">
+            Any MCP (Model Context Protocol) server becomes Majestic tools instantly —
+            no Python code required.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="mcp-what">What is MCP?</h2>
+          <div className="prose">
+            <p>
+              MCP is an open protocol for connecting AI models to external data sources and tools.
+              An MCP server exposes a list of tools over stdio or SSE; Majestic auto-wraps them
+              as native tools and makes them available to the agent.
+            </p>
+          </div>
+
+          <h2 className="section-title" id="mcp-config">Configuration</h2>
+          <CodeBlock lang="yaml" filename="~/.majestic-agent/config.yaml">{`mcp_servers:
+  # stdio server (most common)
+  - name: filesystem
+    command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/home/user"]
+
+  # stdio server with env vars
+  - name: github
+    command: ["npx", "-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+
+  # SSE server
+  - name: my-service
+    url: "http://localhost:3000/sse"`}</CodeBlock>
+
+          <h2 className="section-title" id="mcp-commands">CLI commands</h2>
+          <CodeBlock lang="bash">{`# Add a server:
+majestic mcp add filesystem npx -y @modelcontextprotocol/server-filesystem /home/user
+
+# List servers and their tools:
+majestic mcp list
+
+# Remove a server:
+majestic mcp remove filesystem`}</CodeBlock>
+
+          <h2 className="section-title" id="mcp-naming">Tool naming</h2>
+          <div className="prose">
+            <p>
+              MCP tools are prefixed to avoid naming collisions. A tool named <code>read_file</code>
+              from a server named <code>filesystem</code> becomes <code>mcp_filesystem_read_file</code>.
+              The agent sees and uses the prefixed name transparently.
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`# Example output of: majestic mcp list
+
+  filesystem  (npx -y @modelcontextprotocol/server-filesystem /home/user)
+    · mcp_filesystem_read_file
+    · mcp_filesystem_write_file
+    · mcp_filesystem_list_directory`}</CodeBlock>
+
+          <Callout type="info">
+            <p>MCP servers start as subprocesses when the agent boots. If a server fails to start, its tools are silently omitted — the agent still works with the remaining tools.</p>
+          </Callout>
+
+          <NavButtons current="mcp" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── Specialization ──────────────────────────────────────────────────────── */
+    function SectionSpecialization({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Customization</div>
+          <h1 className="page-title">Specialization</h1>
+          <p className="page-desc">
+            Fork Majestic for any domain without touching source code.
+            Set a role, restrict tools, and deploy a focused agent.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="spec-role">Agent role</h2>
+          <div className="prose">
+            <p>
+              The <code>agent.role</code> string is injected as an extra system prompt block at
+              the top of every request. Use it to give the agent a persona, domain focus, or
+              behavioral constraints.
+            </p>
+          </div>
+          <CodeBlock lang="yaml" filename="~/.majestic-agent/config.yaml">{`agent:
+  role: "You are a trading specialist. Focus on market analysis and signals.
+         Always include risk disclaimers. Never suggest specific trades."
+  toolset: market`}</CodeBlock>
+          <CodeBlock lang="bash">{`# Set from within the REPL:
+/set agent.role You are a DevOps specialist focused on infrastructure monitoring.`}</CodeBlock>
+
+          <h2 className="section-title" id="spec-tools">Restricting tools</h2>
+          <div className="prose">
+            <p>
+              Use <code>tools_enabled</code> as a whitelist or <code>tools_disabled</code> as a
+              blacklist. You can combine them — disabled takes priority over enabled.
+            </p>
+          </div>
+          <CodeBlock lang="yaml">{`agent:
+  tools_enabled:
+    - get_market_data
+    - web_search
+    - save_memory`}</CodeBlock>
+          <CodeBlock lang="bash">{`# From the REPL:
+/set agent.tools_enabled get_market_data,web_search,save_memory
+/set agent.tools_disabled run_command
+
+# Reset to all tools:
+/set agent.tools_enabled -
+/set agent.tools_disabled -`}</CodeBlock>
+
+          <h2 className="section-title" id="spec-toolsets">Toolsets</h2>
+          <div className="prose">
+            <p>
+              Toolsets are predefined groups. They're the fastest way to switch domain focus.
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`/set toolset research   # web + research tools only
+/set toolset coding     # terminal + file tools + web search
+/set toolset market     # market data + briefing + web
+/set toolset full       # all tools (default)
+/toolsets               # list all available toolsets`}</CodeBlock>
+
+          <h2 className="section-title" id="spec-project">Per-project context</h2>
+          <div className="prose">
+            <p>
+              Place an <code>AGENTS.md</code> file in any working directory. When Majestic starts
+              from that directory, it loads the file as an extra <code>[Project context]</code> block
+              in the system prompt. This keeps project-specific knowledge with the codebase.
+            </p>
+          </div>
+          <CodeBlock lang="markdown" filename="./AGENTS.md">{`# Project: My App
+
+This is a Django 5 + React 18 monorepo.
+Database: PostgreSQL 16. Deployment: Kubernetes on GCP.
+
+Key conventions:
+- All API endpoints use snake_case
+- Tests use pytest with factory_boy fixtures
+- Never commit .env files`}</CodeBlock>
+
+          <NavButtons current="specialization" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── Local Tools ─────────────────────────────────────────────────────────── */
+    function SectionLocalTools({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Customization</div>
+          <h1 className="page-title">Local Tools</h1>
+          <p className="page-desc">
+            Add custom Python tools without modifying the Majestic source code.
+            They survive <code>majestic update</code> automatically.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="local-dir">The local/ directory</h2>
+          <div className="prose">
+            <p>
+              Drop any <code>.py</code> file into <code>majestic/tools/local/</code>.
+              On startup, Majestic automatically imports every Python file in that directory
+              and registers any <code>@tool</code>-decorated functions.
+            </p>
+            <p>
+              The directory is <strong>gitignored</strong> — your custom tools won't be touched by
+              <code> git pull</code> or <code>majestic update</code>. A <code>.gitkeep</code> file
+              keeps the directory in the repo even when empty.
+            </p>
+          </div>
+          <CodeBlock lang="text">{`majestic/tools/local/
+├── .gitkeep          # tracked — keeps the folder in git
+├── my_tool.py        # gitignored — your custom tool
+└── crm_integration.py`}</CodeBlock>
+
+          <h2 className="section-title" id="local-example">Creating a tool</h2>
+          <div className="prose">
+            <p>
+              Use the <code>@tool</code> decorator from the tool registry. Provide a name,
+              description, and JSON Schema for the inputs. The function receives keyword arguments
+              matching the schema and must return a string.
+            </p>
+          </div>
+          <CodeBlock lang="python" filename="majestic/tools/local/my_tool.py">{`from majestic.tools.registry import tool
+
+@tool(
+    name="get_weather",
+    description="Get current weather for a city.",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "city": {"type": "string", "description": "City name"},
+        },
+        "required": ["city"],
+    },
+)
+def get_weather(city: str) -> str:
+    import urllib.request, json
+    url = f"https://wttr.in/{city}?format=j1"
+    with urllib.request.urlopen(url) as r:
+        data = json.loads(r.read())
+    temp = data["current_condition"][0]["temp_C"]
+    desc = data["current_condition"][0]["weatherDesc"][0]["value"]
+    return f"{city}: {temp}°C, {desc}"
+`}</CodeBlock>
+          <div className="prose">
+            <p>
+              Restart <code>majestic</code> (or start a new session) for the tool to appear.
+              The agent will then be able to call <code>get_weather</code> when appropriate.
+            </p>
+          </div>
+
+          <Callout type="tip">
+            <p>Keep tool functions focused — one clear task, short description, minimal schema. The agent picks tools based on the description, so specificity matters.</p>
+          </Callout>
+
+          <h2 className="section-title" id="local-gitignore">.gitignore setup</h2>
+          <div className="prose">
+            <p>
+              The project <code>.gitignore</code> already contains the right rules. Your local
+              tool files are automatically excluded from git, while <code>.gitkeep</code> remains tracked.
+            </p>
+          </div>
+          <CodeBlock lang="text" filename=".gitignore">{`majestic/tools/local/*.py
+!majestic/tools/local/.gitkeep`}</CodeBlock>
+
+          <NavButtons current="local-tools" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── Updating ────────────────────────────────────────────────────────────── */
+    function SectionUpdate({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Customization</div>
+          <h1 className="page-title">Updating</h1>
+          <p className="page-desc">
+            Pull the latest Majestic changes from GitHub without losing your local customizations.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="update-cmd">The update command</h2>
+          <CodeBlock lang="bash">{`majestic update`}</CodeBlock>
+          <div className="prose">
+            <p>This runs a safe, non-destructive update sequence:</p>
+            <ol>
+              <li>Stash any uncommitted local changes with <code>git stash --include-untracked</code></li>
+              <li>Pull the latest commits with <code>git pull --rebase</code></li>
+              <li>Restore your local changes with <code>git stash pop</code></li>
+              <li>If <code>pyproject.toml</code> or <code>requirements.txt</code> changed, automatically reinstall dependencies</li>
+            </ol>
+          </div>
+
+          <h2 className="section-title" id="update-preserved">What's preserved</h2>
+          <table className="api-table">
+            <thead><tr><th>What</th><th>Why it's safe</th></tr></thead>
+            <tbody>
+              {[
+                ["~/.majestic-agent/", "Outside the repo — never touched by git"],
+                ["majestic/tools/local/*.py", "Gitignored — git never sees these files"],
+                ["AGENTS.md (project context)", "Can live anywhere outside the repo"],
+                ["config.yaml, .env, memory/", "All in ~/.majestic-agent/ — completely separate"],
+              ].map(([w, r]) => <tr key={w}><td><code>{w}</code></td><td>{r}</td></tr>)}
+            </tbody>
+          </table>
+
+          <Callout type="warning">
+            <p>If you've edited files inside the <code>majestic/</code> source directory (not <code>tools/local/</code>), those changes are stashed and popped. Conflicts are flagged by git — resolve them as you would any rebase conflict.</p>
+          </Callout>
+
+          <h2 className="section-title" id="update-requirements">Requirements for update</h2>
+          <div className="prose">
+            <ul>
+              <li>Majestic must have been installed via git clone (not pip install from PyPI)</li>
+              <li>The working directory must be a git repository — <code>majestic update</code> checks for <code>.git</code></li>
+              <li>The remote must be reachable (internet connection required)</li>
+            </ul>
+          </div>
+
+          <Callout type="tip">
+            <p>Run <code>majestic doctor</code> after an update to catch any new configuration requirements or deprecations.</p>
+          </Callout>
+
+          <NavButtons current="update" navigate={navigate} />
+        </div>
+      );
+    }
+
+    /* ── Page Nav Buttons ────────────────────────────────────────────────────── */
+    function NavButtons({ current, navigate }) {
+      const idx  = PAGE_ORDER.indexOf(current);
+      const prev = idx > 0            ? PAGE_ORDER[idx - 1] : null;
+      const next = idx < PAGE_ORDER.length - 1 ? PAGE_ORDER[idx + 1] : null;
+      return (
+        <div className="page-nav">
+          {prev
+            ? <a className="page-nav-btn" onClick={() => navigate(prev)} style={{ cursor:"pointer" }}>
+                <span className="page-nav-label">Previous</span>
+                <span className="page-nav-title">{"← "}{PAGE_LABELS[prev]}</span>
+              </a>
+            : <div style={{ flex:1 }} />}
+          {next
+            ? <a className="page-nav-btn next" onClick={() => navigate(next)} style={{ cursor:"pointer" }}>
+                <span className="page-nav-label">Next</span>
+                <span className="page-nav-title">{PAGE_LABELS[next]}{" →"}</span>
+              </a>
+            : <div style={{ flex:1 }} />}
+        </div>
+      );
+    }
+
+    /* ── TOC data ────────────────────────────────────────────────────────────── */
+    const TOC_DATA = {
+      "introduction":  [
+        { id: "what-is",       label: "What is Majestic?" },
+        { id: "how-it-works",  label: "How it works" },
+        { id: "features",      label: "Key features" },
+        { id: "architecture",  label: "Architecture" },
+      ],
+      "quickstart": [
+        { id: "qs-requirements", label: "Requirements" },
+        { id: "qs-install",      label: "Installation" },
+        { id: "qs-manual",       label: "Manual install" },
+        { id: "qs-service",      label: "Auto-start service" },
+        { id: "qs-docker",       label: "Docker" },
+      ],
+      "cli-commands": [
+        { id: "cli-top",        label: "Shell commands" },
+        { id: "cli-agent",      label: "Agent tools" },
+        { id: "cli-memory",     label: "Memory & workspace" },
+        { id: "cli-management", label: "Management" },
+      ],
+      "tools": [
+        { id: "tools-builtin",  label: "Built-in tools" },
+        { id: "tools-toolsets", label: "Toolsets" },
+        { id: "tools-switch",   label: "Switching toolsets" },
+        { id: "tools-approval", label: "Command approval" },
+      ],
+      "memory-skills": [
+        { id: "memory-how",      label: "How memory works" },
+        { id: "memory-commands", label: "Memory commands" },
+        { id: "skills-how",      label: "How skills work" },
+        { id: "skills-user",     label: "User skills" },
+        { id: "skills-agent",    label: "Agent-created skills" },
+      ],
+      "scheduling": [
+        { id: "sched-basics",   label: "Managing schedules" },
+        { id: "sched-examples", label: "NL examples" },
+        { id: "sched-parallel", label: "Parallel subtasks" },
+        { id: "sched-reminders",label: "Reminders" },
+      ],
+      "configuration": [
+        { id: "config-full",   label: "Full example" },
+        { id: "config-llm",    label: "LLM section" },
+        { id: "config-agent",  label: "Agent section" },
+        { id: "config-search", label: "Search mode" },
+        { id: "config-keys",   label: "API keys (.env)" },
+      ],
+      "llm-providers": [
+        { id: "llm-switch",     label: "Switching providers" },
+        { id: "llm-anthropic",  label: "Anthropic" },
+        { id: "llm-openai",     label: "OpenAI" },
+        { id: "llm-openrouter", label: "OpenRouter" },
+        { id: "llm-ollama",     label: "Ollama" },
+      ],
+      "rest-api": [
+        { id: "api-start",     label: "Starting the server" },
+        { id: "api-auth",      label: "Authentication" },
+        { id: "api-endpoints", label: "Endpoints" },
+      ],
+      "gateways": [
+        { id: "gw-start",    label: "Starting gateways" },
+        { id: "gw-telegram", label: "Telegram" },
+        { id: "gw-discord",  label: "Discord" },
+        { id: "gw-email",    label: "Email" },
+      ],
+      "mcp": [
+        { id: "mcp-what",     label: "What is MCP?" },
+        { id: "mcp-config",   label: "Configuration" },
+        { id: "mcp-commands", label: "CLI commands" },
+        { id: "mcp-naming",   label: "Tool naming" },
+      ],
+      "specialization": [
+        { id: "spec-role",     label: "Agent role" },
+        { id: "spec-tools",    label: "Restricting tools" },
+        { id: "spec-toolsets", label: "Toolsets" },
+        { id: "spec-project",  label: "Per-project context" },
+      ],
+      "local-tools": [
+        { id: "local-dir",       label: "The local/ directory" },
+        { id: "local-example",   label: "Creating a tool" },
+        { id: "local-gitignore", label: ".gitignore setup" },
+      ],
+      "update": [
+        { id: "update-cmd",          label: "The update command" },
+        { id: "update-preserved",    label: "What's preserved" },
+        { id: "update-requirements", label: "Requirements" },
+      ],
+    };
+
+    /* ── App ─────────────────────────────────────────────────────────────────── */
+    function App() {
+      const [activePage, setActivePage]     = useState("introduction");
+      const [openGroups, setOpenGroups]     = useState({});
+      const [activeAnchor, setActiveAnchor] = useState("");
+      const contentRef = useRef(null);
+
+      useEffect(() => {
+        const headings = contentRef.current?.querySelectorAll("h2[id], h3[id]");
+        if (!headings?.length) return;
+        const obs = new IntersectionObserver(entries => {
+          entries.forEach(e => { if (e.isIntersecting) setActiveAnchor(e.target.id); });
+        }, { rootMargin: "-20% 0% -70% 0%" });
+        headings.forEach(h => obs.observe(h));
+        return () => obs.disconnect();
+      }, [activePage]);
+
+      useEffect(() => {
+        window.scrollTo(0, 0);
+        contentRef.current?.scrollTo(0, 0);
+      }, [activePage]);
+
+      function navigate(id) { setActivePage(id); }
+      function toggleGroup(id) { setOpenGroups(prev => ({ ...prev, [id]: !prev[id] })); }
+
+      const toc = TOC_DATA[activePage] || [];
+
+      const SECTION_MAP = {
+        "introduction":  <SectionIntroduction  navigate={navigate} />,
+        "quickstart":    <SectionQuickStart    navigate={navigate} />,
+        "cli-commands":  <SectionCLICommands   navigate={navigate} />,
+        "tools":         <SectionTools         navigate={navigate} />,
+        "memory-skills": <SectionMemorySkills  navigate={navigate} />,
+        "scheduling":    <SectionScheduling    navigate={navigate} />,
+        "configuration": <SectionConfiguration navigate={navigate} />,
+        "llm-providers": <SectionLLMProviders  navigate={navigate} />,
+        "rest-api":      <SectionRestAPI       navigate={navigate} />,
+        "gateways":      <SectionGateways      navigate={navigate} />,
+        "mcp":           <SectionMCP           navigate={navigate} />,
+        "specialization":<SectionSpecialization navigate={navigate} />,
+        "local-tools":   <SectionLocalTools    navigate={navigate} />,
+        "update":        <SectionUpdate        navigate={navigate} />,
+      };
+
+      return (
+        <>
+          <nav className="topnav">
+            <a className="topnav-logo" href="#">
+              <div className="logo-mark">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <polygon points="7,1 13,11 1,11" fill="white" />
+                </svg>
+              </div>
+              Majestic
+            </a>
+            <div className="nav-divider"></div>
+            <span className="nav-badge">Docs</span>
+            <div className="nav-links">
+              <a className="nav-link" href="index.html">Landing</a>
+              <a className="nav-link" href="https://github.com/ysz7/majestic-agent">GitHub</a>
+            </div>
+            <span className="nav-version">v0.1.0</span>
+          </nav>
+
+          <div className="layout">
+            <aside className="sidebar">
+              {NAV.map(section => (
+                <div className="sidebar-section" key={section.group}>
+                  <div className="sidebar-group-label">{section.group}</div>
+                  {section.items.map(item => (
+                    <div key={item.id}>
+                      {item.children ? (
+                        <>
+                          <button
+                            className={"sidebar-link" + (activePage === item.id || item.children.some(c => c.id === activePage) ? " active" : "")}
+                            onClick={() => { toggleGroup(item.id); navigate(item.id); }}
+                          >
+                            <span className="sidebar-link-inner">{item.label}</span>
+                            <span className={"sidebar-chevron" + (openGroups[item.id] ? " open" : "")}>›</span>
+                          </button>
+                          {openGroups[item.id] && (
+                            <div className="sidebar-sub">
+                              {item.children.map(child => (
+                                <a
+                                  key={child.id}
+                                  className={"sidebar-sub-link" + (activePage === child.id ? " active" : "")}
+                                  onClick={e => { e.preventDefault(); navigate(item.id); setTimeout(() => { document.getElementById(child.id)?.scrollIntoView({ behavior:"smooth", block:"start" }); }, 50); }}
+                                  href={"#" + child.id}
+                                >{child.label}</a>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <button
+                          className={"sidebar-link" + (activePage === item.id ? " active" : "")}
+                          onClick={() => navigate(item.id)}
+                        >
+                          <span className="sidebar-link-inner">{item.label}</span>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <hr className="sidebar-hr" />
+                </div>
+              ))}
+            </aside>
+
+            <main className="content-area" ref={contentRef}>
+              {SECTION_MAP[activePage]}
+            </main>
+
+            {toc.length > 0 && (
+              <aside className="toc">
+                <div className="toc-title">On this page</div>
+                {toc.map(item => (
+                  <a
+                    key={item.id}
+                    href={"#" + item.id}
+                    className={"toc-link" + (item.level === 3 ? " h3" : "") + (activeAnchor === item.id ? " active" : "")}
+                    onClick={e => {
+                      e.preventDefault();
+                      document.getElementById(item.id)?.scrollIntoView({ behavior:"smooth", block:"start" });
+                      setActiveAnchor(item.id);
+                    }}
+                  >{item.label}</a>
+                ))}
+              </aside>
+            )}
+          </div>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
