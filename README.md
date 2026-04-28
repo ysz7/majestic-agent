@@ -10,7 +10,7 @@ Not a chatbot. Not a command menu. A universal agent-executor — runs on your l
 [![Python](https://img.shields.io/badge/Python-3.11+-red.svg)](https://python.org)
 [![Version](https://img.shields.io/badge/version-0.1.0-red.svg)](https://github.com/ysz7/majestic-agent)
 [![Tests](https://img.shields.io/badge/tests-110%20passed-brightgreen.svg)](tests/)
-[![Docs](https://img.shields.io/badge/docs-read-blue.svg)](docs/docs.html)
+[![Docs](https://img.shields.io/badge/docs-read-blue.svg)](https://ysz7.github.io/majestic-agent/docs)
 
 </div>
 
@@ -378,7 +378,7 @@ pytest tests/ -v
 
 ## Documentation
 
-Full reference documentation: **[docs/docs.html](docs/docs.html)**
+Full reference documentation: **[https://ysz7.github.io/majestic-agent/docs](https://ysz7.github.io/majestic-agent/docs)**
 
 Covers CLI commands, tools, memory, scheduling, configuration, LLM providers, REST API, gateways, MCP, and customization.
 
