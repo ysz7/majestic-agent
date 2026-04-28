@@ -16,6 +16,19 @@ try:
 except Exception:
     pass
 
+# Auto-load user-defined tools from majestic/tools/local/*.py
+try:
+    import importlib.util as _ilu
+    from pathlib import Path as _Path
+    _local_dir = _Path(__file__).parent / "local"
+    for _f in sorted(_local_dir.glob("*.py")):
+        _spec = _ilu.spec_from_file_location(f"majestic.tools.local.{_f.stem}", _f)
+        if _spec and _spec.loader:
+            _mod = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)
+except Exception:
+    pass
+
 from .registry import get_schemas, execute   # re-export for convenience
 
 __all__ = ["get_schemas", "execute"]

@@ -23,6 +23,7 @@ Commands:
   config get KEY   Get a config value  (e.g. config get llm.provider)
   config set KEY V Set a config value  (e.g. config set language RU)
   doctor           Diagnose configuration problems
+  update           Update to the latest version from GitHub
   tools            Interactive tool checklist (enable/disable tools)
   tools list       Show available toolsets
   api start        Start REST API server (POST /chat, GET /health, GET /sessions)
@@ -121,6 +122,9 @@ def main() -> None:
     elif cmd == "doctor":
         from majestic.cli.setup import run_doctor
         run_doctor()
+
+    elif cmd == "update":
+        _update_cmd()
 
     elif cmd == "api":
         _api_cmd(args[1:])
@@ -281,3 +285,50 @@ def _gateway_start(target: str = "all") -> None:
         gw.add(EmailPlatform())
 
     asyncio.run(gw.run())
+
+
+def _update_cmd() -> None:
+    """Update majestic to the latest version via git stash → pull → stash pop."""
+    import subprocess
+    project_root = pathlib.Path(__file__).resolve().parent.parent.parent
+
+    def _run(args: list[str]) -> subprocess.CompletedProcess:
+        return subprocess.run(args, cwd=project_root, capture_output=True, text=True)
+
+    print("  Checking for updates...")
+
+    # Verify this is a git repo
+    if not (project_root / ".git").exists():
+        print("  Not a git repository — cannot auto-update.")
+        sys.exit(1)
+
+    # Stash local changes if any
+    status = _run(["git", "status", "--porcelain"])
+    has_changes = bool(status.stdout.strip())
+    if has_changes:
+        print("  Stashing local changes...")
+        _run(["git", "stash", "--include-untracked"])
+
+    # Pull
+    result = _run(["git", "pull", "--rebase"])
+    if result.returncode != 0:
+        print(f"  git pull failed:\n{result.stderr.strip()}")
+        if has_changes:
+            _run(["git", "stash", "pop"])
+        sys.exit(1)
+
+    # Restore stash
+    if has_changes:
+        print("  Restoring local changes...")
+        pop = _run(["git", "stash", "pop"])
+        if pop.returncode != 0:
+            print(f"  Warning: stash pop had conflicts:\n{pop.stderr.strip()}")
+
+    # Reinstall if pyproject.toml or requirements.txt changed
+    changed = _run(["git", "diff", "HEAD@{1}", "--name-only"]).stdout
+    needs_install = any(f in changed for f in ("pyproject.toml", "requirements.txt", "setup.py"))
+    if needs_install:
+        print("  Dependencies changed — running pip install...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "-e", ".", "-q"], cwd=project_root)
+
+    print("  Done. Majestic is up to date.")

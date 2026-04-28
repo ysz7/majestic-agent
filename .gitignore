@@ -28,6 +28,10 @@ data/config.json
 # Keep RSS feed list (user config, not sensitive)
 !data/intel/rss_feeds.json
 
+# ── Local / user-custom tools (not tracked) ───────────────────────────────────
+majestic/tools/local/*.py
+!majestic/tools/local/.gitkeep
+
 # ── IDE / tooling ──────────────────────────────────────────────────────────────
 .claude/
 .idea/
