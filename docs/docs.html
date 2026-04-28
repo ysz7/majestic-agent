@@ -1134,7 +1134,7 @@ mcp_servers:
   - name: github
     command: ["npx", "-y", "@modelcontextprotocol/server-github"]
     env:
-      GITHUB_TOKEN: "${GITHUB_TOKEN}"`}</CodeBlock>
+      GITHUB_TOKEN: "\${GITHUB_TOKEN}"`}</CodeBlock>
 
           <h2 className="section-title" id="config-llm">LLM section</h2>
           <div className="config-grid">
@@ -1495,7 +1495,7 @@ majestic gateway setup`}</CodeBlock>
   - name: github
     command: ["npx", "-y", "@modelcontextprotocol/server-github"]
     env:
-      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_TOKEN: "\${GITHUB_TOKEN}"
 
   # SSE server
   - name: my-service
