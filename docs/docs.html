@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Majestic — Documentation</title>
+  <link rel="icon" type="image/png" href="assets/majestic-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:wght@500;600;700&display=swap" rel="stylesheet" />
 
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
@@ -39,8 +40,9 @@
       --toc-w:     220px;
       --nav-h:     56px;
       --radius:    6px;
-      --font:      'Geist', sans-serif;
-      --mono:      'JetBrains Mono', monospace;
+      --font:         'Geist', sans-serif;
+      --heading-font: 'Lora', Georgia, serif;
+      --mono:         'JetBrains Mono', monospace;
     }
 
     html { font-size: 15px; scroll-behavior: smooth; }
@@ -50,7 +52,16 @@
       color: var(--text);
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
+      position: relative;
     }
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      opacity: 0.045;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+    }
+    #root { position: relative; z-index: 1; }
 
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -208,8 +219,9 @@
       text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
     }
     .page-title {
+      font-family: var(--heading-font);
       font-size: 32px; font-weight: 700; line-height: 1.2;
-      letter-spacing: -0.02em; color: var(--text); margin-bottom: 12px;
+      letter-spacing: -0.01em; color: var(--text); margin-bottom: 12px;
     }
     .page-desc {
       font-size: 16px; color: var(--text-2); line-height: 1.65;
@@ -218,7 +230,8 @@
     .page-divider { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
 
     h2.section-title {
-      font-size: 22px; font-weight: 600; letter-spacing: -0.015em;
+      font-family: var(--heading-font);
+      font-size: 22px; font-weight: 600; letter-spacing: -0.01em;
       color: var(--text); margin: 48px 0 16px;
       padding-top: 8px;
       scroll-margin-top: calc(var(--nav-h) + 16px);
@@ -226,6 +239,7 @@
     h2.section-title:first-of-type { margin-top: 0; }
 
     h3.subsection-title {
+      font-family: var(--heading-font);
       font-size: 16px; font-weight: 600; color: var(--text);
       margin: 28px 0 10px;
       scroll-margin-top: calc(var(--nav-h) + 16px);
@@ -1907,6 +1921,7 @@ def get_weather(city: str) -> str:
         <>
           <nav className="topnav">
             <a className="topnav-logo" href="#">
+              <img src="assets/majestic-icon.png" width="38" height="38" style={{borderRadius:'5px',flexShrink:0,display:'block'}} alt="" />
               Majestic
             </a>
             <div className="nav-divider"></div>
