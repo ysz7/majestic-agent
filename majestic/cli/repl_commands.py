@@ -147,13 +147,25 @@ def cmd_forget(topic: str) -> None:
 
 
 def cmd_skills() -> None:
-    from majestic.skills.loader import list_skills
-    skills = list_skills()
+    from majestic.skills.loader import list_user_skills
+    skills = list_user_skills()
     if not skills:
-        print(f"  {DIM}No skills saved yet.{R}\n")
+        print(f"  {DIM}No user skills yet.{R}\n")
         return
     for s in skills:
         print(f"  {G}/{s['name']}{R}  {DIM}{s.get('description', '')}  (used {s.get('usage_count', 0)}x){R}")
+    print()
+
+
+def cmd_agent_skills() -> None:
+    from majestic.skills.loader import list_agent_skills
+    skills = list_agent_skills()
+    if not skills:
+        print(f"  {DIM}No agent-created skills yet.{R}\n")
+        return
+    print(f"\n  {DIM}Auto-created by agent:{R}")
+    for s in skills:
+        print(f"  {DIM}/{s['name']}{R}  {DIM}{s.get('description', '')}  (used {s.get('usage_count', 0)}x){R}")
     print()
 
 

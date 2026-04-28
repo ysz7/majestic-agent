@@ -160,6 +160,7 @@ def _run_suggest(
                 name=data["name"],
                 description=data.get("description", ""),
                 body=data.get("body", ""),
+                source="agent",
             )
             print(f"\n  💡 Skill saved: /{data['name']}  ({path.name})\n", flush=True)
     except Exception:

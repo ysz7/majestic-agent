@@ -90,12 +90,12 @@ def run() -> None:
         pass
 
     from majestic.cli.commands import SHORTCUTS
-    from majestic.skills.loader import list_skills
+    from majestic.skills.loader import list_user_skills
 
     history: list[tuple[str, str]] = []
 
     def _skill_names() -> set[str]:
-        return {s["name"] for s in list_skills()}
+        return {s["name"] for s in list_user_skills()}
 
     def _push(user: str, ans: str) -> None:
         history.append((user, ans))
@@ -122,11 +122,11 @@ def run() -> None:
             "bottom-toolbar":                     "bg:default fg:#444455 noreverse",
         })
 
-        _PROMPT_MSG = FormattedText([("", "  "), ("fg:#D95767 bold", "majestic ▶ ")])
+        _PROMPT_MSG = FormattedText([("", "  "), ("fg:#D95767 bold", "▶ ")])
 
         _STATIC_CMDS = [
             "/help", "/research", "/briefing", "/market", "/news", "/report",
-            "/ideas", "/memory", "/forget", "/skills", "/model", "/usage",
+            "/ideas", "/memory", "/forget", "/skills", "/agent-skills", "/model", "/usage",
             "/insights", "/new", "/reset", "/schedule", "/remind", "/reminders",
             "/rss", "/reports", "/history", "/set", "/workspace", "/stop", "/exit",
         ]
@@ -187,7 +187,7 @@ def run() -> None:
             with _patch_stdout():
                 return _pt_prompt.prompt(_PROMPT_MSG).strip()
         import readline  # noqa: F401
-        return input(f"  {C}majestic ▶ {R}").strip()
+        return input(f"  {C}▶ {R}").strip()
 
     while True:
         # ── Pending skill improvement (queued in background) ─────────────────
@@ -268,6 +268,10 @@ def run() -> None:
 
         elif user == "/skills":
             cmd_skills()
+
+        elif user.lower() == "/agent-skills":
+            from majestic.cli.repl_commands import cmd_agent_skills
+            cmd_agent_skills()
 
         elif user.lower().startswith("/schedule"):
             cmd_schedule(user[9:].strip())

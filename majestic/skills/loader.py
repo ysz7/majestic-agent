@@ -20,17 +20,25 @@ def list_skills() -> list[dict]:
     SKILLS_DIR.mkdir(parents=True, exist_ok=True)
     seen: set[str] = set()
     skills: list[dict] = []
-    # User skills first (take priority)
     for path in sorted(SKILLS_DIR.glob("*.md")):
         meta = _read_meta(path)
         seen.add(meta.get("name", path.stem))
         skills.append(meta)
-    # Built-in skills (only if not overridden by user)
     for path in sorted(_BUILTIN_DIR.glob("*.md")):
         meta = _read_meta(path)
         if meta.get("name", path.stem) not in seen:
             skills.append(meta)
     return skills
+
+
+def list_user_skills() -> list[dict]:
+    """Skills the user can invoke: all except agent-auto-created ones."""
+    return [s for s in list_skills() if s.get("source") != "agent"]
+
+
+def list_agent_skills() -> list[dict]:
+    """Skills auto-created by the agent via suggest_skill."""
+    return [s for s in list_skills() if s.get("source") == "agent"]
 
 
 def load_skill(name: str) -> Optional[dict]:
@@ -50,6 +58,7 @@ def save_skill(
     description: str,
     body: str,
     tags: Optional[list[str]] = None,
+    source: str = "user",
 ) -> Path:
     """Create a new skill file. Returns its path."""
     SKILLS_DIR.mkdir(parents=True, exist_ok=True)
@@ -59,6 +68,7 @@ def save_skill(
         "tags":        tags or [],
         "usage_count": 0,
         "created":     datetime.now().strftime("%Y-%m-%d"),
+        "source":      source,
     }
     path = _path_for(name)
     _write(path, meta, body)
