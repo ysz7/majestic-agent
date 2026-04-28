@@ -327,6 +327,19 @@ def run_doctor() -> None:
     _check_llm(provider)
 
     # Summary
+    # allow_commands safety check
+    if cfg.get("agent.allow_commands", False):
+        has_gateway = any([
+            cfg.get("telegram.token"),
+            cfg.get("discord.token"),
+            cfg.get("email.username"),
+        ])
+        if has_gateway:
+            warn("agent.allow_commands=true with gateway enabled — remote users can run any shell command")
+            problems += 1
+        else:
+            warn("agent.allow_commands=true — agent will execute shell commands without asking for approval")
+
     print()
     if problems == 0:
         print(f"  {G}{B}All checks passed.{R}\n")
