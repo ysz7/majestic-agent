@@ -10,6 +10,7 @@ Not a chatbot. Not a command menu. A universal agent-executor — runs on your l
 [![Python](https://img.shields.io/badge/Python-3.11+-red.svg)](https://python.org)
 [![Version](https://img.shields.io/badge/version-0.1.0-red.svg)](https://github.com/ysz7/majestic-agent)
 [![Tests](https://img.shields.io/badge/tests-110%20passed-brightgreen.svg)](tests/)
+[![Docs](https://img.shields.io/badge/docs-read-blue.svg)](docs/docs.html)
 
 </div>
 
@@ -372,6 +373,14 @@ pytest tests/ -v
 | `test_history.py` | FTS5 search, grouped results, LLM summarization, /history command |
 | `test_mcp.py` | Client start/stop, tool listing, tool calls, bridge registration |
 | `test_discord.py` | render_discord, chunk_discord, DiscordPlatform interface |
+
+---
+
+## Documentation
+
+Full reference documentation: **[docs/docs.html](docs/docs.html)**
+
+Covers CLI commands, tools, memory, scheduling, configuration, LLM providers, REST API, gateways, MCP, and customization.
 
 ---
 
