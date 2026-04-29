@@ -162,6 +162,9 @@ class _Handler(BaseHTTPRequestHandler):
         if m:
             from urllib.parse import unquote
             return self._json(d.handle_delete_memory(unquote(m)))
+        sid = _match(path, "/api/sessions/", "")
+        if sid:
+            return self._json(d.handle_delete_session(sid))
         return self._json({"error": "not found"}, 404)
 
     # ── Handlers ──────────────────────────────────────────────────────────────
@@ -182,21 +185,16 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             from majestic.agent.loop import AgentLoop
 
-            buf: list[str] = []
-
-            def _on_token(tok: str) -> None:
-                buf.append(tok)
-                self._sse(tok)
+            def _on_tool(name: str, args: dict) -> None:
+                self._sse_json({"type": "tool_call", "data": {"name": name, "args": args}})
 
             loop = AgentLoop()
-            result = loop.run(message, session_id=session_id, history=[], on_token=_on_token)
-            # If no streaming happened (non-streaming provider), send full answer
-            if not buf:
-                answer = result.get("answer", "")
-                for chunk in _split_chunks(answer, 80):
-                    self._sse(chunk)
+            result = loop.run(message, session_id=session_id, history=[], on_tool_call=_on_tool)
+            answer = result.get("answer", "")
+            for chunk in _split_chunks(answer, 80):
+                self._sse_json({"type": "text", "data": chunk})
         except Exception as e:
-            self._sse(f"\n[Error: {e}]")
+            self._sse_json({"type": "error", "data": str(e)})
 
         self._sse("[DONE]")
 
@@ -269,11 +267,13 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _sse(self, data: str) -> None:
         try:
-            line = f"data: {data}\n\n".encode()
-            self.wfile.write(line)
+            self.wfile.write(f"data: {data}\n\n".encode())
             self.wfile.flush()
         except Exception:
             pass
+
+    def _sse_json(self, obj: Any) -> None:
+        self._sse(json.dumps(obj, ensure_ascii=False))
 
     def _unauthorized(self) -> None:
         self._json({"error": "unauthorized"}, 401)

@@ -194,8 +194,9 @@ def handle_get_sessions() -> list:
         for r in rows:
             result.append({
                 "id":            str(r.get("id", "")),
-                "name":          r.get("source", "") or "",
-                "created_at":    r.get("created_at", ""),
+                "title":         r.get("title") or None,
+                "source":        r.get("source", "") or "",
+                "started_at":    r.get("started_at", "") or r.get("created_at", ""),
                 "message_count": r.get("message_count", 0),
             })
         return result
@@ -207,9 +208,27 @@ def handle_create_session(body: dict) -> dict:
     try:
         from majestic.db.state import StateDB
         db = StateDB()
-        name = body.get("name") or f"session-{int(time.time())}"
+        name = body.get("name") or "New Chat"
         sid = db.create_session(source=name)
-        return {"id": str(sid), "name": name, "created_at": "", "message_count": 0}
+        return {
+            "id": str(sid),
+            "title": None,
+            "source": name,
+            "started_at": "",
+            "message_count": 0,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_delete_session(session_id: str) -> dict:
+    try:
+        from majestic.db.state import StateDB
+        db = StateDB()
+        db._conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+        db._conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        db._conn.commit()
+        return {"ok": True}
     except Exception as e:
         return {"error": str(e)}
 
@@ -217,15 +236,15 @@ def handle_create_session(body: dict) -> dict:
 def handle_get_messages(session_id: str) -> list:
     try:
         from majestic.db.state import StateDB
-        rows = StateDB().get_messages(session_id=int(session_id))
+        rows = StateDB().get_session_messages(session_id=session_id)
         return [
             {
-                "id":         str(r.get("id", "")),
+                "id":         str(i),
                 "role":       r.get("role", "user"),
                 "content":    r.get("content", ""),
-                "created_at": r.get("created_at", ""),
+                "created_at": r.get("timestamp", ""),
             }
-            for r in rows
+            for i, r in enumerate(rows)
         ]
     except Exception:
         return []
