@@ -128,10 +128,12 @@ def test_static_serves_index_html(tmp_path, monkeypatch):
 
 # ── dashboard.py unit tests ───────────────────────────────────────────────────
 
-def test_handle_get_memory_returns_list():
-    from majestic.api.dashboard import handle_get_memory
-    result = handle_get_memory()
-    assert isinstance(result, list)
+def test_handle_get_memory_returns_dict():
+    from majestic.api.dashboard import handle_get_memory_md
+    result = handle_get_memory_md()
+    assert isinstance(result, dict)
+    assert "agent" in result
+    assert "user" in result
 
 
 def test_handle_get_skills_returns_list():

@@ -104,19 +104,25 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(d.handle_setup_status())
         if path == "/api/config":
             return self._json(d.handle_get_config())
+        if path == "/api/settings":
+            return self._json(d.handle_get_settings())
         if path == "/api/memory":
-            return self._json(d.handle_get_memory())
+            return self._json(d.handle_get_memory_md())
         if path == "/api/skills":
             return self._json(d.handle_get_skills())
+        m = _match(path, "/api/skills/", "")
+        if m:
+            from urllib.parse import unquote
+            return self._json(d.handle_get_skill_detail(unquote(m)))
         if path == "/api/tables":
             return self._json(d.handle_get_tables())
         if path == "/api/tokens/stats":
             return self._json(d.handle_token_stats())
         if path in ("/api/sessions", "/sessions"):
             return self._json(d.handle_get_sessions())
-        m = _match(path, "/api/sessions/", "/messages")
-        if m:
-            return self._json(d.handle_get_messages(m))
+        m2 = _match(path, "/api/sessions/", "/messages")
+        if m2:
+            return self._json(d.handle_get_messages(m2))
         # Static SPA fallback
         return self._serve_static(path)
 
@@ -131,6 +137,12 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(d.handle_setup(body))
         if not _check_auth(self):
             return self._unauthorized()
+        if path == "/api/settings":
+            return self._json(d.handle_save_settings(body))
+        if path == "/api/memory":
+            return self._json(d.handle_save_memory_md(body))
+        if path == "/api/skills":
+            return self._json(d.handle_create_skill(body))
         if path == "/api/sessions":
             return self._json(d.handle_create_session(body))
         if path in ("/api/chat", "/chat"):
@@ -151,6 +163,8 @@ class _Handler(BaseHTTPRequestHandler):
         from majestic.api import dashboard as d
         if path == "/api/config":
             return self._json(d.handle_patch_config(body))
+        if path == "/api/settings":
+            return self._json(d.handle_save_settings(body))
         return self._json({"error": "not found"}, 404)
 
     def do_DELETE(self) -> None:
@@ -158,13 +172,13 @@ class _Handler(BaseHTTPRequestHandler):
             return self._unauthorized()
         path = self.path.split("?")[0]
         from majestic.api import dashboard as d
-        m = _match(path, "/api/memory/", "")
-        if m:
-            from urllib.parse import unquote
-            return self._json(d.handle_delete_memory(unquote(m)))
         sid = _match(path, "/api/sessions/", "")
         if sid:
             return self._json(d.handle_delete_session(sid))
+        skill = _match(path, "/api/skills/", "")
+        if skill:
+            from urllib.parse import unquote
+            return self._json(d.handle_delete_skill(unquote(skill)))
         return self._json({"error": "not found"}, 404)
 
     # ── Handlers ──────────────────────────────────────────────────────────────

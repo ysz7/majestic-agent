@@ -1,7 +1,7 @@
-"""Dashboard-specific API handlers (setup, config, memory, skills, tables, tokens)."""
+"""Dashboard-specific API handlers (setup, config, settings, memory, skills, tables, tokens)."""
 from __future__ import annotations
 
-import json
+import copy
 import sqlite3
 import time
 from pathlib import Path
@@ -35,11 +35,9 @@ def handle_setup(body: dict) -> dict:
     language = body.get("language", "en").strip()
     currency = body.get("currency", "USD").strip()
 
-    # Write .env
     env_path = MAJESTIC_HOME / ".env"
     _write_env(env_path, {"ANTHROPIC_API_KEY": api_key})
 
-    # Write config.yaml
     config_path = MAJESTIC_HOME / "config.yaml"
     import yaml  # type: ignore[import-untyped]
     cfg_data: dict[str, Any] = {}
@@ -56,7 +54,7 @@ def handle_setup(body: dict) -> dict:
     return {"ok": True}
 
 
-# ── Config ────────────────────────────────────────────────────────────────────
+# ── Config (simple, for onboarding compat) ────────────────────────────────────
 
 def handle_get_config() -> dict:
     try:
@@ -88,26 +86,68 @@ def handle_patch_config(body: dict) -> dict:
         return {"error": str(e)}
 
 
-# ── Memory ────────────────────────────────────────────────────────────────────
+# ── Settings (full config.yaml) ───────────────────────────────────────────────
 
-def handle_get_memory() -> list:
+def handle_get_settings() -> dict:
     try:
-        from majestic.memory.store import load_both
-        facts, prefs = load_both()
-        entries = []
-        for k, v in (facts or {}).items():
-            entries.append({"key": k, "value": str(v), "scope": "fact"})
-        for k, v in (prefs or {}).items():
-            entries.append({"key": k, "value": str(v), "scope": "preference"})
-        return entries
+        from majestic import config as cfg
+        from majestic.constants import MAJESTIC_HOME
+        data = copy.deepcopy(cfg.load())
+        # Redact API key — show only last 4 chars mask
+        env_key = _read_env_key(MAJESTIC_HOME / ".env")
+        data["_api_key_set"] = bool(env_key)
+        data["_api_key_preview"] = (
+            "sk-ant-…" + env_key[-4:] if len(env_key) > 8 else ("set" if env_key else "")
+        )
+        # Remove any raw key from nested llm block if present
+        if isinstance(data.get("llm"), dict):
+            data["llm"].pop("api_key", None)
+        return data
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_save_settings(body: dict) -> dict:
+    try:
+        import yaml  # type: ignore[import-untyped]
+        from majestic.constants import CONFIG_FILE, MAJESTIC_HOME
+
+        # Handle API key update separately
+        new_key = body.pop("api_key", "").strip()
+        body.pop("_api_key_set", None)
+        body.pop("_api_key_preview", None)
+        if new_key and new_key != "***":
+            _write_env(MAJESTIC_HOME / ".env", {"ANTHROPIC_API_KEY": new_key})
+
+        MAJESTIC_HOME.mkdir(parents=True, exist_ok=True)
+        CONFIG_FILE.write_text(
+            yaml.dump(body, allow_unicode=True, default_flow_style=False, sort_keys=False),
+            encoding="utf-8",
+        )
+        return {"ok": True}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ── Memory (raw markdown) ─────────────────────────────────────────────────────
+
+def handle_get_memory_md() -> dict:
+    try:
+        from majestic.memory.store import load_memory, load_user
+        return {"agent": load_memory(), "user": load_user()}
     except Exception:
-        return []
+        return {"agent": "", "user": ""}
 
 
-def handle_delete_memory(key: str) -> dict:
+def handle_save_memory_md(body: dict) -> dict:
     try:
-        from majestic.memory.store import forget
-        forget(key)
+        from majestic.constants import MEMORY_DIR
+        from majestic.memory.store import MEMORY_FILE, USER_FILE
+        MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+        if "agent" in body:
+            MEMORY_FILE.write_text("# Agent Memory\n\n" + body["agent"].strip() + "\n", encoding="utf-8")
+        if "user" in body:
+            USER_FILE.write_text("# User Profile\n\n" + body["user"].strip() + "\n", encoding="utf-8")
         return {"ok": True}
     except Exception as e:
         return {"error": str(e)}
@@ -117,19 +157,62 @@ def handle_delete_memory(key: str) -> dict:
 
 def handle_get_skills() -> list:
     try:
-        from majestic.skills.store import load_skills
-        skills = load_skills()
+        from majestic.skills.loader import list_skills
+        skills = list_skills()
         return [
             {
                 "name":        s.get("name", ""),
                 "description": s.get("description", ""),
-                "trigger":     s.get("trigger", s.get("name", "")),
-                "enabled":     s.get("enabled", True),
+                "tags":        s.get("tags", []),
+                "source":      s.get("source", "user"),
+                "usage_count": s.get("usage_count", 0),
+                "builtin":     s.get("source") not in ("user", "agent"),
             }
             for s in skills
         ]
     except Exception:
         return []
+
+
+def handle_get_skill_detail(name: str) -> dict:
+    try:
+        from majestic.skills.loader import load_skill
+        skill = load_skill(name)
+        if not skill:
+            return {"error": "not found"}
+        return {
+            "name":        skill["meta"].get("name", name),
+            "description": skill["meta"].get("description", ""),
+            "tags":        skill["meta"].get("tags", []),
+            "source":      skill["meta"].get("source", "user"),
+            "body":        skill.get("body", ""),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_create_skill(body: dict) -> dict:
+    name = body.get("name", "").strip()
+    description = body.get("description", "").strip()
+    skill_body = body.get("body", "").strip()
+    tags = [t.strip() for t in body.get("tags", []) if str(t).strip()]
+    if not name:
+        return {"error": "name required"}
+    try:
+        from majestic.skills.loader import save_skill
+        save_skill(name, description, skill_body, tags=tags, source="user")
+        return {"ok": True}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_delete_skill(name: str) -> dict:
+    try:
+        from majestic.skills.loader import delete_skill
+        ok = delete_skill(name)
+        return {"ok": ok}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # ── Tables ────────────────────────────────────────────────────────────────────
