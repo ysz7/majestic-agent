@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Crown } from 'lucide-react'
@@ -32,6 +32,13 @@ export function ChatPage() {
     },
   })
 
+  // Auto-select the most recent session on first load
+  useEffect(() => {
+    if (sessions.length > 0 && activeSession === null) {
+      setActiveSession(sessions[0].id)
+    }
+  }, [sessions, activeSession])
+
   const { streaming, streamMsg, send } = useSendMessage({ sessionId: activeSession })
 
   const handleSend = () => {
@@ -41,9 +48,9 @@ export function ChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] overflow-hidden -m-4">
+    <div className="flex flex-1 overflow-hidden">
       {/* Session sidebar */}
-      <aside className="w-52 border-r shrink-0 flex flex-col">
+      <aside className="w-52 border-r shrink-0 flex flex-col overflow-hidden">
         <SessionList
           sessions={sessions}
           activeId={activeSession}

@@ -1,7 +1,6 @@
 import { useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Send, Crown, User, Wrench, Loader2 } from 'lucide-react'
 import type { Message, ToolCallEvent } from '@/entities/message/model'
@@ -99,8 +98,8 @@ export function ChatWindow({ messages, streamMsg, input, onInputChange, onSend, 
   ]
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
-      <ScrollArea className="flex-1">
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0">
         <div className="px-4 py-4 space-y-5 max-w-2xl mx-auto">
           {allMessages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -111,7 +110,7 @@ export function ChatWindow({ messages, streamMsg, input, onInputChange, onSend, 
           {allMessages.map((m) => <MessageBubble key={m.id} msg={m} />)}
           <div ref={bottomRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       <div className="border-t p-3">
         <div className="flex gap-2 max-w-2xl mx-auto items-end">

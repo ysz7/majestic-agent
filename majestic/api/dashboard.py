@@ -418,9 +418,11 @@ def handle_token_stats() -> dict:
 def handle_get_sessions() -> list:
     try:
         from majestic.db.state import StateDB
-        rows = StateDB().get_recent_sessions(limit=50)
+        rows = StateDB().get_recent_sessions(limit=100)
         result = []
         for r in rows:
+            if r.get("message_count", 0) == 0:
+                continue
             result.append({
                 "id":            str(r.get("id", "")),
                 "title":         r.get("title") or None,
@@ -428,7 +430,7 @@ def handle_get_sessions() -> list:
                 "started_at":    r.get("started_at", "") or r.get("created_at", ""),
                 "message_count": r.get("message_count", 0),
             })
-        return result
+        return result[:40]
     except Exception:
         return []
 

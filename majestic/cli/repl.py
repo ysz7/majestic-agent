@@ -76,11 +76,27 @@ def run() -> None:
 
     session_id: str | None = None
     session_start_tokens: dict = {}
+    history: list[tuple[str, str]] = []
     try:
         from majestic.db.state import StateDB
         from majestic import config as _cfg
         label = f"{_cfg.get('llm.provider')}/{_cfg.get('llm.model')}"
-        session_id = StateDB().create_session(source="cli", model=label)
+        db = StateDB()
+        recent = db.get_recent_sessions(limit=1)
+        if recent:
+            session_id = str(recent[0]["id"])
+            # Restore last few turns as in-memory context
+            msgs = db.get_session_messages(session_id, limit=20)
+            pending_user: str | None = None
+            for m in msgs:
+                if m["role"] == "user":
+                    pending_user = m["content"]
+                elif m["role"] == "assistant" and pending_user:
+                    history.append((pending_user, m["content"][:800]))
+                    pending_user = None
+            history = history[-5:]
+        else:
+            session_id = db.create_session(source="cli", model=label)
         try:
             from majestic.token_tracker import get_stats
             session_start_tokens = get_stats()
@@ -91,8 +107,6 @@ def run() -> None:
 
     from majestic.cli.commands import SHORTCUTS
     from majestic.skills.loader import list_user_skills
-
-    history: list[tuple[str, str]] = []
 
     def _skill_names() -> set[str]:
         return {s["name"] for s in list_user_skills()}
