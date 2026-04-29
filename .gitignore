@@ -48,3 +48,6 @@ PLAN.MD
 .DS_Store
 Thumbs.db
 DEPLOY.md
+# ── Dashboard build output ────────────────────────────────────────────────────
+majestic/api/static/
+dashboard/dist/

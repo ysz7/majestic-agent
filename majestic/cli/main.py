@@ -7,6 +7,7 @@ Entry point for the `majestic` command.
   majestic config       — show / get / set config values
   majestic doctor       — diagnose configuration
   majestic gateway      — manage platform gateway (Telegram, …)
+  majestic dashboard    — start web dashboard (API + React frontend)
 """
 import os
 import sys
@@ -27,6 +28,7 @@ Commands:
   tools            Interactive tool checklist (enable/disable tools)
   tools list       Show available toolsets
   api start        Start REST API server (POST /chat, GET /health, GET /sessions)
+  dashboard        Start web dashboard (serves React UI + REST API)
   mcp list         List configured MCP servers and their tools
   mcp add NAME CMD Add MCP server (CMD is space-separated command)
   gateway start    Start gateway (Telegram + any configured platform)
@@ -137,6 +139,9 @@ def main() -> None:
 
     elif cmd == "gateway":
         _gateway_cmd(args[1:])
+
+    elif cmd == "dashboard":
+        _dashboard_cmd(args[1:])
 
     elif cmd is None:
         _launch_agent()
@@ -285,6 +290,150 @@ def _gateway_start(target: str = "all") -> None:
         gw.add(EmailPlatform())
 
     asyncio.run(gw.run())
+
+
+def _dashboard_cmd(args: list[str]) -> None:
+    """Start the web dashboard: REST API + serve built React frontend."""
+    import subprocess
+    import time
+    import webbrowser
+
+    from majestic import config as cfg
+    from majestic.constants import CONFIG_FILE
+
+    build_only = "--build" in args
+    dev_mode   = "--dev" in args
+
+    # --port <N>
+    port = 8090
+    if "--port" in args:
+        idx = args.index("--port")
+        if idx + 1 < len(args):
+            port = int(args[idx + 1])
+
+    project_root  = pathlib.Path(__file__).resolve().parent.parent.parent
+    dashboard_dir = project_root / "dashboard"
+
+    if build_only:
+        _dashboard_build(dashboard_dir, project_root)
+        return
+
+    if dev_mode:
+        _dashboard_dev(dashboard_dir, port)
+        return
+
+    # Normal: serve built static + API
+    static_dir = project_root / "majestic" / "api" / "static"
+    if not static_dir.exists():
+        print("  Static build not found — building first…")
+        _dashboard_build(dashboard_dir, project_root)
+
+    if not CONFIG_FILE.exists():
+        from majestic.cli.display import warn
+        warn("No config yet — open the browser to complete setup.\n")
+    else:
+        cfg.sync_env_from_config()
+
+    saved_port = cfg.get("dashboard.port", None)
+    if saved_port and "--port" not in args:
+        port = int(saved_port)
+
+    from majestic.api.server import start
+    print(f"  Dashboard at http://localhost:{port}")
+    print("  Press Ctrl+C to stop.")
+    try:
+        webbrowser.open(f"http://localhost:{port}")
+    except Exception:
+        pass
+    try:
+        start(port=port)
+        while True:
+            time.sleep(3600)
+    except KeyboardInterrupt:
+        print("\n  Stopped.")
+
+
+def _dashboard_build(dashboard_dir: pathlib.Path, project_root: pathlib.Path) -> None:
+    import subprocess
+    import shutil
+    if not dashboard_dir.exists():
+        print("  dashboard/ directory not found.")
+        sys.exit(1)
+    node = subprocess.run(["node", "--version"], capture_output=True, text=True)
+    if node.returncode != 0:
+        _prompt_install_node()
+        sys.exit(1)
+    print("  Building dashboard…")
+    result = subprocess.run(["npm", "run", "build"], cwd=dashboard_dir, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(result.stderr[-2000:])
+        sys.exit(1)
+    static_dir = project_root / "majestic" / "api" / "static"
+    if static_dir.exists():
+        shutil.rmtree(static_dir)
+    shutil.copytree(dashboard_dir / "dist", static_dir)
+    print(f"  ✓ Built → {static_dir}")
+
+
+def _dashboard_dev(dashboard_dir: pathlib.Path, api_port: int) -> None:
+    """Run Vite dev server (HMR) alongside the API server."""
+    import subprocess
+    import time
+    import webbrowser
+    if not dashboard_dir.exists():
+        print("  dashboard/ directory not found.")
+        sys.exit(1)
+    from majestic import config as cfg
+    from majestic.constants import CONFIG_FILE
+    if CONFIG_FILE.exists():
+        cfg.sync_env_from_config()
+    vite_port = 5173
+    vite_proc = subprocess.Popen(
+        ["npm", "run", "dev", "--", "--port", str(vite_port)],
+        cwd=dashboard_dir,
+    )
+    from majestic.api.server import start
+    start(port=api_port)
+    url = f"http://localhost:{vite_port}"
+    print(f"  Vite dev server at {url}")
+    print(f"  API server at http://localhost:{api_port}")
+    print("  Press Ctrl+C to stop.")
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass
+    try:
+        while True:
+            time.sleep(3600)
+    except KeyboardInterrupt:
+        vite_proc.terminate()
+        print("\n  Stopped.")
+
+
+def _prompt_install_node() -> None:
+    """Ask user to install Node.js (needed for dashboard build)."""
+    print("  Node.js is not installed, but it is required to build the dashboard.")
+    print("  Would you like to install it now? [y/N] ", end="", flush=True)
+    answer = input().strip().lower()
+    if answer not in ("y", "yes"):
+        print("  Skipped. Install Node.js from https://nodejs.org and re-run.")
+        return
+    import subprocess
+    import platform
+    plat = platform.system()
+    if plat == "Linux":
+        r = subprocess.run(
+            ["bash", "-c", "curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs"],
+            check=False,
+        )
+        if r.returncode != 0:
+            print("  Auto-install failed. Please install Node.js manually: https://nodejs.org")
+    elif plat == "Darwin":
+        r = subprocess.run(["brew", "install", "node"], check=False)
+        if r.returncode != 0:
+            print("  Auto-install failed. Please install Node.js manually: https://nodejs.org")
+    else:
+        print("  Auto-install not supported on this platform. Please install manually: https://nodejs.org")
 
 
 def _update_cmd() -> None:
