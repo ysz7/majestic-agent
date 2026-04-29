@@ -116,8 +116,14 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(d.handle_get_skill_detail(unquote(m)))
         if path == "/api/tables":
             return self._json(d.handle_get_tables())
+        if path == "/api/monitoring":
+            return self._json(d.handle_get_monitoring())
         if path == "/api/tokens/stats":
             return self._json(d.handle_token_stats())
+        # /api/tables/:name/rows
+        trows = _match(path, "/api/tables/", "/rows")
+        if trows:
+            return self._json(d.handle_get_rows(trows))
         if path in ("/api/sessions", "/sessions"):
             return self._json(d.handle_get_sessions())
         m2 = _match(path, "/api/sessions/", "/messages")
@@ -149,6 +155,10 @@ class _Handler(BaseHTTPRequestHandler):
             return self._handle_chat_sse(body)
         if path == "/api/tables":
             return self._json(d.handle_create_table(body))
+        # /api/tables/:name/rows
+        trows_post = _match(path, "/api/tables/", "/rows")
+        if trows_post:
+            return self._json(d.handle_add_row(trows_post, body))
         if path == "/run":
             return self._handle_run(body)
         return self._json({"error": "not found"}, 404)
@@ -167,6 +177,20 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(d.handle_save_settings(body))
         return self._json({"error": "not found"}, 404)
 
+    def do_PUT(self) -> None:
+        if not _check_auth(self):
+            return self._unauthorized()
+        body = self._read_body()
+        if body is None:
+            return
+        path = self.path.split("?")[0]
+        from majestic.api import dashboard as d
+        # /api/tables/:name/rows/:id
+        seg = _split3(path, "/api/tables/", "/rows/")
+        if seg:
+            return self._json(d.handle_update_row(seg[0], seg[1], body))
+        return self._json({"error": "not found"}, 404)
+
     def do_DELETE(self) -> None:
         if not _check_auth(self):
             return self._unauthorized()
@@ -179,6 +203,16 @@ class _Handler(BaseHTTPRequestHandler):
         if skill:
             from urllib.parse import unquote
             return self._json(d.handle_delete_skill(unquote(skill)))
+        # /api/tables/:name/rows/:id  (before /api/tables/:name)
+        trow = _split3(path, "/api/tables/", "/rows/")
+        if trow:
+            return self._json(d.handle_delete_row(trow[0], trow[1]))
+        tname = _match(path, "/api/tables/", "")
+        if tname:
+            return self._json(d.handle_delete_table(tname))
+        sched = _match(path, "/api/schedules/", "")
+        if sched:
+            return self._json(d.handle_delete_schedule(sched))
         return self._json({"error": "not found"}, 404)
 
     # ── Handlers ──────────────────────────────────────────────────────────────
@@ -305,3 +339,18 @@ def _match(path: str, prefix: str, suffix: str) -> str | None:
 
 def _split_chunks(text: str, size: int) -> list[str]:
     return [text[i: i + size] for i in range(0, len(text), size)]
+
+
+def _split3(path: str, prefix: str, mid: str) -> tuple[str, str] | None:
+    """Extract (part1, part2) from paths like /prefix/<p1>/mid/<p2>."""
+    if not path.startswith(prefix):
+        return None
+    rest = path[len(prefix):]
+    if mid not in rest:
+        return None
+    idx = rest.index(mid)
+    p1 = rest[:idx]
+    p2 = rest[idx + len(mid):]
+    if p1 and p2:
+        return (p1, p2)
+    return None

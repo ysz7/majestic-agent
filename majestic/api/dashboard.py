@@ -217,6 +217,12 @@ def handle_delete_skill(name: str) -> dict:
 
 # ── Tables ────────────────────────────────────────────────────────────────────
 
+def _table_columns(con: sqlite3.Connection, table_name: str) -> list[str]:
+    """Return non-id column names for a user table."""
+    info = con.execute(f'PRAGMA table_info("{table_name}")').fetchall()  # noqa: S608
+    return [row[1] for row in info if row[1] != "id"]
+
+
 def handle_get_tables() -> list:
     try:
         from majestic.constants import DB_PATH
@@ -226,8 +232,9 @@ def handle_get_tables() -> list:
         ).fetchall()
         result = []
         for (name,) in rows:
-            count = con.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]  # noqa: S608
-            result.append({"name": name[5:], "rows": count, "created_at": ""})
+            count = con.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]  # noqa: S608
+            columns = _table_columns(con, name)
+            result.append({"name": name[5:], "rows": count, "columns": columns})
         con.close()
         return result
     except Exception:
@@ -248,6 +255,145 @@ def handle_create_table(body: dict) -> dict:
         con.commit()
         con.close()
         return {"ok": True, "table": table_name}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_delete_table(name: str) -> dict:
+    table_name = f"user_{name}"
+    try:
+        from majestic.constants import DB_PATH
+        con = sqlite3.connect(DB_PATH)
+        con.execute(f'DROP TABLE IF EXISTS "{table_name}"')  # noqa: S608
+        con.commit()
+        con.close()
+        return {"ok": True}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_get_rows(name: str) -> dict:
+    table_name = f"user_{name}"
+    try:
+        from majestic.constants import DB_PATH
+        con = sqlite3.connect(DB_PATH)
+        con.row_factory = sqlite3.Row
+        columns = _table_columns(con, table_name)
+        rows = con.execute(f'SELECT * FROM "{table_name}" ORDER BY id DESC LIMIT 500').fetchall()  # noqa: S608
+        con.close()
+        return {"columns": columns, "rows": [dict(r) for r in rows]}
+    except Exception as e:
+        return {"error": str(e), "columns": [], "rows": []}
+
+
+def handle_add_row(name: str, body: dict) -> dict:
+    table_name = f"user_{name}"
+    try:
+        from majestic.constants import DB_PATH
+        con = sqlite3.connect(DB_PATH)
+        cols = _table_columns(con, table_name)
+        vals = [str(body.get(c, "")) for c in cols]
+        placeholders = ", ".join("?" for _ in cols)
+        col_names = ", ".join(f'"{c}"' for c in cols)
+        cur = con.execute(
+            f'INSERT INTO "{table_name}" ({col_names}) VALUES ({placeholders})',  # noqa: S608
+            vals,
+        )
+        con.commit()
+        row_id = cur.lastrowid
+        con.close()
+        return {"ok": True, "id": row_id}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_update_row(name: str, row_id: str, body: dict) -> dict:
+    table_name = f"user_{name}"
+    try:
+        from majestic.constants import DB_PATH
+        con = sqlite3.connect(DB_PATH)
+        cols = _table_columns(con, table_name)
+        updates = [f'"{c}" = ?' for c in cols if c in body]
+        vals = [str(body[c]) for c in cols if c in body]
+        if not updates:
+            return {"error": "no fields to update"}
+        vals.append(row_id)
+        con.execute(
+            f'UPDATE "{table_name}" SET {", ".join(updates)} WHERE id = ?',  # noqa: S608
+            vals,
+        )
+        con.commit()
+        con.close()
+        return {"ok": True}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def handle_delete_row(name: str, row_id: str) -> dict:
+    table_name = f"user_{name}"
+    try:
+        from majestic.constants import DB_PATH
+        con = sqlite3.connect(DB_PATH)
+        con.execute(f'DELETE FROM "{table_name}" WHERE id = ?', (row_id,))  # noqa: S608
+        con.commit()
+        con.close()
+        return {"ok": True}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ── Monitoring ─────────────────────────────────────────────────────────────────
+
+def handle_get_monitoring() -> dict:
+    from majestic.token_tracker import get_stats
+    stats = get_stats()
+    history = stats.get("history", [])
+
+    # Aggregate by date
+    by_day: dict[str, dict] = {}
+    for entry in reversed(history):
+        day = entry.get("ts", "")[:10]
+        if not day:
+            continue
+        if day not in by_day:
+            by_day[day] = {"date": day, "tokens_in": 0, "tokens_out": 0, "cost": 0.0, "requests": 0}
+        by_day[day]["tokens_in"]  += entry.get("in", 0)
+        by_day[day]["tokens_out"] += entry.get("out", 0)
+        by_day[day]["cost"]       = round(by_day[day]["cost"] + entry.get("cost", 0.0), 6)
+        by_day[day]["requests"]   += 1
+
+    schedules: list[dict] = []
+    try:
+        from majestic.cron.jobs import list_schedules
+        schedules = list_schedules()
+    except Exception:
+        pass
+
+    reminders: list[dict] = []
+    try:
+        from majestic.reminders import list_reminders
+        reminders = list_reminders(include_done=False)
+    except Exception:
+        pass
+
+    return {
+        "tokens": {
+            "total_in":      stats.get("tokens_in", 0),
+            "total_out":     stats.get("tokens_out", 0),
+            "total_cost_usd": stats.get("cost_usd", 0.0),
+            "requests":      stats.get("requests", 0),
+            "by_day":        list(by_day.values()),
+        },
+        "schedules": schedules,
+        "reminders": reminders,
+    }
+
+
+def handle_delete_schedule(schedule_id: str) -> dict:
+    try:
+        from majestic.cron.jobs import remove_schedule
+        ok = remove_schedule(int(schedule_id))
+        return {"ok": ok}
     except Exception as e:
         return {"error": str(e)}
 

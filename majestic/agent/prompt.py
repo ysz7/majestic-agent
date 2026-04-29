@@ -39,7 +39,30 @@ def build_system(lang: str = "EN", memory: str = "") -> str:
         pass
     if memory:
         system += f"\n\n## Persistent memory\n{memory}"
+    user_tables = _user_tables_schema()
+    if user_tables:
+        system += f"\n\n## [User tables]\n{user_tables}"
     return system
+
+
+def _user_tables_schema() -> str:
+    """Return a compact schema listing for all user_ tables in state.db."""
+    try:
+        import sqlite3
+        from majestic.constants import DB_PATH
+        con = sqlite3.connect(DB_PATH)
+        rows = con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'user_%'"
+        ).fetchall()
+        lines = []
+        for (name,) in rows:
+            info = con.execute(f'PRAGMA table_info("{name}")').fetchall()  # noqa: S608
+            cols = [r[1] for r in info if r[1] != "id"]
+            lines.append(f"- {name}({', '.join(cols)})")
+        con.close()
+        return "\n".join(lines)
+    except Exception:
+        return ""
 
 
 def build_sub_system(lang: str = "EN") -> str:

@@ -423,6 +423,7 @@
         group: "Integrations",
         items: [
           { id: "rest-api",  label: "REST API"     },
+          { id: "dashboard", label: "Web Dashboard" },
           { id: "gateways",  label: "Gateways"     },
           { id: "mcp",       label: "MCP Servers"  },
         ]
@@ -439,7 +440,7 @@
 
     const PAGE_ORDER = [
       "introduction","quickstart","cli-commands","tools","memory-skills",
-      "scheduling","configuration","llm-providers","rest-api","gateways",
+      "scheduling","configuration","llm-providers","rest-api","dashboard","gateways",
       "mcp","specialization","local-tools","update"
     ];
     const PAGE_LABELS = {
@@ -452,6 +453,7 @@
       "configuration": "Configuration",
       "llm-providers": "LLM Providers",
       "rest-api":      "REST API",
+      "dashboard":     "Web Dashboard",
       "gateways":      "Gateways",
       "mcp":           "MCP Servers",
       "specialization":"Specialization",
@@ -1374,6 +1376,78 @@ majestic config set llm.model gpt-4o`}</CodeBlock>
       );
     }
 
+    /* ── Web Dashboard ──────────────────────────────────────────────────────── */
+    function SectionDashboard({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Integrations</div>
+          <h1 className="page-title">Web Dashboard</h1>
+          <p className="page-desc">
+            A browser-based UI for chatting with the agent, editing memory and skills,
+            managing user tables, and monitoring token usage — all served by the built-in API server.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="dash-start">Starting the dashboard</h2>
+          <CodeBlock lang="bash">{`# Development mode (Vite dev server, hot-reload)
+majestic dashboard
+
+# Or with a custom port
+majestic dashboard --port 5174
+
+# Production: builds to majestic/api/static/ and serves via the API server
+majestic dashboard --build
+majestic api start   # serves dashboard at http://localhost:8080`}</CodeBlock>
+          <div className="prose">
+            <p>
+              In development mode the dashboard runs on <code>http://localhost:5173</code> and proxies
+              API calls to the Majestic API server. The API server must be running on port 8080
+              (start it with <code>majestic api start</code>).
+            </p>
+            <p>
+              After <code>--build</code>, the compiled assets are placed in
+              <code> majestic/api/static/</code> and served automatically by the API server —
+              no separate process needed.
+            </p>
+          </div>
+
+          <h2 className="section-title" id="dash-pages">Pages</h2>
+          <table className="api-table">
+            <thead><tr><th>Page</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Chat</strong></td><td>Real-time streaming chat with session history, search, and delete.</td></tr>
+              <tr><td><strong>Memory</strong></td><td>Edit agent memory and user profile as raw markdown.</td></tr>
+              <tr><td><strong>Skills</strong></td><td>Browse, create, edit, and delete agent skills.</td></tr>
+              <tr><td><strong>Tables</strong></td><td>Full CRUD for user-defined SQLite tables visible to the agent.</td></tr>
+              <tr><td><strong>Monitoring</strong></td><td>Token cost chart, request counts, active schedules and reminders.</td></tr>
+              <tr><td><strong>Settings</strong></td><td>Full config.yaml editor — LLM, language, research, gateways, API key.</td></tr>
+            </tbody>
+          </table>
+          <div className="prose">
+            <p>
+              On first visit (no <code>config.yaml</code>) the dashboard shows an onboarding wizard
+              that sets the API key, model, language, and currency.
+            </p>
+          </div>
+
+          <h2 className="section-title" id="dash-build">Production build</h2>
+          <CodeBlock lang="bash">{`cd dashboard
+npm install
+npm run build          # outputs to ../majestic/api/static/
+majestic api start     # now serves the dashboard at http://localhost:8080`}</CodeBlock>
+          <div className="prose">
+            <p>
+              The static build is gitignored. CI can regenerate it with <code>majestic dashboard --build</code>.
+              Authentication is the same as the REST API — set <code>api.key</code> in
+              <code> config.yaml</code> to protect the dashboard when exposed externally.
+            </p>
+          </div>
+
+          <NavButtons current="dashboard" navigate={navigate} />
+        </div>
+      );
+    }
+
     /* ── Gateways ────────────────────────────────────────────────────────────── */
     function SectionGateways({ navigate }) {
       return (
@@ -1843,6 +1917,11 @@ def get_weather(city: str) -> str:
         { id: "api-auth",      label: "Authentication" },
         { id: "api-endpoints", label: "Endpoints" },
       ],
+      "dashboard": [
+        { id: "dash-start",  label: "Starting the dashboard" },
+        { id: "dash-pages",  label: "Pages" },
+        { id: "dash-build",  label: "Production build" },
+      ],
       "gateways": [
         { id: "gw-start",    label: "Starting gateways" },
         { id: "gw-telegram", label: "Telegram" },
@@ -1910,6 +1989,7 @@ def get_weather(city: str) -> str:
         "configuration": <SectionConfiguration navigate={navigate} />,
         "llm-providers": <SectionLLMProviders  navigate={navigate} />,
         "rest-api":      <SectionRestAPI       navigate={navigate} />,
+        "dashboard":     <SectionDashboard     navigate={navigate} />,
         "gateways":      <SectionGateways      navigate={navigate} />,
         "mcp":           <SectionMCP           navigate={navigate} />,
         "specialization":<SectionSpecialization navigate={navigate} />,

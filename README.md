@@ -101,6 +101,7 @@ Data persists in `~/.majestic-agent/` on the host. Health check at `http://local
 | **Discord Gateway** | Full Discord bot with slash commands, on par with Telegram |
 | **Agent Specialization** | Set `agent.role` + `tools_enabled` in config to fork for any domain |
 | **Conversation History** | `/history <query>` — search and summarize past conversations with LLM |
+| **Web Dashboard** | Browser UI — chat, memory editor, skill CRUD, tables, monitoring |
 | **Docker Ready** | One command deploy with persistent volume and health endpoint |
 | **Tested** | 110 unit tests across all critical paths, GitHub Actions CI |
 
@@ -248,6 +249,7 @@ CLI (terminal)   ──┐
 Telegram bot     ──┤
 Discord bot      ──┤── majestic (local / VPS) ──→ LLM ──→ tools
 REST API         ──┤
+Web Dashboard    ──┤
 Cron / schedule  ──┘
 ```
 
@@ -256,6 +258,7 @@ majestic gateway start telegram   # Telegram only
 majestic gateway start discord    # Discord only
 majestic gateway start all        # Telegram + Discord simultaneously
 majestic api start                # REST API on port 8080
+majestic dashboard                # Web dashboard on port 5173 (dev) or built into API
 # or as a systemd service:
 ./scripts/install.sh --service
 ```
