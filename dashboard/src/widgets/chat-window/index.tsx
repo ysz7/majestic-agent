@@ -50,7 +50,7 @@ function MessageBubble({ msg }: { msg: Message | StreamMessage }) {
     <div className={cn('flex gap-2.5', isUser && 'flex-row-reverse')}>
       <Avatar className="h-6 w-6 shrink-0 mt-1">
         <AvatarFallback className="bg-muted">
-          {isUser ? <User className="h-3 w-3" /> : <img src="/majestic-icon.png" alt="" className="h-3.5 w-3.5" />}
+          {isUser ? <User className="h-6 w-6" /> : <img src="/majestic-icon.png" alt="" className="h-3.5 w-3.5" />}
         </AvatarFallback>
       </Avatar>
       <div className={cn('flex flex-col gap-1.5 max-w-[78%]', isUser && 'items-end')}>
