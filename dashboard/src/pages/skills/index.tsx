@@ -193,6 +193,7 @@ export function SkillsPage() {
 
       {/* Create / Edit dialog */}
       <SkillDialog
+        key={editForm?.name ?? '__new__'}
         open={dialogOpen}
         initial={editForm ?? EMPTY}
         isEdit={!!editForm}

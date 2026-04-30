@@ -13,5 +13,6 @@ export interface ToolCallEvent {
 export type ChatEvent =
   | { type: 'text'; data: string }
   | { type: 'tool_call'; data: ToolCallEvent }
+  | { type: 'session_id'; data: string }
   | { type: 'done' }
   | { type: 'error'; data: string }

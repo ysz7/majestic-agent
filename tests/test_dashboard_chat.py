@@ -172,7 +172,7 @@ def test_chat_sse_events_are_json():
     assert len(json_events) > 0, "Expected at least one JSON event"
     for ev in json_events:
         assert "type" in ev, f"Event missing 'type': {ev}"
-        assert ev["type"] in ("text", "tool_call", "error", "done")
+        assert ev["type"] in ("text", "tool_call", "error", "done", "session_id")
 
 
 # ── dashboard.py unit tests ───────────────────────────────────────────────────

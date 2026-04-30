@@ -230,6 +230,17 @@ class _Handler(BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
 
+        # Create session lazily if none provided
+        if not session_id:
+            try:
+                from majestic.db.state import StateDB
+                from majestic import config as _cfg
+                label = f"{_cfg.get('llm.provider','')}/{_cfg.get('llm.model','')}"
+                session_id = StateDB().create_session(source="dashboard", model=label)
+                self._sse_json({"type": "session_id", "data": session_id})
+            except Exception:
+                pass
+
         try:
             from majestic.agent.loop import AgentLoop
 

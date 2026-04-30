@@ -1,4 +1,6 @@
 import { useRef, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -16,7 +18,7 @@ export interface StreamMessage {
 
 interface Props {
   messages: Message[]
-  streamMsg: StreamMessage | null
+  streamMsgs: StreamMessage[]
   input: string
   onInputChange: (v: string) => void
   onSend: () => void
@@ -24,19 +26,16 @@ interface Props {
 }
 
 function ToolCallCard({ call }: { call: ToolCallEvent }) {
-  const summary = (() => {
-    const keys = Object.keys(call.args)
-    if (keys.length === 0) return ''
-    const first = String(call.args[keys[0]])
-    return first.length > 80 ? first.slice(0, 80) + '…' : first
-  })()
+  const summary = Object.entries(call.args)
+    .map(([k, v]) => `${k}: ${String(v).slice(0, 120)}`)
+    .join(' · ')
 
   return (
-    <div className="flex items-start gap-2 rounded-md border bg-muted/50 px-3 py-2 text-xs">
+    <div className="flex items-start gap-2 rounded-md border bg-muted/50 px-3 py-2 text-xs w-full">
       <Wrench className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <span className="font-medium font-mono">{call.name}</span>
-        {summary && <span className="text-muted-foreground ml-2 truncate block">{summary}</span>}
+        {summary && <p className="text-muted-foreground mt-0.5 break-words">{summary}</p>}
       </div>
     </div>
   )
@@ -63,13 +62,22 @@ function MessageBubble({ msg }: { msg: Message | StreamMessage }) {
         {msg.content && (
           <div
             className={cn(
-              'rounded-xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap break-words',
+              'rounded-xl px-3 py-2 text-sm leading-relaxed break-words',
               isUser
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-foreground',
             )}
           >
-            {msg.content}
+            {isUser ? (
+              <span className="whitespace-pre-wrap">{msg.content}</span>
+            ) : (
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+              >
+                {msg.content}
+              </ReactMarkdown>
+            )}
             {isStreaming && (
               <span className="inline-block w-1.5 h-4 bg-current ml-0.5 align-[-3px] animate-pulse rounded-sm" />
             )}
@@ -85,17 +93,14 @@ function MessageBubble({ msg }: { msg: Message | StreamMessage }) {
   )
 }
 
-export function ChatWindow({ messages, streamMsg, input, onInputChange, onSend, streaming }: Props) {
+export function ChatWindow({ messages, streamMsgs, input, onInputChange, onSend, streaming }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamMsg])
+  }, [messages, streamMsgs])
 
-  const allMessages: (Message | StreamMessage)[] = [
-    ...messages,
-    ...(streamMsg ? [streamMsg] : []),
-  ]
+  const allMessages: (Message | StreamMessage)[] = [...messages, ...streamMsgs]
 
   return (
     <div className="flex flex-col flex-1 min-h-0">

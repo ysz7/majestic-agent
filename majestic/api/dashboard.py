@@ -417,20 +417,31 @@ def handle_token_stats() -> dict:
 
 def handle_get_sessions() -> list:
     try:
-        from majestic.db.state import StateDB
-        rows = StateDB().get_recent_sessions(limit=100)
-        result = []
-        for r in rows:
-            if r.get("message_count", 0) == 0:
-                continue
-            result.append({
-                "id":            str(r.get("id", "")),
-                "title":         r.get("title") or None,
-                "source":        r.get("source", "") or "",
-                "started_at":    r.get("started_at", "") or r.get("created_at", ""),
-                "message_count": r.get("message_count", 0),
-            })
-        return result[:40]
+        from majestic.constants import DB_PATH
+        import sqlite3
+        con = sqlite3.connect(DB_PATH)
+        con.row_factory = sqlite3.Row
+        rows = con.execute("""
+            SELECT s.id, s.source, s.title, s.started_at,
+                   COUNT(m.id) AS message_count
+            FROM sessions s
+            LEFT JOIN messages m ON m.session_id = s.id
+            GROUP BY s.id
+            HAVING COUNT(m.id) > 0
+            ORDER BY s.started_at DESC
+            LIMIT 40
+        """).fetchall()
+        con.close()
+        return [
+            {
+                "id":            str(r["id"]),
+                "title":         r["title"] or None,
+                "source":        r["source"] or "",
+                "started_at":    r["started_at"] or "",
+                "message_count": r["message_count"],
+            }
+            for r in rows
+        ]
     except Exception:
         return []
 

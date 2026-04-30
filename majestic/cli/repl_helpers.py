@@ -12,6 +12,28 @@ _agent_stop = threading.Event()
 
 SUPPORTED_EXTS = {".pdf", ".docx", ".csv", ".txt", ".md"}
 
+
+def _friendly_error(exc: Exception) -> str:
+    """Convert LLM / network exceptions to short human-readable messages."""
+    name = type(exc).__name__
+    msg = str(exc)
+    # Anthropic SDK errors
+    if "AuthenticationError" in name or "401" in msg:
+        return "Invalid API key. Run `majestic setup` to reconfigure."
+    if "PermissionDeniedError" in name or "403" in msg:
+        return "API key doesn't have permission. Check your Anthropic plan."
+    if "RateLimitError" in name or "429" in msg:
+        return "Rate limit reached. Wait a moment and try again."
+    if "APIStatusError" in name or "OverloadedError" in name or "529" in msg:
+        return "Anthropic API is overloaded. Try again in a few seconds."
+    if "APIConnectionError" in name or "Connection" in name:
+        return "Cannot reach the API. Check your internet connection."
+    if "BadRequestError" in name or "400" in msg:
+        return f"Bad request: {msg[:120]}"
+    # Generic fallback — show class + first line only (no traceback)
+    first_line = msg.splitlines()[0][:120] if msg else name
+    return f"{name}: {first_line}"
+
 _SPIN_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
 
@@ -179,6 +201,13 @@ def run_agent(user_input: str, session_id: str | None, history: list) -> str:
         _agent_stop.set()
         _sys.__stdout__.write("\r\033[2K")
         print(f"\n  {Y}Stopped.{R}\n")
+        return ""
+    except Exception as _e:
+        _sys.stdout = _sys.__stdout__
+        _spinner.stop()
+        _sys.__stdout__.write("\r\033[2K")
+        _err_msg = _friendly_error(_e)
+        print(f"\n  {Y}✗ {_err_msg}{R}\n")
         return ""
     finally:
         _sys.stdout = _sys.__stdout__

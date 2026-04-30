@@ -1,16 +1,15 @@
-import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { Crown } from 'lucide-react'
-import { getSessions, createSession, getMessages } from '@/shared/api/sessions'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { getSessions, getMessages } from '@/shared/api/sessions'
 import { SessionList } from '@/widgets/session-list'
 import { ChatWindow } from '@/widgets/chat-window'
 import { useSendMessage } from '@/features/send-message/model'
 
 export function ChatPage() {
-  const qc = useQueryClient()
   const [activeSession, setActiveSession] = useState<string | null>(null)
   const [input, setInput] = useState('')
+  // Tracks whether the user explicitly opened a new chat (suppresses auto-select)
+  const wantNewChatRef = useRef(false)
 
   const { data: sessions = [] } = useQuery({
     queryKey: ['sessions'],
@@ -24,22 +23,22 @@ export function ChatPage() {
     enabled: !!activeSession,
   })
 
-  const newSession = useMutation({
-    mutationFn: () => createSession(),
-    onSuccess: (s) => {
-      qc.invalidateQueries({ queryKey: ['sessions'] })
-      setActiveSession(s.id)
-    },
-  })
-
-  // Auto-select the most recent session on first load
+  // Auto-select the most recent session on first load only
   useEffect(() => {
-    if (sessions.length > 0 && activeSession === null) {
+    if (sessions.length > 0 && activeSession === null && !wantNewChatRef.current) {
       setActiveSession(sessions[0].id)
     }
   }, [sessions, activeSession])
 
-  const { streaming, streamMsg, send } = useSendMessage({ sessionId: activeSession })
+  const handleSessionCreated = useCallback((id: string) => {
+    wantNewChatRef.current = false
+    setActiveSession(id)
+  }, [])
+
+  const { streaming, streamMsgs, send } = useSendMessage({
+    sessionId: activeSession,
+    onSessionCreated: handleSessionCreated,
+  })
 
   const handleSend = () => {
     if (!input.trim()) return
@@ -47,39 +46,36 @@ export function ChatPage() {
     setInput('')
   }
 
+  const handleNew = () => {
+    wantNewChatRef.current = true
+    setActiveSession(null)
+    setInput('')
+  }
+
+  const handleSelect = (id: string) => {
+    wantNewChatRef.current = false
+    setActiveSession(id)
+  }
+
   return (
     <div className="flex flex-1 overflow-hidden">
-      {/* Session sidebar */}
       <aside className="w-52 border-r shrink-0 flex flex-col overflow-hidden">
         <SessionList
           sessions={sessions}
           activeId={activeSession}
-          onSelect={setActiveSession}
-          onNew={() => newSession.mutate()}
+          onSelect={handleSelect}
+          onNew={handleNew}
         />
       </aside>
 
-      {/* Main area */}
-      {activeSession ? (
-        <ChatWindow
-          messages={messages}
-          streamMsg={streamMsg}
-          input={input}
-          onInputChange={setInput}
-          onSend={handleSend}
-          streaming={streaming}
-        />
-      ) : (
-        <div className="flex flex-1 items-center justify-center text-muted-foreground">
-          <div className="text-center space-y-3">
-            <Crown className="h-10 w-10 mx-auto opacity-15" />
-            <p className="text-sm">Select a session or start a new chat</p>
-            <Button size="sm" variant="outline" onClick={() => newSession.mutate()}>
-              New Chat
-            </Button>
-          </div>
-        </div>
-      )}
+      <ChatWindow
+        messages={activeSession ? messages : []}
+        streamMsgs={streamMsgs}
+        input={input}
+        onInputChange={setInput}
+        onSend={handleSend}
+        streaming={streaming}
+      />
     </div>
   )
 }

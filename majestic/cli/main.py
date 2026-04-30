@@ -341,16 +341,30 @@ def _dashboard_cmd(args: list[str]) -> None:
     from majestic.api.server import start
     print(f"  Dashboard at http://localhost:{port}")
     print("  Press Ctrl+C to stop.")
+    start(port=port)
+    _wait_for_server(port)
     try:
         webbrowser.open(f"http://localhost:{port}")
     except Exception:
         pass
     try:
-        start(port=port)
         while True:
             time.sleep(3600)
     except KeyboardInterrupt:
         print("\n  Stopped.")
+
+
+def _wait_for_server(port: int, timeout: float = 5.0) -> None:
+    """Block until the server accepts connections or timeout expires."""
+    import urllib.request
+    import time
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            urllib.request.urlopen(f"http://localhost:{port}/health", timeout=0.3)
+            return
+        except Exception:
+            time.sleep(0.1)
 
 
 def _dashboard_build(dashboard_dir: pathlib.Path, project_root: pathlib.Path) -> None:
@@ -388,16 +402,18 @@ def _dashboard_dev(dashboard_dir: pathlib.Path, api_port: int) -> None:
     if CONFIG_FILE.exists():
         cfg.sync_env_from_config()
     vite_port = 5173
+    from majestic.api.server import start
+    start(port=api_port)
     vite_proc = subprocess.Popen(
         ["npm", "run", "dev", "--", "--port", str(vite_port)],
         cwd=dashboard_dir,
     )
-    from majestic.api.server import start
-    start(port=api_port)
     url = f"http://localhost:{vite_port}"
     print(f"  Vite dev server at {url}")
     print(f"  API server at http://localhost:{api_port}")
     print("  Press Ctrl+C to stop.")
+    _wait_for_server(api_port)
+    _wait_for_server(vite_port, timeout=15.0)
     try:
         webbrowser.open(url)
     except Exception:
