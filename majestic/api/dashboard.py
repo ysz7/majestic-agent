@@ -413,6 +413,21 @@ def handle_token_stats() -> dict:
         return {"total_tokens": 0, "total_cost_usd": 0.0, "sessions": 0}
 
 
+# ── Ollama models ─────────────────────────────────────────────────────────────
+
+def handle_get_ollama_models() -> list:
+    try:
+        import json
+        import urllib.request
+        from majestic import config as cfg
+        base_url = (cfg.get("llm.ollama_url") or "http://localhost:11434").rstrip("/")
+        with urllib.request.urlopen(f"{base_url}/api/tags", timeout=3) as r:
+            data = json.loads(r.read())
+        return [m["name"] for m in data.get("models", [])]
+    except Exception:
+        return []
+
+
 # ── Sessions / messages ───────────────────────────────────────────────────────
 
 def handle_get_sessions() -> list:

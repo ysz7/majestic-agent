@@ -71,12 +71,9 @@ function MessageBubble({ msg }: { msg: Message | StreamMessage }) {
             {isUser ? (
               <span className="whitespace-pre-wrap">{msg.content}</span>
             ) : (
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-              >
-                {msg.content}
-              </ReactMarkdown>
+              <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              </div>
             )}
             {isStreaming && (
               <span className="inline-block w-1.5 h-4 bg-current ml-0.5 align-[-3px] animate-pulse rounded-sm" />

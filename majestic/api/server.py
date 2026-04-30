@@ -120,6 +120,8 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(d.handle_get_monitoring())
         if path == "/api/tokens/stats":
             return self._json(d.handle_token_stats())
+        if path == "/api/ollama/models":
+            return self._json(d.handle_get_ollama_models())
         # /api/tables/:name/rows
         trows = _match(path, "/api/tables/", "/rows")
         if trows:

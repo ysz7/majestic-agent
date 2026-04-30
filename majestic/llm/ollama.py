@@ -14,14 +14,21 @@ from typing import Iterator
 from .base import LLMProvider, LLMResponse, ToolCall, Usage, register
 from .openrouter import OpenRouterProvider  # reuse conversion helpers
 
-_BASE_URL   = "http://localhost:11434/v1"
-_TAGS_URL   = "http://localhost:11434/api/tags"
+_DEFAULT_BASE = "http://localhost:11434"
+
+
+def _ollama_base() -> str:
+    try:
+        from majestic import config as cfg
+        return (cfg.get("llm.ollama_url") or _DEFAULT_BASE).rstrip("/")
+    except Exception:
+        return _DEFAULT_BASE
 _started_proc: subprocess.Popen | None = None   # process we launched
 
 
 def _ollama_running() -> bool:
     try:
-        urllib.request.urlopen(_TAGS_URL, timeout=2)
+        urllib.request.urlopen(f"{_ollama_base()}/api/tags", timeout=2)
         return True
     except Exception:
         return False
@@ -31,7 +38,7 @@ def list_local_models() -> list[str]:
     """Return model names currently installed in Ollama."""
     try:
         import json as _json
-        with urllib.request.urlopen(_TAGS_URL, timeout=3) as r:
+        with urllib.request.urlopen(f"{_ollama_base()}/api/tags", timeout=3) as r:
             data = _json.loads(r.read())
             return [m["name"] for m in data.get("models", [])]
     except Exception:
@@ -101,7 +108,7 @@ class OllamaProvider(LLMProvider):
             if not _ollama_running():
                 start_ollama()
             from openai import OpenAI
-            self._client = OpenAI(base_url=_BASE_URL, api_key="ollama")
+            self._client = OpenAI(base_url=f"{_ollama_base()}/v1", api_key="ollama")
         return self._client
 
     @property
@@ -180,7 +187,7 @@ class OllamaProvider(LLMProvider):
         try:
             import requests
             requests.post(
-                "http://localhost:11434/api/generate",
+                f"{_ollama_base()}/api/generate",
                 json={"model": self._model, "keep_alive": 0},
                 timeout=5,
             )

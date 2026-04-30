@@ -18,7 +18,6 @@ import {
   Zap,
   Table2,
   Activity,
-  Crown,
 } from 'lucide-react'
 
 const navItems = [
@@ -38,7 +37,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="px-4 py-4">
         <div className="flex items-center gap-2">
-          <Crown className="h-5 w-5" />
+          <img src="/majestic-icon.png" alt="Majestic" className="h-6 w-6 rounded-sm" />
           <span className="font-semibold text-sm tracking-tight">Majestic</span>
         </div>
       </SidebarHeader>

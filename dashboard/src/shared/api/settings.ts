@@ -6,7 +6,7 @@ export type { Skill }
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export interface Settings {
-  llm?: { provider?: string; model?: string }
+  llm?: { provider?: string; model?: string; ollama_url?: string }
   agent?: { role?: string; tools_enabled?: string[]; tools_disabled?: string[] }
   language?: string
   currency?: string
@@ -29,6 +29,7 @@ export interface Settings {
 export const getSettings = () => apiFetch<Settings>('/api/settings')
 export const saveSettings = (s: Settings) =>
   apiFetch<{ ok: boolean }>('/api/settings', { method: 'POST', body: JSON.stringify(s) })
+export const getOllamaModels = () => apiFetch<string[]>('/api/ollama/models')
 
 // ── Memory ────────────────────────────────────────────────────────────────────
 
