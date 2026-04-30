@@ -186,6 +186,19 @@ export function SettingsPage() {
                       />
                     )}
                   </Field>
+                  <Field label="Context window (num_ctx)" hint="Tokens the model can see. Higher = more memory usage.">
+                    <Select
+                      value={String(llm.num_ctx ?? '')}
+                      onValueChange={(v) => setNested('llm', 'num_ctx', Number(v))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Model default" /></SelectTrigger>
+                      <SelectContent>
+                        {[2048, 4096, 8192, 16384, 32768, 65536, 131072].map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n.toLocaleString()} tokens</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
                   <Field label="Ollama URL" hint="Default: http://localhost:11434">
                     <Input
                       placeholder="http://localhost:11434"

@@ -35,7 +35,7 @@ export function ChatPage() {
     setActiveSession(id)
   }, [])
 
-  const { streaming, streamMsgs, send } = useSendMessage({
+  const { streaming, streamMsgs, streamSessionId, send } = useSendMessage({
     sessionId: activeSession,
     onSessionCreated: handleSessionCreated,
   })
@@ -70,7 +70,7 @@ export function ChatPage() {
 
       <ChatWindow
         messages={activeSession ? messages : []}
-        streamMsgs={streamMsgs}
+        streamMsgs={activeSession === streamSessionId ? streamMsgs : []}
         input={input}
         onInputChange={setInput}
         onSend={handleSend}

@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Send, Crown, User, Wrench, Loader2 } from 'lucide-react'
+import { Send, User, Wrench, Loader2 } from 'lucide-react'
 import type { Message, ToolCallEvent } from '@/entities/message/model'
 import { cn } from '@/lib/utils'
 
@@ -50,7 +50,7 @@ function MessageBubble({ msg }: { msg: Message | StreamMessage }) {
     <div className={cn('flex gap-2.5', isUser && 'flex-row-reverse')}>
       <Avatar className="h-6 w-6 shrink-0 mt-1">
         <AvatarFallback className="bg-muted">
-          {isUser ? <User className="h-3 w-3" /> : <Crown className="h-3 w-3" />}
+          {isUser ? <User className="h-3 w-3" /> : <img src="/majestic-icon.png" alt="" className="h-3.5 w-3.5" />}
         </AvatarFallback>
       </Avatar>
       <div className={cn('flex flex-col gap-1.5 max-w-[78%]', isUser && 'items-end')}>
@@ -105,7 +105,7 @@ export function ChatWindow({ messages, streamMsgs, input, onInputChange, onSend,
         <div className="px-4 py-4 space-y-5 max-w-2xl mx-auto">
           {allMessages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <Crown className="h-8 w-8 mb-3 opacity-20" />
+              <img src="/majestic-icon.png" alt="Majestic" className="h-12 w-12 mb-3 opacity-30" />
               <p className="text-sm">Start a conversation</p>
             </div>
           )}

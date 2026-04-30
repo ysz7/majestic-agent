@@ -13,6 +13,7 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
   const qc = useQueryClient()
   const [streaming, setStreaming] = useState(false)
   const [streamMsgs, setStreamMsgs] = useState<StreamMessage[]>([])
+  const [streamSessionId, setStreamSessionId] = useState<string | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
   const activeSessionRef = useRef<string | null>(sessionId)
 
@@ -40,14 +41,16 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
         streaming: true,
       }
 
-      // Show user message immediately; assistant placeholder will be added on first event
+      // Show user message immediately; track which session this stream belongs to
       setStreamMsgs([userMsg])
+      setStreamSessionId(sessionId)
 
       stopRef.current = apiChatSSE(
         { message: text, session_id: sessionId },
         (event) => {
           if (event.type === 'session_id') {
             activeSessionRef.current = event.data
+            setStreamSessionId(event.data)
             onSessionCreated?.(event.data)
           } else if (event.type === 'tool_call') {
             toolCalls.push(event.data)
@@ -73,6 +76,7 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
             setStreaming(false)
             setStreamMsgs((prev) => {
               const errMsg = prev.find((m) => m.id === '__error__')
+              if (!errMsg) setStreamSessionId(null)
               return errMsg ? [errMsg] : []
             })
             qc.invalidateQueries({ queryKey: ['messages', activeSessionRef.current] })
@@ -99,7 +103,8 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
     stopRef.current?.()
     setStreaming(false)
     setStreamMsgs([])
+    setStreamSessionId(null)
   }, [])
 
-  return { streaming, streamMsgs, send, stop }
+  return { streaming, streamMsgs, streamSessionId, send, stop }
 }

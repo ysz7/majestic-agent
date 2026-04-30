@@ -6,7 +6,7 @@ export type { Skill }
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export interface Settings {
-  llm?: { provider?: string; model?: string; ollama_url?: string }
+  llm?: { provider?: string; model?: string; ollama_url?: string; num_ctx?: number }
   agent?: { role?: string; tools_enabled?: string[]; tools_disabled?: string[] }
   language?: string
   currency?: string
