@@ -159,8 +159,9 @@ def run() -> None:
                         yield Completion(cmd, start_position=-len(word))
 
         def _make_completer():
-            cmds = _STATIC_CMDS + [f"/{n}" for n in _skill_names()]
-            return _SlashCompleter(cmds)
+            static_set = set(_STATIC_CMDS)
+            skill_cmds = [f"/{n}" for n in _skill_names() if f"/{n}" not in static_set]
+            return _SlashCompleter(_STATIC_CMDS + skill_cmds)
 
         def _toolbar():
             try:

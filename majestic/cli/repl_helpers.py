@@ -36,6 +36,18 @@ def _friendly_error(exc: Exception) -> str:
 
 _SPIN_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
+_active_spinner: "_LineSpinner | None" = None
+
+
+def pause_active_spinner() -> None:
+    if _active_spinner is not None:
+        _active_spinner.pause()
+
+
+def resume_active_spinner() -> None:
+    if _active_spinner is not None:
+        _active_spinner.resume()
+
 
 class _LineSpinner:
     """Animates a single terminal line while a task runs, then finalizes it."""
@@ -161,11 +173,13 @@ def run_agent(user_input: str, session_id: str | None, history: list) -> str:
     from majestic.agent.loop import AgentLoop
     import sys as _sys
 
+    global _active_spinner
     _agent_stop.clear()
     _tools_used: list[str] = []
     _had_tools = [False]
     _start = _time.time()
     _spinner = _LineSpinner(_sys.__stdout__)
+    _active_spinner = _spinner
 
     def _on_tool(name: str, _args: dict) -> None:
         _spinner.stop()
@@ -227,6 +241,7 @@ def run_agent(user_input: str, session_id: str | None, history: list) -> str:
         _sys.__stdout__.write(f" {DIM}└ Done{R} {DIM}· {calls} · ${cost:.4f} · {elapsed:.1f}s{R}\n")
         _sys.__stdout__.flush()
 
+    _active_spinner = None
     _print_answer(result)
     answer = result.get("answer", "")
 
@@ -279,8 +294,14 @@ def dispatch_shortcut(cmd: str, rest: str) -> None:
     except Exception:
         _cost_before = 0.0
 
+    _proxy = _SpinnerProxy(_sys.__stdout__, spinner)
+    _old_stdout = _sys.stdout
+    _sys.stdout = _proxy
     _start = _time.time()
-    result = dispatch(cmd, args)
+    try:
+        result = dispatch(cmd, args)
+    finally:
+        _sys.stdout = _old_stdout
     elapsed = _time.time() - _start
 
     spinner.stop()

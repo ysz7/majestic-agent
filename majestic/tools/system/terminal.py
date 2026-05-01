@@ -31,12 +31,23 @@ def _request_approval(command: str, base: str) -> str | None:
             f"Command blocked (non-interactive mode): {command!r}. "
             f"Add '{base}' to agent.allowed_commands or set agent.allow_commands: true in config."
         )
+    try:
+        from majestic.cli.repl_helpers import pause_active_spinner, resume_active_spinner
+        pause_active_spinner()
+    except Exception:
+        pass
     sys.__stdout__.write(f"\n  [approve] {command!r}\n  Allow? [y / N / always] ")
     sys.__stdout__.flush()
     try:
-        answer = input().strip().lower()
+        answer = sys.__stdin__.readline().strip().lower()
     except EOFError:
         answer = "n"
+    finally:
+        try:
+            from majestic.cli.repl_helpers import resume_active_spinner
+            resume_active_spinner()
+        except Exception:
+            pass
     if answer == "always":
         _save_allowed(base)
         return None
