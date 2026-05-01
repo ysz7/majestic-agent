@@ -83,6 +83,9 @@ nav {
 .nav-btn:hover { border-color: rgba(255,255,255,0.18) !important; background: #222 !important; }
 .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 8px; }
 .hamburger span { display: block; width: 20px; height: 1.5px; background: var(--text-mid); transition: 0.3s; }
+.hamburger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
 
 /* ─── HERO ─────────────────────────────────── */
 .hero {
@@ -767,8 +770,10 @@ function copy(btn, text) {
 let menuOpen = false;
 function toggleMenu() {
   const links = document.querySelector('.nav-links');
+  const btn = document.querySelector('.hamburger');
   menuOpen = !menuOpen;
   links.classList.toggle('mobile-open', menuOpen);
+  btn.classList.toggle('open', menuOpen);
 }
 </script>
 </body>

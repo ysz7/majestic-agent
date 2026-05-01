@@ -199,6 +199,9 @@
       flex-direction: column; gap: 5px; flex-shrink: 0;
     }
     .mob-menu-btn span { display: block; width: 18px; height: 1.5px; background: var(--text-2); transition: 0.2s; }
+    .mob-menu-btn.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+    .mob-menu-btn.open span:nth-child(2) { opacity: 0; }
+    .mob-menu-btn.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
     .sidebar-overlay {
       display: none; position: fixed; inset: 0; z-index: 89;
       background: rgba(0,0,0,0.25); backdrop-filter: blur(2px);
@@ -2046,7 +2049,7 @@ def get_weather(city: str) -> str:
               <a className="nav-link" href="https://github.com/ysz7/majestic-agent">GitHub</a>
             </div>
             <span className="nav-version">v0.1.0</span>
-            <button className="mob-menu-btn" onClick={() => setSidebarOpen(o => !o)} aria-label="Menu">
+            <button className={"mob-menu-btn" + (sidebarOpen ? " open" : "")} onClick={() => setSidebarOpen(o => !o)} aria-label="Menu">
               <span></span><span></span><span></span>
             </button>
           </nav>
