@@ -31,8 +31,8 @@ Commands:
   dashboard        Start web dashboard (serves React UI + REST API)
   mcp list         List configured MCP servers and their tools
   mcp add NAME CMD Add MCP server (CMD is space-separated command)
-  gateway start    Start gateway (Telegram + any configured platform)
-  gateway setup    Configure platform connections interactively
+  gateway start [platform]   Start gateway (telegram|discord|email|all)
+  gateway setup [platform]   Configure a specific platform (writes only to .env)
 
   --version        Show version
 """
@@ -255,9 +255,9 @@ def _gateway_cmd(args: list[str]) -> None:
         _gateway_start(target)
     elif sub == "setup":
         from majestic.cli.setup import gateway_setup
-        gateway_setup()
+        gateway_setup(platform=target)
     else:
-        print("Usage: majestic gateway <start [telegram|discord|all]|setup>")
+        print("Usage: majestic gateway <start|setup> [telegram|discord|email|all]")
         sys.exit(1)
 
 

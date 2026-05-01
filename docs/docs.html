@@ -760,7 +760,10 @@ docker compose up -d`}</CodeBlock>
                 ["majestic gateway start telegram", "Start Telegram bot"],
                 ["majestic gateway start discord", "Start Discord bot"],
                 ["majestic gateway start all", "Start all configured gateways simultaneously"],
-                ["majestic gateway setup", "Configure platform connections interactively"],
+                ["majestic gateway setup telegram", "Configure Telegram token only (does not touch other settings)"],
+                ["majestic gateway setup discord", "Configure Discord token only"],
+                ["majestic gateway setup email", "Configure email gateway (SMTP/IMAP)"],
+                ["majestic gateway setup", "Configure all platforms interactively"],
               ].map(([cmd, desc]) => (
                 <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
               ))}
@@ -1500,16 +1503,32 @@ majestic api start     # now serves the dashboard at http://localhost:8080`}</Co
           <h2 className="section-title" id="gw-start">Starting gateways</h2>
           <CodeBlock lang="bash">{`majestic gateway start telegram   # Telegram only
 majestic gateway start discord    # Discord only
-majestic gateway start all        # All configured platforms simultaneously
-
-# Interactive setup wizard:
-majestic gateway setup`}</CodeBlock>
+majestic gateway start all        # All configured platforms simultaneously`}</CodeBlock>
           <div className="prose">
             <p>
               Platforms that are not configured (no token set) are silently skipped when using
               <code> start all</code>. The health endpoint starts on port 8080 regardless.
             </p>
           </div>
+
+          <h2 className="section-title" id="gw-setup">Configuring gateways</h2>
+          <div className="prose">
+            <p>
+              Use <code>majestic gateway setup [platform]</code> to configure a specific platform.
+              This command writes <strong>only to <code>~/.majestic-agent/.env</code></strong> —
+              it never touches <code>config.yaml</code> or your LLM API keys.
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`majestic gateway setup telegram   # Telegram token only
+majestic gateway setup discord    # Discord token only
+majestic gateway setup email      # Email SMTP/IMAP settings
+majestic gateway setup            # All platforms`}</CodeBlock>
+          <div className="prose">
+            <p>
+              You can also add tokens manually without running any wizard:
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`echo "TELEGRAM_BOT_TOKEN=your_token" >> ~/.majestic-agent/.env`}</CodeBlock>
 
           <h2 className="section-title" id="gw-telegram">Telegram</h2>
           <div className="prose">

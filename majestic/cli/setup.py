@@ -347,13 +347,18 @@ def run_doctor() -> None:
         print(f"  {Y}{B}{problems} issue(s) found.{R}  Run `majestic setup` to fix.\n")
 
 
-def gateway_setup() -> None:
-    """Interactive wizard to configure platform connections."""
-    from majestic.cli.display import warn, ok
+def gateway_setup(platform: str = "all") -> None:
+    """Configure platform gateway tokens — writes only to .env, never touches config.yaml."""
+    from majestic.cli.display import ok
     from majestic.constants import ENV_FILE
     import os
 
-    print("\n  Gateway Setup\n")
+    platforms = {"telegram", "discord", "email"}
+    if platform not in platforms and platform != "all":
+        print(f"  Unknown platform '{platform}'. Choose: {', '.join(sorted(platforms))}")
+        return
+
+    print(f"\n  Gateway Setup{' — ' + platform if platform != 'all' else ''}\n")
 
     env_lines: list[str] = []
     if ENV_FILE.exists():
@@ -361,29 +366,34 @@ def gateway_setup() -> None:
 
     def _set_env(key: str, value: str) -> None:
         nonlocal env_lines
-        env_lines = [l for l in env_lines if not l.startswith(f"{key}=")]
+        env_lines = [ln for ln in env_lines if not ln.startswith(f"{key}=")]
         if value:
             env_lines.append(f"{key}={value}")
 
-    # Telegram
-    current = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    hint = f" [{current[:8]}…]" if current else ""
-    token = input(f"  Telegram bot token{hint} (leave blank to skip): ").strip()
-    if token:
-        _set_env("TELEGRAM_BOT_TOKEN", token)
-        ok("TELEGRAM_BOT_TOKEN saved")
+    def _prompt(label: str, env_key: str) -> None:
+        current = os.environ.get(env_key, "")
+        hint = f" [{current[:8]}…]" if current else ""
+        value = input(f"  {label}{hint} (leave blank to skip): ").strip()
+        if value:
+            _set_env(env_key, value)
+            ok(f"{env_key} saved")
 
-    # Discord
-    current_dc = os.environ.get("DISCORD_BOT_TOKEN", "")
-    hint_dc = f" [{current_dc[:8]}…]" if current_dc else ""
-    dc_token = input(f"  Discord bot token{hint_dc} (leave blank to skip): ").strip()
-    if dc_token:
-        _set_env("DISCORD_BOT_TOKEN", dc_token)
-        ok("DISCORD_BOT_TOKEN saved")
+    if platform in ("telegram", "all"):
+        _prompt("Telegram bot token", "TELEGRAM_BOT_TOKEN")
+
+    if platform in ("discord", "all"):
+        _prompt("Discord bot token", "DISCORD_BOT_TOKEN")
+
+    if platform in ("email", "all"):
+        _prompt("Email SMTP host", "EMAIL_SMTP_HOST")
+        _prompt("Email SMTP port", "EMAIL_SMTP_PORT")
+        _prompt("Email username",  "EMAIL_USER")
+        _prompt("Email password",  "EMAIL_PASS")
+        _prompt("Email recipient", "EMAIL_TO")
 
     ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
-    ENV_FILE.write_text("\n".join(l for l in env_lines if l) + "\n")
-    print("\n  Done. Run `majestic gateway start` to start the gateway.\n")
+    ENV_FILE.write_text("\n".join(ln for ln in env_lines if ln) + "\n")
+    print(f"\n  Done. Run `majestic gateway start {platform}` to start.\n")
 
 
 def _check_llm(provider: str) -> None:

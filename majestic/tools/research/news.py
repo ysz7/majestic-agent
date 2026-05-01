@@ -28,10 +28,15 @@ def run_research() -> str:
 
     new_items = result.get("new_items", [])
     if new_items:
+        import concurrent.futures
         try:
             from majestic.tools.research.briefing import quick_summary_from_new
-            summary = quick_summary_from_new(new_items)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                fut = ex.submit(quick_summary_from_new, new_items)
+                summary = fut.result(timeout=45)
             lines.append("\n" + summary)
+        except concurrent.futures.TimeoutError:
+            lines.append("\n(Summary skipped — use /briefing for analysis)")
         except Exception:
             pass
 

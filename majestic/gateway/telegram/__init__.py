@@ -109,7 +109,17 @@ class TelegramPlatform(Platform):
 
         _start_services(notify_fn=_sync_notify)
         logger.info("Telegram bot started.")
-        await app.run_polling(drop_pending_updates=True)
+
+        import asyncio
+        await app.initialize()
+        await app.start()
+        await app.updater.start_polling(drop_pending_updates=True)
+        try:
+            await asyncio.Event().wait()  # run until cancelled
+        finally:
+            await app.updater.stop()
+            await app.stop()
+            await app.shutdown()
 
     async def stop(self) -> None:
         from . import state as _st
