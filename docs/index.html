@@ -428,10 +428,12 @@ footer {
   .hero { padding: 80px 16px 48px; }
   .fg { grid-template-columns: 1fr; }
   .sw { padding: 40px 16px; }
-  .hero-btns { flex-direction: column; width: 100%; max-width: 280px; }
-  .hero-btns a { text-align: center; }
+  .hero-btns { flex-direction: column; width: 100%; }
+  .hero-btns a { display: block; width: 100%; text-align: center; box-sizing: border-box; }
   footer { padding: 24px 16px; }
   .cta { padding: 72px 24px; }
+  .cta-btns { flex-direction: column; align-items: center; }
+  .cta-btns a { width: 100%; max-width: 300px; text-align: center; box-sizing: border-box; }
   .plat-grid { grid-template-columns: 1fr; }
 }
 </style>

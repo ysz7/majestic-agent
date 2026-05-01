@@ -191,7 +191,41 @@
       max-width: 860px;
     }
     @media (max-width: 1100px) { .toc { display: none; } .content-area { margin-right: 0; } }
-    @media (max-width: 768px) { .sidebar { display: none; } .content-area { margin-left: 0; padding: 32px 24px; } }
+
+    /* ── Mobile sidebar drawer ── */
+    .mob-menu-btn {
+      display: none; background: none; border: none;
+      cursor: pointer; padding: 8px; margin-left: auto;
+      flex-direction: column; gap: 5px; flex-shrink: 0;
+    }
+    .mob-menu-btn span { display: block; width: 18px; height: 1.5px; background: var(--text-2); transition: 0.2s; }
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0; z-index: 89;
+      background: rgba(0,0,0,0.25); backdrop-filter: blur(2px);
+    }
+    .sidebar-overlay.visible { display: block; }
+
+    @media (max-width: 768px) {
+      .topnav { padding: 0 16px; gap: 8px; }
+      .nav-links { display: none; }
+      .nav-version { display: none; }
+      .nav-search { display: none; }
+      .nav-divider { display: none; }
+      .nav-badge { display: none; }
+      .mob-menu-btn { display: flex; }
+      .sidebar {
+        display: block;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        z-index: 90;
+        box-shadow: 4px 0 32px rgba(0,0,0,0.1);
+      }
+      .sidebar.mobile-open { transform: translateX(0); }
+      .content-area { margin-left: 0; padding: 24px 16px 72px; }
+      .api-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .page-nav { flex-direction: column; }
+      .page-nav-btn.next { text-align: left; }
+    }
 
     .toc {
       position: fixed; top: var(--nav-h); right: 0;
@@ -1957,6 +1991,7 @@ def get_weather(city: str) -> str:
       const [activePage, setActivePage]     = useState("introduction");
       const [openGroups, setOpenGroups]     = useState({});
       const [activeAnchor, setActiveAnchor] = useState("");
+      const [sidebarOpen, setSidebarOpen]   = useState(false);
       const contentRef = useRef(null);
 
       useEffect(() => {
@@ -1974,7 +2009,7 @@ def get_weather(city: str) -> str:
         contentRef.current?.scrollTo(0, 0);
       }, [activePage]);
 
-      function navigate(id) { setActivePage(id); }
+      function navigate(id) { setActivePage(id); setSidebarOpen(false); }
       function toggleGroup(id) { setOpenGroups(prev => ({ ...prev, [id]: !prev[id] })); }
 
       const toc = TOC_DATA[activePage] || [];
@@ -2011,10 +2046,17 @@ def get_weather(city: str) -> str:
               <a className="nav-link" href="https://github.com/ysz7/majestic-agent">GitHub</a>
             </div>
             <span className="nav-version">v0.1.0</span>
+            <button className="mob-menu-btn" onClick={() => setSidebarOpen(o => !o)} aria-label="Menu">
+              <span></span><span></span><span></span>
+            </button>
           </nav>
 
+          <div
+            className={"sidebar-overlay" + (sidebarOpen ? " visible" : "")}
+            onClick={() => setSidebarOpen(false)}
+          />
           <div className="layout">
-            <aside className="sidebar">
+            <aside className={"sidebar" + (sidebarOpen ? " mobile-open" : "")}>
               {NAV.map(section => (
                 <div className="sidebar-section" key={section.group}>
                   <div className="sidebar-group-label">{section.group}</div>
