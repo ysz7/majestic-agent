@@ -122,6 +122,9 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(d.handle_token_stats())
         if path == "/api/ollama/models":
             return self._json(d.handle_get_ollama_models())
+        if path == "/api/llm/configs":
+            from majestic.api import llm_configs as lc
+            return self._json(lc.handle_get_llm_configs())
         # /api/tables/:name/rows
         trows = _match(path, "/api/tables/", "/rows")
         if trows:
@@ -155,6 +158,15 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(d.handle_create_session(body))
         if path in ("/api/chat", "/chat"):
             return self._handle_chat_sse(body)
+        if path == "/api/llm/configs":
+            from majestic.api import llm_configs as lc
+            return self._json(lc.handle_create_llm_config(body))
+        if path.startswith("/api/llm/configs/") and path.endswith("/activate"):
+            cfg_name = path[len("/api/llm/configs/"):-len("/activate")]
+            if cfg_name:
+                from urllib.parse import unquote
+                from majestic.api import llm_configs as lc
+                return self._json(lc.handle_activate_llm_config(unquote(cfg_name)))
         if path == "/api/tables":
             return self._json(d.handle_create_table(body))
         # /api/tables/:name/rows
@@ -198,6 +210,12 @@ class _Handler(BaseHTTPRequestHandler):
             return self._unauthorized()
         path = self.path.split("?")[0]
         from majestic.api import dashboard as d
+        if path.startswith("/api/llm/configs/") and not path.endswith("/activate"):
+            cfg_name = path[len("/api/llm/configs/"):]
+            if cfg_name and "/" not in cfg_name:
+                from urllib.parse import unquote
+                from majestic.api import llm_configs as lc
+                return self._json(lc.handle_delete_llm_config(unquote(cfg_name)))
         sid = _match(path, "/api/sessions/", "")
         if sid:
             return self._json(d.handle_delete_session(sid))

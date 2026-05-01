@@ -31,6 +31,33 @@ export const saveSettings = (s: Settings) =>
   apiFetch<{ ok: boolean }>('/api/settings', { method: 'POST', body: JSON.stringify(s) })
 export const getOllamaModels = () => apiFetch<string[]>('/api/ollama/models')
 
+// ── LLM Configs ───────────────────────────────────────────────────────────────
+
+export interface LlmConfig {
+  name: string
+  provider: string
+  model: string
+  key_preview: string
+  ollama_url: string
+  active: boolean
+}
+
+export const getLlmConfigs = () => apiFetch<LlmConfig[]>('/api/llm/configs')
+export const createLlmConfig = (cfg: {
+  name: string
+  provider: string
+  model: string
+  api_key?: string
+  ollama_url?: string
+}) => apiFetch<{ ok: boolean }>('/api/llm/configs', { method: 'POST', body: JSON.stringify(cfg) })
+export const deleteLlmConfig = (name: string) =>
+  apiFetch<{ ok: boolean }>(`/api/llm/configs/${encodeURIComponent(name)}`, { method: 'DELETE' })
+export const activateLlmConfig = (name: string) =>
+  apiFetch<{ ok: boolean }>(`/api/llm/configs/${encodeURIComponent(name)}/activate`, {
+    method: 'POST',
+    body: '{}',
+  })
+
 // ── Memory ────────────────────────────────────────────────────────────────────
 
 export interface MemoryMd {

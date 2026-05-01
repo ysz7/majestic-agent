@@ -112,12 +112,21 @@ def handle_save_settings(body: dict) -> dict:
         import yaml  # type: ignore[import-untyped]
         from majestic.constants import CONFIG_FILE, MAJESTIC_HOME
 
-        # Handle API key update separately
         new_key = body.pop("api_key", "").strip()
         body.pop("_api_key_set", None)
         body.pop("_api_key_preview", None)
         if new_key and new_key != "***":
             _write_env(MAJESTIC_HOME / ".env", {"ANTHROPIC_API_KEY": new_key})
+
+        # Preserve Keys Manager data that the settings form doesn't manage
+        if CONFIG_FILE.exists():
+            current = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8")) or {}
+            cur_llm = current.get("llm", {})
+            llm_body = body.setdefault("llm", {})
+            if "configs" in cur_llm:
+                llm_body.setdefault("configs", cur_llm["configs"])
+            if "active_config" in cur_llm:
+                llm_body.setdefault("active_config", cur_llm["active_config"])
 
         MAJESTIC_HOME.mkdir(parents=True, exist_ok=True)
         CONFIG_FILE.write_text(

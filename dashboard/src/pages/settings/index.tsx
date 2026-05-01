@@ -8,17 +8,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { Save, CheckCircle2, AlertCircle } from 'lucide-react'
-import { getSettings, saveSettings, getOllamaModels } from '@/shared/api/settings'
+import { getSettings, saveSettings } from '@/shared/api/settings'
 import type { Settings } from '@/shared/api/settings'
+import { LlmKeysManager } from '@/widgets/llm-keys-manager'
 
-const PROVIDERS = ['anthropic', 'ollama', 'openrouter']
-const ANTHROPIC_MODELS = ['claude-sonnet-4-6', 'claude-opus-4-7', 'claude-haiku-4-5-20251001']
-const OPENROUTER_MODELS = [
-  'openai/gpt-4o', 'openai/gpt-4o-mini', 'openai/o3-mini',
-  'google/gemini-2.0-flash', 'meta-llama/llama-3.3-70b-instruct',
-]
 const SEARCH_MODES = ['all', 'docs', 'intel']
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -36,29 +30,17 @@ export function SettingsPage() {
   const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: getSettings })
   const [form, setForm] = useState<Settings>({})
   const [dirty, setDirty] = useState(false)
-  const [newApiKey, setNewApiKey] = useState('')
 
   useEffect(() => {
     if (data) { setForm(data); setDirty(false) }
   }, [data])
 
   const save = useMutation({
-    mutationFn: () => saveSettings({ ...form, ...(newApiKey ? { api_key: newApiKey } : {}) }),
+    mutationFn: () => saveSettings(form),
     onSuccess: () => {
       setDirty(false)
-      setNewApiKey('')
       qc.invalidateQueries({ queryKey: ['settings'] })
     },
-  })
-
-  // Derive these before early return so hooks are always called unconditionally
-  const provider = (form.llm?.provider ?? 'anthropic') as string
-
-  const { data: ollamaModels = [] } = useQuery({
-    queryKey: ['ollama-models'],
-    queryFn: getOllamaModels,
-    enabled: provider === 'ollama',
-    staleTime: 30_000,
   })
 
   const set = (key: keyof Settings, val: unknown) => {
@@ -73,13 +55,6 @@ export function SettingsPage() {
 
   if (isLoading) return <p className="text-sm text-muted-foreground p-4">Loading…</p>
 
-  const llm = form.llm ?? {}
-  const currentModel = (() => {
-    const m = llm.model ?? ''
-    if (provider === 'ollama' && m.startsWith('claude')) return ''
-    if (provider === 'anthropic' && m && !m.startsWith('claude')) return ''
-    return m
-  })()
   const agent = form.agent ?? {}
   const api = form.api ?? {}
   const dashboard = form.dashboard ?? {}
@@ -148,126 +123,8 @@ export function SettingsPage() {
         {/* ── LLM ── */}
         <TabsContent value="llm" className="space-y-4 mt-4">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm">LLM Provider</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Field label="Provider">
-                <Select
-                  value={provider}
-                  onValueChange={(v) => {
-                    setForm((f) => ({ ...f, llm: { ...(f.llm ?? {}), provider: v as string, model: undefined } }))
-                    setDirty(true)
-                  }}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PROVIDERS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              {/* Ollama: dropdown of installed models */}
-              {provider === 'ollama' && (
-                <>
-                  <Field label="Model" hint={ollamaModels.length === 0 ? 'No models found — is Ollama running?' : undefined}>
-                    {ollamaModels.length > 0 ? (
-                      <Select value={currentModel || undefined} onValueChange={(v) => setNested('llm', 'model', v)}>
-                        <SelectTrigger><SelectValue placeholder="Select installed model" /></SelectTrigger>
-                        <SelectContent>
-                          {ollamaModels.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        placeholder="e.g. llama3.2, mistral, phi3"
-                        value={currentModel}
-                        onChange={(e) => setNested('llm', 'model', e.target.value)}
-                      />
-                    )}
-                  </Field>
-                  <Field label="Context window (num_ctx)" hint="Tokens the model can see. Higher = more memory usage.">
-                    <Select
-                      value={String(llm.num_ctx ?? '')}
-                      onValueChange={(v) => setNested('llm', 'num_ctx', Number(v))}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Model default" /></SelectTrigger>
-                      <SelectContent>
-                        {[2048, 4096, 8192, 16384, 32768, 65536, 131072].map((n) => (
-                          <SelectItem key={n} value={String(n)}>{n.toLocaleString()} tokens</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Ollama URL" hint="Default: http://localhost:11434">
-                    <Input
-                      placeholder="http://localhost:11434"
-                      value={llm.ollama_url ?? ''}
-                      onChange={(e) => setNested('llm', 'ollama_url', e.target.value)}
-                    />
-                  </Field>
-                </>
-              )}
-
-              {/* Anthropic: static model list + API key */}
-              {provider === 'anthropic' && (
-                <>
-                  <Field label="Model">
-                    <Select value={currentModel || undefined} onValueChange={(v) => setNested('llm', 'model', v)}>
-                      <SelectTrigger><SelectValue placeholder="Select model" /></SelectTrigger>
-                      <SelectContent>
-                        {ANTHROPIC_MODELS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Separator />
-                  <Field
-                    label="Anthropic API Key"
-                    hint={
-                      form._api_key_set
-                        ? `Current key: ${form._api_key_preview} — leave blank to keep unchanged`
-                        : 'No API key set'
-                    }
-                  >
-                    <Input
-                      type="password"
-                      placeholder={form._api_key_set ? '••••••••' : 'sk-ant-…'}
-                      value={newApiKey}
-                      onChange={(e) => { setNewApiKey(e.target.value); setDirty(true) }}
-                    />
-                  </Field>
-                </>
-              )}
-
-              {/* OpenRouter: model list + API key */}
-              {provider === 'openrouter' && (
-                <>
-                  <Field label="Model" hint="Full model ID e.g. openai/gpt-4o">
-                    <Select value={llm.model ?? undefined} onValueChange={(v) => setNested('llm', 'model', v)}>
-                      <SelectTrigger><SelectValue placeholder="Select or type model" /></SelectTrigger>
-                      <SelectContent>
-                        {OPENROUTER_MODELS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Custom model ID" hint="Override the selection above with any OpenRouter model">
-                    <Input
-                      placeholder="e.g. anthropic/claude-3.5-sonnet"
-                      value={llm.model && !OPENROUTER_MODELS.includes(llm.model) ? llm.model : ''}
-                      onChange={(e) => { if (e.target.value) setNested('llm', 'model', e.target.value) }}
-                    />
-                  </Field>
-                  <Separator />
-                  <Field label="OpenRouter API Key">
-                    <Input
-                      type="password"
-                      placeholder="sk-or-…"
-                      value={newApiKey}
-                      onChange={(e) => { setNewApiKey(e.target.value); setDirty(true) }}
-                    />
-                  </Field>
-                </>
-              )}
+            <CardContent className="pt-4">
+              <LlmKeysManager />
             </CardContent>
           </Card>
         </TabsContent>
