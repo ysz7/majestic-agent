@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiChatSSE } from '@/shared/api/client'
-import type { StreamMessage, ToolEvent } from '@/entities/message/model'
+import type { StreamMessage, ToolEvent, FileArtifact } from '@/entities/message/model'
 
-export type { StreamMessage, ToolEvent }
+export type { StreamMessage, ToolEvent, FileArtifact }
 
 interface UseSendMessageOptions {
   sessionId: string | null
@@ -16,13 +16,17 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
   const [streamMsgs, setStreamMsgs] = useState<StreamMessage[]>([])
   const [streamSessionId, setStreamSessionId] = useState<string | null>(null)
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([])
+  const [fileArtifacts, setFileArtifacts] = useState<FileArtifact[]>([])
   const stopRef = useRef<(() => void) | null>(null)
   const activeSessionRef = useRef<string | null>(sessionId)
   const counterRef = useRef(0)
 
   activeSessionRef.current = sessionId
 
-  const resetToolEvents = useCallback(() => setToolEvents([]), [])
+  const resetToolEvents = useCallback(() => {
+    setToolEvents([])
+    setFileArtifacts([])
+  }, [])
 
   const send = useCallback(
     (text: string) => {
@@ -30,6 +34,7 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
 
       setStreaming(true)
       setToolEvents(prev => prev.map(e => ({ ...e, dim: true })))
+      setFileArtifacts([])
 
       const userMsg: StreamMessage = { id: `__user_${Date.now()}`, role: 'user', content: text }
       const assistantMsg: StreamMessage = { id: '__stream__', role: 'assistant', content: '', streaming: true }
@@ -53,10 +58,15 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
               dim: false,
             }
             setToolEvents(prev => [...prev, te])
-            // Ensure assistant placeholder exists
             setStreamMsgs(prev =>
               prev.some(m => m.id === '__stream__') ? prev : [...prev, assistantMsg]
             )
+          } else if (event.type === 'file_artifact') {
+            setFileArtifacts(prev => {
+              // deduplicate by path
+              if (prev.some(f => f.path === event.data.path)) return prev
+              return [...prev, event.data]
+            })
           } else if (event.type === 'text') {
             setStreamMsgs((prev) => {
               const user = prev.find((m) => m.id !== '__stream__') ?? userMsg
@@ -95,5 +105,5 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
     setStreamSessionId(null)
   }, [])
 
-  return { streaming, streamMsgs, streamSessionId, toolEvents, send, stop, resetToolEvents }
+  return { streaming, streamMsgs, streamSessionId, toolEvents, fileArtifacts, send, stop, resetToolEvents }
 }

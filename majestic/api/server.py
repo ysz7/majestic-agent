@@ -304,8 +304,14 @@ class _Handler(BaseHTTPRequestHandler):
             def _on_tool(name: str, args: dict) -> None:
                 self._sse_json({"type": "tool_call", "data": {"name": name, "args": args}})
 
+            def _on_file_artifact(path: str, name: str) -> None:
+                self._sse_json({"type": "file_artifact", "data": {"path": path, "name": name}})
+
             loop = AgentLoop()
-            result = loop.run(message, session_id=session_id, history=history, on_tool_call=_on_tool)
+            result = loop.run(
+                message, session_id=session_id, history=history,
+                on_tool_call=_on_tool, on_file_artifact=_on_file_artifact,
+            )
             answer = result.get("answer", "")
             for chunk in _split_chunks(answer, 80):
                 self._sse_json({"type": "text", "data": chunk})

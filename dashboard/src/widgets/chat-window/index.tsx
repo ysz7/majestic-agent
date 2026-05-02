@@ -12,8 +12,9 @@ import {
 } from 'lucide-react'
 import { ModelSelector } from './model-selector'
 import { uploadWorkspaceFile } from '@/shared/api/workspace'
+import { FileViewer } from '@/widgets/file-viewer'
 import type { Message } from '@/entities/message/model'
-import type { StreamMessage, ToolEvent } from '@/entities/message/model'
+import type { StreamMessage, ToolEvent, FileArtifact } from '@/entities/message/model'
 import { cn } from '@/lib/utils'
 
 export type { StreamMessage }
@@ -125,6 +126,7 @@ interface Props {
   messages: Message[]
   streamMsgs: StreamMessage[]
   toolEvents: ToolEvent[]
+  fileArtifacts: FileArtifact[]
   input: string
   onInputChange: (v: string) => void
   onSend: (extra?: string) => void
@@ -133,7 +135,7 @@ interface Props {
 }
 
 export function ChatWindow({
-  messages, streamMsgs, toolEvents, input,
+  messages, streamMsgs, toolEvents, fileArtifacts, input,
   onInputChange, onSend, onStop, streaming,
 }: Props) {
   const bottomRef    = useRef<HTMLDivElement>(null)
@@ -142,6 +144,7 @@ export function ChatWindow({
   const scrollRef    = useRef<HTMLDivElement>(null)
   const inputWrapRef = useRef<HTMLDivElement>(null)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
+  const [viewingFile, setViewingFile] = useState<FileArtifact | null>(null)
 
   // Reset textarea height when input is cleared (after send)
   useEffect(() => {
@@ -239,6 +242,23 @@ export function ChatWindow({
             ) : null
           )}
 
+          {/* File artifact badges — appear after agent writes files */}
+          {fileArtifacts.length > 0 && (
+            <div className="pl-9 flex flex-wrap gap-1.5">
+              {fileArtifacts.map((f) => (
+                <button
+                  key={f.path}
+                  type="button"
+                  onClick={() => setViewingFile(f)}
+                  className="flex items-center gap-1.5 bg-muted hover:bg-muted/70 border border-border/50 rounded-lg px-2.5 py-1.5 text-xs text-foreground transition-colors"
+                >
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate max-w-[160px]">{f.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <div ref={bottomRef} />
         </div>
       </div>
@@ -329,6 +349,8 @@ export function ChatWindow({
         />
         </div>
       </div>
+
+      <FileViewer file={viewingFile} onClose={() => setViewingFile(null)} />
     </div>
   )
 }

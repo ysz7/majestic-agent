@@ -30,7 +30,7 @@ export function ChatPage() {
     setSearchParams({ session: id })
   }, [setSearchParams])
 
-  const { streaming, streamMsgs, streamSessionId, toolEvents, send, stop, resetToolEvents } =
+  const { streaming, streamMsgs, streamSessionId, toolEvents, fileArtifacts, send, stop, resetToolEvents } =
     useSendMessage({ sessionId: urlSessionId, onSessionCreated: handleSessionCreated })
 
   // Handle "New chat" from sidebar + auto-select on first load
@@ -70,6 +70,7 @@ export function ChatPage() {
       messages={urlSessionId ? messages : []}
       streamMsgs={urlSessionId === streamSessionId ? streamMsgs : []}
       toolEvents={toolEvents}
+      fileArtifacts={fileArtifacts}
       input={input}
       onInputChange={setInput}
       onSend={(extra) => handleSend(extra)}

@@ -38,6 +38,7 @@ class AgentLoop:
         session_id: Optional[str] = None,
         history: Optional[list[tuple[str, str]]] = None,
         on_tool_call: Optional[Callable[[str, dict], None]] = None,
+        on_file_artifact: Optional[Callable[[str, str], None]] = None,
         system: Optional[str] = None,
     ) -> dict:
         from majestic.llm import get_provider
@@ -113,6 +114,14 @@ class AgentLoop:
                     on_tool_call(tc.name, tc.arguments)
 
             tool_results = _execute_tools(resp.tool_calls, self._stop)
+
+            # Emit file artifact events for write_file results
+            if on_file_artifact:
+                for tc in resp.tool_calls:
+                    if tc.name == "write_file":
+                        artifact = _parse_file_artifact(tool_results.get(tc.id, ""))
+                        if artifact:
+                            on_file_artifact(*artifact)
 
             # Collect sources from knowledge/web tool results
             for tc in resp.tool_calls:
@@ -250,6 +259,22 @@ def _save_msg(session_id: str, role: str, content: str, **kwargs) -> None:
         StateDB().add_message(session_id, role, content, **kwargs)
     except Exception:
         pass
+
+
+def _parse_file_artifact(result: str) -> tuple[str, str] | None:
+    """Extract (workspace_relative_path, filename) from a write_file result string."""
+    import re
+    from pathlib import Path
+    from majestic.constants import WORKSPACE_DIR
+    m = re.match(r"(?:Written|Appended to) (.+?) \(\d+ chars\)", result)
+    if not m:
+        return None
+    abs_path = Path(m.group(1))
+    try:
+        rel = str(abs_path.relative_to(WORKSPACE_DIR))
+    except ValueError:
+        rel = abs_path.name
+    return rel, abs_path.name
 
 
 def _track(resp) -> None:

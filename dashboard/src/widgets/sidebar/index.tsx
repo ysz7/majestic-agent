@@ -40,7 +40,7 @@ import { cn } from '@/lib/utils'
 
 const navItems = [
   { label: 'Chat', icon: MessageSquare, href: '/chat' },
-  { label: 'Workspace', icon: FolderOpen, href: '/workspace' },
+  { label: 'Files', icon: FolderOpen, href: '/workspace' },
   { label: 'Memory', icon: Brain, href: '/memory' },
   { label: 'Skills', icon: Zap, href: '/skills' },
   { label: 'Tables', icon: Table2, href: '/tables' },

@@ -32,7 +32,14 @@ def write_file(path: str, content: str, append: bool = False) -> str:
     from majestic.constants import WORKSPACE_DIR
 
     p = Path(path)
-    if not p.is_absolute():
+    if p.is_absolute():
+        # Keep path only if it's already inside WORKSPACE_DIR; otherwise force into workspace
+        try:
+            p.relative_to(WORKSPACE_DIR)
+        except ValueError:
+            rel = path.lstrip('/\\')
+            p = WORKSPACE_DIR / rel
+    else:
         p = WORKSPACE_DIR / path
 
     try:
