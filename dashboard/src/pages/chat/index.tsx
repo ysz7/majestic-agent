@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { getSessions, getMessages } from '@/shared/api/sessions'
 import { SessionList } from '@/widgets/session-list'
 import { ChatWindow } from '@/widgets/chat-window'
+import { AgentGraph } from '@/widgets/agent-graph'
 import { useSendMessage } from '@/features/send-message/model'
 
 export function ChatPage() {
   const [activeSession, setActiveSession] = useState<string | null>(null)
   const [input, setInput] = useState('')
-  // Tracks whether the user explicitly opened a new chat (suppresses auto-select)
   const wantNewChatRef = useRef(false)
 
   const { data: sessions = [] } = useQuery({
@@ -23,7 +23,6 @@ export function ChatPage() {
     enabled: !!activeSession,
   })
 
-  // Auto-select the most recent session on first load only
   useEffect(() => {
     if (sessions.length > 0 && activeSession === null && !wantNewChatRef.current) {
       setActiveSession(sessions[0].id)
@@ -35,7 +34,7 @@ export function ChatPage() {
     setActiveSession(id)
   }, [])
 
-  const { streaming, streamMsgs, streamSessionId, send } = useSendMessage({
+  const { streaming, streamMsgs, streamSessionId, toolEvents, send, resetToolEvents } = useSendMessage({
     sessionId: activeSession,
     onSessionCreated: handleSessionCreated,
   })
@@ -50,15 +49,18 @@ export function ChatPage() {
     wantNewChatRef.current = true
     setActiveSession(null)
     setInput('')
+    resetToolEvents()
   }
 
   const handleSelect = (id: string) => {
     wantNewChatRef.current = false
     setActiveSession(id)
+    resetToolEvents()
   }
 
   return (
     <div className="flex flex-1 overflow-hidden">
+      {/* Sessions panel */}
       <aside className="w-52 border-r shrink-0 flex flex-col overflow-hidden">
         <SessionList
           sessions={sessions}
@@ -68,14 +70,22 @@ export function ChatPage() {
         />
       </aside>
 
-      <ChatWindow
-        messages={activeSession ? messages : []}
-        streamMsgs={activeSession === streamSessionId ? streamMsgs : []}
-        input={input}
-        onInputChange={setInput}
-        onSend={handleSend}
-        streaming={streaming}
-      />
+      {/* Agent Graph panel — relative so AgentGraph can absolute inset-0 */}
+      <div className="flex-1 border-r relative min-w-0">
+        <AgentGraph toolEvents={toolEvents} streaming={streaming} />
+      </div>
+
+      {/* Chat panel */}
+      <div className="w-[600px] shrink-0 flex flex-col overflow-hidden border-l">
+        <ChatWindow
+          messages={activeSession ? messages : []}
+          streamMsgs={activeSession === streamSessionId ? streamMsgs : []}
+          input={input}
+          onInputChange={setInput}
+          onSend={handleSend}
+          streaming={streaming}
+        />
+      </div>
     </div>
   )
 }

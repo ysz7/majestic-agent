@@ -4,15 +4,14 @@ import remarkGfm from 'remark-gfm'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Send, User, Wrench, Loader2 } from 'lucide-react'
-import type { Message, ToolCallEvent } from '@/entities/message/model'
+import { Send, User, Loader2 } from 'lucide-react'
+import type { Message } from '@/entities/message/model'
 import { cn } from '@/lib/utils'
 
 export interface StreamMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
-  toolCalls?: ToolCallEvent[]
   streaming?: boolean
 }
 
@@ -25,26 +24,9 @@ interface Props {
   streaming: boolean
 }
 
-function ToolCallCard({ call }: { call: ToolCallEvent }) {
-  const summary = Object.entries(call.args)
-    .map(([k, v]) => `${k}: ${String(v).slice(0, 120)}`)
-    .join(' · ')
-
-  return (
-    <div className="flex items-start gap-2 rounded-md border bg-muted/50 px-3 py-2 text-xs w-full">
-      <Wrench className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1">
-        <span className="font-medium font-mono">{call.name}</span>
-        {summary && <p className="text-muted-foreground mt-0.5 break-words">{summary}</p>}
-      </div>
-    </div>
-  )
-}
-
 function MessageBubble({ msg }: { msg: Message | StreamMessage }) {
   const isUser = msg.role === 'user'
   const isStreaming = 'streaming' in msg && msg.streaming
-  const toolCalls = 'toolCalls' in msg ? msg.toolCalls : undefined
 
   return (
     <div className={cn('flex gap-2.5', isUser && 'flex-row-reverse')}>
@@ -54,20 +36,11 @@ function MessageBubble({ msg }: { msg: Message | StreamMessage }) {
         </AvatarFallback>
       </Avatar>
       <div className={cn('flex flex-col gap-1.5 max-w-[78%]', isUser && 'items-end')}>
-        {toolCalls && toolCalls.length > 0 && (
-          <div className="space-y-1 w-full">
-            {toolCalls.map((tc, i) => <ToolCallCard key={i} call={tc} />)}
-          </div>
-        )}
-        {msg.content && (
-          <div
-            className={cn(
-              'rounded-xl px-3 py-2 text-sm leading-relaxed break-words',
-              isUser
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-foreground',
-            )}
-          >
+        {msg.content ? (
+          <div className={cn(
+            'rounded-xl px-3 py-2 text-sm leading-relaxed break-words',
+            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground',
+          )}>
             {isUser ? (
               <span className="whitespace-pre-wrap">{msg.content}</span>
             ) : (
@@ -79,12 +52,11 @@ function MessageBubble({ msg }: { msg: Message | StreamMessage }) {
               <span className="inline-block w-1.5 h-4 bg-current ml-0.5 align-[-3px] animate-pulse rounded-sm" />
             )}
           </div>
-        )}
-        {isStreaming && !msg.content && (
+        ) : isStreaming ? (
           <div className="bg-muted rounded-xl px-3 py-2">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )
@@ -102,7 +74,7 @@ export function ChatWindow({ messages, streamMsgs, input, onInputChange, onSend,
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="px-4 py-4 space-y-5 max-w-2xl mx-auto">
+        <div className="px-4 py-4 space-y-5">
           {allMessages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <img src="/majestic-icon.png" alt="Majestic" className="h-12 w-12 mb-3 opacity-30" />
@@ -115,10 +87,10 @@ export function ChatWindow({ messages, streamMsgs, input, onInputChange, onSend,
       </div>
 
       <div className="border-t p-3">
-        <div className="flex gap-2 max-w-2xl mx-auto items-end">
+        <div className="flex gap-2 items-end">
           <Textarea
             className="flex-1 min-h-[40px] max-h-32 resize-none text-sm"
-            placeholder="Message Majestic… (Enter to send, Shift+Enter for newline)"
+            placeholder="Message Majestic…"
             value={input}
             rows={1}
             onChange={(e) => onInputChange(e.target.value)}
@@ -140,9 +112,7 @@ export function ChatWindow({ messages, streamMsgs, input, onInputChange, onSend,
           </Button>
         </div>
         {streaming && (
-          <p className="text-[11px] text-muted-foreground max-w-2xl mx-auto mt-1.5">
-            Agent is thinking…
-          </p>
+          <p className="text-[11px] text-muted-foreground mt-1.5">Agent is thinking…</p>
         )}
       </div>
     </div>
