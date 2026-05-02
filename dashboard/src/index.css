@@ -118,6 +118,11 @@
     --sidebar-ring: oklch(0.556 0 0);
 }
 
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40%           { transform: translateY(-5px); }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

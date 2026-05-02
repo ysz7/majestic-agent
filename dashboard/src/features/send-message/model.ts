@@ -34,7 +34,7 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
       const userMsg: StreamMessage = { id: `__user_${Date.now()}`, role: 'user', content: text }
       const assistantMsg: StreamMessage = { id: '__stream__', role: 'assistant', content: '', streaming: true }
 
-      setStreamMsgs([userMsg])
+      setStreamMsgs([userMsg, assistantMsg])
       setStreamSessionId(sessionId)
 
       stopRef.current = apiChatSSE(

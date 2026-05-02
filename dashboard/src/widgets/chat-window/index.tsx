@@ -227,8 +227,13 @@ export function ChatWindow({
             ) : !activeTools.length ? (
               <div className="flex gap-2.5">
                 <div className="h-6 w-6 shrink-0" />
-                <div className="bg-muted rounded-xl px-3 py-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <div className="bg-muted rounded-xl px-3 py-2 text-sm text-muted-foreground flex items-center gap-1">
+                  <span>Thinking</span>
+                  <span className="flex items-center gap-0.5">
+                    <span className="inline-block w-1 h-1 rounded-full bg-current" style={{ animation: 'dot-bounce 1.2s ease-in-out infinite', animationDelay: '0ms' }} />
+                    <span className="inline-block w-1 h-1 rounded-full bg-current" style={{ animation: 'dot-bounce 1.2s ease-in-out infinite', animationDelay: '200ms' }} />
+                    <span className="inline-block w-1 h-1 rounded-full bg-current" style={{ animation: 'dot-bounce 1.2s ease-in-out infinite', animationDelay: '400ms' }} />
+                  </span>
                 </div>
               </div>
             ) : null
