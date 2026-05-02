@@ -125,6 +125,13 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/llm/configs":
             from majestic.api import llm_configs as lc
             return self._json(lc.handle_get_llm_configs())
+        # workspace
+        if path == "/api/workspace/list":
+            from majestic.api import workspace as ws
+            return self._json(ws.handle_list(self.path.split("?", 1)[1] if "?" in self.path else ""))
+        if path == "/api/workspace/file":
+            from majestic.api import workspace as ws
+            return self._json(ws.handle_read_file(self.path.split("?", 1)[1] if "?" in self.path else ""))
         # /api/tables/:name/rows
         trows = _match(path, "/api/tables/", "/rows")
         if trows:
@@ -169,6 +176,16 @@ class _Handler(BaseHTTPRequestHandler):
                 return self._json(lc.handle_activate_llm_config(unquote(cfg_name)))
         if path == "/api/tables":
             return self._json(d.handle_create_table(body))
+        # workspace
+        if path == "/api/workspace/file":
+            from majestic.api import workspace as ws
+            return self._json(ws.handle_save_file(body))
+        if path == "/api/workspace/upload":
+            from majestic.api import workspace as ws
+            return self._json(ws.handle_upload(body))
+        if path == "/api/workspace/mkdir":
+            from majestic.api import workspace as ws
+            return self._json(ws.handle_mkdir(body))
         # /api/tables/:name/rows
         trows_post = _match(path, "/api/tables/", "/rows")
         if trows_post:
@@ -233,6 +250,9 @@ class _Handler(BaseHTTPRequestHandler):
         sched = _match(path, "/api/schedules/", "")
         if sched:
             return self._json(d.handle_delete_schedule(sched))
+        if path == "/api/workspace/file":
+            from majestic.api import workspace as ws
+            return self._json(ws.handle_delete(self.path.split("?", 1)[1] if "?" in self.path else ""))
         return self._json({"error": "not found"}, 404)
 
     # ── Handlers ──────────────────────────────────────────────────────────────

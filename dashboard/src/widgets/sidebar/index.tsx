@@ -18,10 +18,12 @@ import {
   Zap,
   Table2,
   Activity,
+  FolderOpen,
 } from 'lucide-react'
 
 const navItems = [
   { label: 'Chat', icon: MessageSquare, href: '/chat' },
+  { label: 'Workspace', icon: FolderOpen, href: '/workspace' },
   { label: 'Memory', icon: Brain, href: '/memory' },
   { label: 'Skills', icon: Zap, href: '/skills' },
   { label: 'Tables', icon: Table2, href: '/tables' },

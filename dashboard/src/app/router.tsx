@@ -9,6 +9,7 @@ import { MemoryPage } from '@/pages/memory'
 import { SkillsPage } from '@/pages/skills'
 import { TablesPage } from '@/pages/tables'
 import { MonitoringPage } from '@/pages/monitoring'
+import { WorkspacePage } from '@/pages/workspace'
 import { AppLayout } from './layout'
 
 function Page({ children }: { children: ReactNode }) {
@@ -45,6 +46,7 @@ export function AppRouter() {
                   <Route path="skills" element={<Page><SkillsPage /></Page>} />
                   <Route path="tables" element={<Page><TablesPage /></Page>} />
                   <Route path="monitoring" element={<Page><MonitoringPage /></Page>} />
+                  <Route path="workspace" element={<Page><WorkspacePage /></Page>} />
                 </Routes>
               </AppLayout>
             </Guard>
