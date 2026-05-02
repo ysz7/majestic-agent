@@ -57,9 +57,11 @@ export function ChatPage() {
     }
   }, [urlSessionId, resetToolEvents])
 
-  const handleSend = () => {
-    if (!input.trim()) return
-    send(input.trim())
+  const handleSend = (extra?: string) => {
+    const base = input.trim()
+    const full = extra ? (base ? `${base}\n${extra}` : extra) : base
+    if (!full) return
+    send(full)
     setInput('')
   }
 
@@ -70,7 +72,7 @@ export function ChatPage() {
       toolEvents={toolEvents}
       input={input}
       onInputChange={setInput}
-      onSend={handleSend}
+      onSend={(extra) => handleSend(extra)}
       onStop={stop}
       streaming={streaming}
     />

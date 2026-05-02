@@ -28,7 +28,15 @@ def read_file(path: str, max_lines: int = 200) -> str:
     from majestic.constants import WORKSPACE_DIR
 
     p = Path(path)
-    if not p.is_absolute():
+    if p.is_absolute():
+        # If the absolute path doesn't exist, try it as workspace-relative
+        # (LLMs often prepend "/" to workspace-relative paths)
+        if not p.exists():
+            rel = path.lstrip('/\\')
+            ws_path = WORKSPACE_DIR / rel
+            if ws_path.exists():
+                p = ws_path
+    else:
         p = WORKSPACE_DIR / path
 
     if not p.exists():
