@@ -283,12 +283,29 @@ class _Handler(BaseHTTPRequestHandler):
 
         try:
             from majestic.agent.loop import AgentLoop
+            from majestic.db.state import StateDB as _StateDB
+
+            # Load conversation history so the agent remembers previous turns
+            history: list[tuple[str, str]] = []
+            if session_id:
+                try:
+                    raw = _StateDB().get_session_messages(session_id, limit=40)
+                    pending: str | None = None
+                    for m in raw:
+                        if m["role"] == "user":
+                            pending = m["content"]
+                        elif m["role"] == "assistant" and pending:
+                            history.append((pending, m["content"][:1200]))
+                            pending = None
+                    history = history[-8:]
+                except Exception:
+                    pass
 
             def _on_tool(name: str, args: dict) -> None:
                 self._sse_json({"type": "tool_call", "data": {"name": name, "args": args}})
 
             loop = AgentLoop()
-            result = loop.run(message, session_id=session_id, history=[], on_tool_call=_on_tool)
+            result = loop.run(message, session_id=session_id, history=history, on_tool_call=_on_tool)
             answer = result.get("answer", "")
             for chunk in _split_chunks(answer, 80):
                 self._sse_json({"type": "text", "data": chunk})

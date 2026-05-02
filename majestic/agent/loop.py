@@ -149,8 +149,8 @@ class AgentLoop:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-_HIST_ANSWER_MAX = 800   # chars — long briefings/reports are trimmed in history context
-_HIST_USER_MAX   = 300
+_HIST_ANSWER_MAX = 1500  # chars — long briefings/reports are trimmed in history context
+_HIST_USER_MAX   = 500
 
 
 def _trim(text: str, limit: int) -> str:
@@ -162,7 +162,7 @@ def _build_initial_messages(
     history: Optional[list[tuple[str, str]]],
 ) -> list[dict]:
     msgs: list[dict] = []
-    for u, a in (history or [])[-4:]:   # 4 turns keeps context without bloating
+    for u, a in (history or [])[-8:]:   # last 8 turns of conversation
         msgs.append({"role": "user",      "content": _trim(u, _HIST_USER_MAX)})
         msgs.append({"role": "assistant", "content": _trim(a, _HIST_ANSWER_MAX)})
     msgs.append({"role": "user", "content": user_input})

@@ -125,10 +125,10 @@ class OllamaProvider(LLMProvider):
         client = self._get_client()
         converted = OpenRouterProvider._convert_messages(messages)
         msgs = ([{"role": "system", "content": system}] if system else []) + converted
-        num_ctx = None
+        num_ctx = 8192  # default: large enough for history + tools + system prompt
         try:
             from majestic import config as cfg
-            num_ctx = cfg.get("llm.num_ctx")
+            num_ctx = int(cfg.get("llm.num_ctx") or num_ctx)
         except Exception:
             pass
         kwargs: dict = {
@@ -136,9 +136,8 @@ class OllamaProvider(LLMProvider):
             "messages":    msgs,
             "max_tokens":  max_tokens,
             "temperature": self._temperature,
+            "extra_body":  {"options": {"num_ctx": num_ctx}},
         }
-        if num_ctx:
-            kwargs["extra_body"] = {"options": {"num_ctx": int(num_ctx)}}
         if tools:
             kwargs["tools"] = OpenRouterProvider._convert_tools(tools)
             kwargs["tool_choice"] = "auto"
