@@ -5,6 +5,21 @@ export interface Message {
   created_at: string
 }
 
+export interface StreamMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  streaming?: boolean
+}
+
+export interface ToolEvent {
+  id: string
+  name: string
+  args: Record<string, unknown>
+  status: 'running' | 'done' | 'error'
+  dim: boolean
+}
+
 export interface ToolCallEvent {
   name: string
   args: Record<string, unknown>

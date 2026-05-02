@@ -1,15 +1,9 @@
 import { useCallback, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiChatSSE } from '@/shared/api/client'
-import type { StreamMessage } from '@/widgets/chat-window'
+import type { StreamMessage, ToolEvent } from '@/entities/message/model'
 
-export interface ToolEvent {
-  id: string
-  name: string
-  args: Record<string, unknown>
-  status: 'running' | 'done' | 'error'
-  dim: boolean
-}
+export type { StreamMessage, ToolEvent }
 
 interface UseSendMessageOptions {
   sessionId: string | null
@@ -35,7 +29,6 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
       if (!text.trim() || streaming) return
 
       setStreaming(true)
-      // Dim existing tool events from previous turns
       setToolEvents(prev => prev.map(e => ({ ...e, dim: true })))
 
       const userMsg: StreamMessage = { id: `__user_${Date.now()}`, role: 'user', content: text }
@@ -60,6 +53,10 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
               dim: false,
             }
             setToolEvents(prev => [...prev, te])
+            // Ensure assistant placeholder exists
+            setStreamMsgs(prev =>
+              prev.some(m => m.id === '__stream__') ? prev : [...prev, assistantMsg]
+            )
           } else if (event.type === 'text') {
             setStreamMsgs((prev) => {
               const user = prev.find((m) => m.id !== '__stream__') ?? userMsg
