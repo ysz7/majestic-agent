@@ -39,6 +39,13 @@ def build_system(lang: str = "EN", memory: str = "") -> str:
         pass
     if memory:
         system += f"\n\n## Persistent memory\n{memory}"
+    try:
+        from majestic.profile.updater import get_profile_block
+        profile = get_profile_block()
+        if profile:
+            system += f"\n\n## [User profile]\n{profile}"
+    except Exception:
+        pass
     user_tables = _user_tables_schema()
     if user_tables:
         system += f"\n\n## [User tables]\n{user_tables}"

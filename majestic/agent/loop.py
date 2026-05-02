@@ -95,6 +95,16 @@ class AgentLoop:
                 if session_id:
                     _save_msg(session_id, "assistant", resp.content,
                               finish_reason=resp.finish_reason)
+                    # Collect interaction signals for adaptive profile (background, non-blocking)
+                    import threading as _threading
+                    _sid = session_id
+                    def _collect():
+                        try:
+                            from majestic.profile.signals import collect_signals
+                            collect_signals(_sid)
+                        except Exception:
+                            pass
+                    _threading.Thread(target=_collect, daemon=True).start()
                 return {"answer": resp.content, "sources": sources}
 
             # ── Execute tool calls ────────────────────────────────────────────
