@@ -102,3 +102,47 @@ export const toggleMcpServer = (name: string) =>
     method: 'POST',
     body: '{}',
   })
+
+// ── Email ─────────────────────────────────────────────────────────────────────
+
+export interface EmailStatus {
+  configured: boolean
+  running: boolean
+  last_poll: number | null
+  error: string | null
+  username: string
+}
+
+export interface EmailConfig {
+  imap_host?: string
+  imap_port?: number
+  smtp_host?: string
+  smtp_port?: number
+  username?: string
+  password?: string
+  poll_interval?: number
+  allowed_senders?: string[]
+}
+
+export const getEmailStatus = () => apiFetch<EmailStatus>('/api/email/status')
+
+export const testEmailConnection = (cfg: EmailConfig) =>
+  apiFetch<{ ok: boolean; error?: string }>('/api/email/test', {
+    method: 'POST',
+    body: JSON.stringify(cfg),
+  })
+
+export const saveEmailConfig = (cfg: EmailConfig) =>
+  apiFetch<{ ok: boolean }>('/api/email/save', {
+    method: 'POST',
+    body: JSON.stringify(cfg),
+  })
+
+export const startEmailGateway = (cfg?: EmailConfig) =>
+  apiFetch<{ ok: boolean; message?: string; error?: string }>('/api/email/start', {
+    method: 'POST',
+    body: JSON.stringify(cfg ?? {}),
+  })
+
+export const stopEmailGateway = () =>
+  apiFetch<{ ok: boolean }>('/api/email/stop', { method: 'POST', body: '{}' })

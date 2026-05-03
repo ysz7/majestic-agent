@@ -128,6 +128,9 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/mcp/status":
             from majestic.api import mcp_api as mcp
             return self._json(mcp.handle_get_mcp_status())
+        if path == "/api/email/status":
+            from majestic.api import email_api as ea
+            return self._json(ea.handle_email_status())
         # workspace
         if path == "/api/workspace/list":
             from majestic.api import workspace as ws
@@ -179,6 +182,18 @@ class _Handler(BaseHTTPRequestHandler):
             from urllib.parse import unquote
             from majestic.api import mcp_api as mcp
             return self._json(mcp.handle_mcp_toggle(unquote(mcp_toggle)))
+        if path == "/api/email/test":
+            from majestic.api import email_api as ea
+            return self._json(ea.handle_email_test(body))
+        if path == "/api/email/save":
+            from majestic.api import email_api as ea
+            return self._json(ea.handle_email_save(body))
+        if path == "/api/email/start":
+            from majestic.api import email_api as ea
+            return self._json(ea.handle_email_start(body))
+        if path == "/api/email/stop":
+            from majestic.api import email_api as ea
+            return self._json(ea.handle_email_stop())
         if path.startswith("/api/llm/configs/") and path.endswith("/activate"):
             cfg_name = path[len("/api/llm/configs/"):-len("/activate")]
             if cfg_name:
