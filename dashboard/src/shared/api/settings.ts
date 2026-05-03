@@ -78,3 +78,27 @@ export const createSkill = (s: { name: string; description: string; body: string
   apiFetch<{ ok: boolean }>('/api/skills', { method: 'POST', body: JSON.stringify(s) })
 export const deleteSkill = (name: string) =>
   apiFetch<{ ok: boolean }>(`/api/skills/${encodeURIComponent(name)}`, { method: 'DELETE' })
+
+// ── MCP ───────────────────────────────────────────────────────────────────────
+
+export interface McpServer {
+  name: string
+  command: string[]
+  env?: Record<string, string>
+  disabled?: boolean
+}
+
+export const getMcpStatus = () =>
+  apiFetch<{ servers: McpServer[] }>('/api/mcp/status')
+
+export const addMcpServer = (s: McpServer) =>
+  apiFetch<{ ok: boolean }>('/api/mcp/servers', { method: 'POST', body: JSON.stringify(s) })
+
+export const removeMcpServer = (name: string) =>
+  apiFetch<{ ok: boolean }>(`/api/mcp/servers/${encodeURIComponent(name)}`, { method: 'DELETE' })
+
+export const toggleMcpServer = (name: string) =>
+  apiFetch<{ ok: boolean }>(`/api/mcp/servers/${encodeURIComponent(name)}/toggle`, {
+    method: 'POST',
+    body: '{}',
+  })

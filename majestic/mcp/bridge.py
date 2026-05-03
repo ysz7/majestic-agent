@@ -24,6 +24,8 @@ def load_all_servers() -> int:
         name = srv.get("name", "")
         if not name:
             continue
+        if srv.get("disabled"):
+            continue
         if "url" in srv:
             continue  # SSE transport not yet supported
         command = srv.get("command", [])

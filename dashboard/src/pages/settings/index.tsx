@@ -8,9 +8,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Save, CheckCircle2, AlertCircle } from 'lucide-react'
-import { getSettings, saveSettings } from '@/shared/api/settings'
-import type { Settings } from '@/shared/api/settings'
+import { Switch } from '@/components/ui/switch'
+import { Save, CheckCircle2, AlertCircle, Plus, Trash2, Globe, GitBranch, Database } from 'lucide-react'
+import { getSettings, saveSettings, getMcpStatus, addMcpServer, removeMcpServer, toggleMcpServer } from '@/shared/api/settings'
+import type { Settings, McpServer } from '@/shared/api/settings'
 import { LlmKeysManager } from '@/widgets/llm-keys-manager'
 
 const SEARCH_MODES = ['all', 'docs', 'intel']
@@ -89,7 +90,7 @@ export function SettingsPage() {
 
       <Tabs defaultValue="general">
         <TabsList className="w-full justify-start flex-wrap h-auto gap-1 p-1">
-          {['general', 'llm', 'agent', 'research', 'gateways', 'api'].map((t) => (
+          {['general', 'llm', 'agent', 'research', 'gateways', 'api', 'mcp'].map((t) => (
             <TabsTrigger key={t} value={t} className="text-xs capitalize">{t}</TabsTrigger>
           ))}
         </TabsList>
@@ -272,7 +273,142 @@ export function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        {/* ── MCP ── */}
+        <TabsContent value="mcp" className="space-y-4 mt-4">
+          <McpTab />
+        </TabsContent>
+
       </Tabs>
+    </div>
+  )
+}
+
+// ── MCP Tab ───────────────────────────────────────────────────────────────────
+
+const MCP_PRESETS = [
+  {
+    id: 'browser',
+    label: 'Playwright Browser',
+    description: 'Screenshots, JS-heavy pages, web automation',
+    Icon: Globe,
+    command: ['npx', '-y', '@playwright/mcp'],
+  },
+  {
+    id: 'github',
+    label: 'GitHub',
+    description: 'Repos, issues, PRs, code search. Requires GITHUB_TOKEN env var.',
+    Icon: GitBranch,
+    command: ['npx', '-y', '@modelcontextprotocol/server-github'],
+    env: { GITHUB_TOKEN: '${GITHUB_TOKEN}' },
+  },
+  {
+    id: 'postgres',
+    label: 'PostgreSQL',
+    description: 'SQL queries, schema inspection. Requires DATABASE_URL env var.',
+    Icon: Database,
+    command: ['npx', '-y', '@modelcontextprotocol/server-postgres', '${DATABASE_URL}'],
+  },
+]
+
+function McpTab() {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['mcp-status'], queryFn: getMcpStatus })
+  const servers: McpServer[] = data?.servers ?? []
+
+  const add = useMutation({
+    mutationFn: addMcpServer,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['mcp-status'] }),
+  })
+  const remove = useMutation({
+    mutationFn: removeMcpServer,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['mcp-status'] }),
+  })
+  const toggle = useMutation({
+    mutationFn: toggleMcpServer,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['mcp-status'] }),
+  })
+
+  const configuredNames = new Set(servers.map((s) => s.name))
+
+  if (isLoading) return <p className="text-sm text-muted-foreground p-2">Loading…</p>
+
+  return (
+    <div className="space-y-4">
+      {/* Configured servers */}
+      {servers.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Configured Servers</CardTitle>
+            <CardDescription className="text-xs">Changes take effect on next agent restart</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {servers.map((srv) => (
+              <div key={srv.name} className="flex items-center gap-3 py-2 border-b last:border-0">
+                <Switch
+                  checked={!srv.disabled}
+                  onCheckedChange={() => toggle.mutate(srv.name)}
+                  disabled={toggle.isPending}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{srv.name}</p>
+                  <p className="text-xs text-muted-foreground font-mono truncate">{srv.command.join(' ')}</p>
+                </div>
+                {srv.disabled && <Badge variant="secondary" className="text-[10px] h-4 shrink-0">disabled</Badge>}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => remove.mutate(srv.name)}
+                  disabled={remove.isPending}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Presets */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Add MCP Server</CardTitle>
+          <CardDescription className="text-xs">Requires Node.js / npx to be installed</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {MCP_PRESETS.map(({ id, label, description, Icon, command, env }) => {
+            const installed = configuredNames.has(id)
+            return (
+              <div key={id} className="flex items-start gap-3 py-2 border-b last:border-0">
+                <div className="mt-0.5 h-7 w-7 rounded-md bg-muted flex items-center justify-center shrink-0">
+                  <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{label}</p>
+                  <p className="text-xs text-muted-foreground">{description}</p>
+                </div>
+                {installed ? (
+                  <Badge variant="secondary" className="text-[10px] h-5 shrink-0 mt-0.5">Added</Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs shrink-0"
+                    onClick={() => add.mutate({ name: id, command, env })}
+                    disabled={add.isPending}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />Add
+                  </Button>
+                )}
+              </div>
+            )
+          })}
+        </CardContent>
+      </Card>
+
+      <p className="text-xs text-muted-foreground">
+        Custom servers: use <code className="font-mono bg-muted px-1 rounded">majestic mcp add &lt;name&gt; &lt;command…&gt;</code> from the terminal.
+      </p>
     </div>
   )
 }

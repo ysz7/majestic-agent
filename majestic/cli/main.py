@@ -29,8 +29,9 @@ Commands:
   tools list       Show available toolsets
   api start        Start REST API server (POST /chat, GET /health, GET /sessions)
   dashboard        Start web dashboard (serves React UI + REST API)
-  mcp list         List configured MCP servers and their tools
-  mcp add NAME CMD Add MCP server (CMD is space-separated command)
+  mcp list              List configured MCP servers and their tools
+  mcp add NAME CMD      Add MCP server (CMD is space-separated command)
+  mcp install PRESET    Install preset: browser, github, postgres
   gateway start [platform]   Start gateway (telegram|discord|email|all)
   gateway setup [platform]   Configure a specific platform (writes only to .env)
 
@@ -217,9 +218,64 @@ def _mcp_cmd(args: list[str]) -> None:
         cfg.set_value("mcp_servers", servers)
         print(f"  ✓ Removed MCP server '{name}'")
 
+    elif sub == "install":
+        _mcp_install(args[1] if len(args) > 1 else "")
+
     else:
-        print("Usage: majestic mcp <list|add|remove>")
+        print("Usage: majestic mcp <list|add|remove|install>")
         sys.exit(1)
+
+
+_MCP_PRESETS: dict[str, dict] = {
+    "browser": {
+        "name": "browser",
+        "command": ["npx", "-y", "@playwright/mcp"],
+        "description": "Playwright browser — screenshots, JS-heavy pages, web automation",
+    },
+    "github": {
+        "name": "github",
+        "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
+        "env": {"GITHUB_TOKEN": "${GITHUB_TOKEN}"},
+        "description": "GitHub — repos, issues, PRs, code search",
+        "env_hint": "Requires GITHUB_TOKEN environment variable",
+    },
+    "postgres": {
+        "name": "postgres",
+        "command": ["npx", "-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL}"],
+        "description": "PostgreSQL — SQL queries, schema inspection",
+        "env_hint": "Requires DATABASE_URL environment variable",
+    },
+}
+
+
+def _mcp_install(preset: str) -> None:
+    import subprocess
+    if not preset or preset not in _MCP_PRESETS:
+        print("Available presets: browser, github, postgres")
+        print("Usage: majestic mcp install <browser|github|postgres>")
+        sys.exit(1)
+
+    # Check npx available
+    r = subprocess.run(["npx", "--version"], capture_output=True, text=True)
+    if r.returncode != 0:
+        print("  ✗ npx not found. Install Node.js first: https://nodejs.org")
+        sys.exit(1)
+
+    from majestic import config as cfg
+    p = _MCP_PRESETS[preset]
+    servers = list(cfg.get("mcp_servers", []) or [])
+    if any(s.get("name") == p["name"] for s in servers):
+        print(f"  MCP server '{preset}' is already configured.")
+        return
+
+    entry: dict = {"name": p["name"], "command": p["command"]}
+    if "env" in p:
+        entry["env"] = p["env"]
+    servers.append(entry)
+    cfg.set_value("mcp_servers", servers)
+    print(f"  ✓ Added MCP server '{preset}': {' '.join(p['command'])}")
+    if "env_hint" in p:
+        print(f"  ⚠  {p['env_hint']}")
 
 
 def _api_cmd(args: list[str]) -> None:

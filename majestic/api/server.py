@@ -125,6 +125,9 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/llm/configs":
             from majestic.api import llm_configs as lc
             return self._json(lc.handle_get_llm_configs())
+        if path == "/api/mcp/status":
+            from majestic.api import mcp_api as mcp
+            return self._json(mcp.handle_get_mcp_status())
         # workspace
         if path == "/api/workspace/list":
             from majestic.api import workspace as ws
@@ -168,6 +171,14 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/llm/configs":
             from majestic.api import llm_configs as lc
             return self._json(lc.handle_create_llm_config(body))
+        if path == "/api/mcp/servers":
+            from majestic.api import mcp_api as mcp
+            return self._json(mcp.handle_mcp_add(body))
+        mcp_toggle = _match(path, "/api/mcp/servers/", "/toggle")
+        if mcp_toggle:
+            from urllib.parse import unquote
+            from majestic.api import mcp_api as mcp
+            return self._json(mcp.handle_mcp_toggle(unquote(mcp_toggle)))
         if path.startswith("/api/llm/configs/") and path.endswith("/activate"):
             cfg_name = path[len("/api/llm/configs/"):-len("/activate")]
             if cfg_name:
@@ -233,6 +244,11 @@ class _Handler(BaseHTTPRequestHandler):
                 from urllib.parse import unquote
                 from majestic.api import llm_configs as lc
                 return self._json(lc.handle_delete_llm_config(unquote(cfg_name)))
+        mcp_del = _match(path, "/api/mcp/servers/", "")
+        if mcp_del and "/" not in mcp_del:
+            from urllib.parse import unquote
+            from majestic.api import mcp_api as mcp
+            return self._json(mcp.handle_mcp_remove(unquote(mcp_del)))
         sid = _match(path, "/api/sessions/", "")
         if sid:
             return self._json(d.handle_delete_session(sid))
