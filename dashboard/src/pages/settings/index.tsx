@@ -153,6 +153,16 @@ export function SettingsPage() {
                   onChange={(e) => setNested('agent', 'tools_disabled', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
                 />
               </Field>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm">Allow scripts</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Let the agent save and run Python scripts from workspace/scripts/</p>
+                </div>
+                <Switch
+                  checked={agent.allow_scripts !== false}
+                  onCheckedChange={(v) => setNested('agent', 'allow_scripts', v)}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

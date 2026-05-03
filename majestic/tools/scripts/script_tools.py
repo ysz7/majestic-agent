@@ -20,11 +20,8 @@ def _scripts_dir() -> Path:
 def _check_allowed() -> str | None:
     try:
         from majestic import config as cfg
-        if not cfg.get("agent.allow_scripts"):
-            return (
-                "Script execution is disabled. "
-                "Set agent.allow_scripts: true in config to enable."
-            )
+        if cfg.get("agent.allow_scripts") is False:
+            return "Script execution is disabled (agent.allow_scripts: false)."
     except Exception:
         pass
     return None

@@ -7,7 +7,7 @@ export type { Skill }
 
 export interface Settings {
   llm?: { provider?: string; model?: string; ollama_url?: string; num_ctx?: number }
-  agent?: { role?: string; tools_enabled?: string[]; tools_disabled?: string[] }
+  agent?: { role?: string; tools_enabled?: string[]; tools_disabled?: string[]; allow_scripts?: boolean }
   language?: string
   currency?: string
   search_mode?: string
