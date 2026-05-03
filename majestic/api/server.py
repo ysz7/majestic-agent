@@ -131,6 +131,9 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/email/status":
             from majestic.api import email_api as ea
             return self._json(ea.handle_email_status())
+        if path == "/api/scripts":
+            from majestic.api import scripts_api as sa
+            return self._json(sa.handle_list_scripts())
         # workspace
         if path == "/api/workspace/list":
             from majestic.api import workspace as ws
@@ -194,6 +197,9 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/email/stop":
             from majestic.api import email_api as ea
             return self._json(ea.handle_email_stop())
+        if path == "/api/scripts/run":
+            from majestic.api import scripts_api as sa
+            return self._json(sa.handle_run_script(body))
         if path.startswith("/api/llm/configs/") and path.endswith("/activate"):
             cfg_name = path[len("/api/llm/configs/"):-len("/activate")]
             if cfg_name:
@@ -259,6 +265,11 @@ class _Handler(BaseHTTPRequestHandler):
                 from urllib.parse import unquote
                 from majestic.api import llm_configs as lc
                 return self._json(lc.handle_delete_llm_config(unquote(cfg_name)))
+        script_del = _match(path, "/api/scripts/", "")
+        if script_del and "/" not in script_del:
+            from urllib.parse import unquote
+            from majestic.api import scripts_api as sa
+            return self._json(sa.handle_delete_script(unquote(script_del)))
         mcp_del = _match(path, "/api/mcp/servers/", "")
         if mcp_del and "/" not in mcp_del:
             from urllib.parse import unquote

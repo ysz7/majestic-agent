@@ -49,7 +49,35 @@ def build_system(lang: str = "EN", memory: str = "") -> str:
     user_tables = _user_tables_schema()
     if user_tables:
         system += f"\n\n## [User tables]\n{user_tables}"
+    scripts = _scripts_list()
+    if scripts:
+        system += f"\n\n## [Script library]\nUse run_script to execute these saved scripts:\n{scripts}"
     return system
+
+
+def _scripts_list() -> str:
+    """Return compact list of saved scripts for system prompt (name + description only)."""
+    try:
+        from majestic.constants import WORKSPACE_DIR
+        d = WORKSPACE_DIR / "scripts"
+        if not d.exists():
+            return ""
+        lines = []
+        for p in sorted(d.glob("*.py")):
+            try:
+                with p.open(encoding="utf-8") as f:
+                    for line in f:
+                        if line.startswith("# description: "):
+                            desc = line[len("# description: "):].strip()
+                            lines.append(f"- {p.stem}: {desc}")
+                            break
+                        if not line.startswith("# "):
+                            break
+            except Exception:
+                lines.append(f"- {p.stem}")
+        return "\n".join(lines[:20])
+    except Exception:
+        return ""
 
 
 def _user_tables_schema() -> str:

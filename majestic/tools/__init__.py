@@ -7,7 +7,7 @@ Usage in agent loop:
 """
 from . import web, research, files, system, code  # noqa: F401 — side-effect: populates registry
 from . import db_search, history_search            # noqa: F401
-from . import memory_tool, email_tool              # noqa: F401
+from . import memory_tool, email_tool, scripts     # noqa: F401
 from majestic.agent import delegate          # noqa: F401 — registers delegate_task, delegate_parallel
 
 # Load MCP servers defined in config (no-op if none configured)

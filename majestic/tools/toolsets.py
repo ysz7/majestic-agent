@@ -19,6 +19,7 @@ _DEFAULT_TOOLSETS: dict[str, list[str]] = {
     "coding": [
         "read_file", "write_file", "run_command", "run_python",
         "http_request", "get_datetime", "remember", "copy_file",
+        "save_script", "list_scripts", "run_script",
         "search_knowledge", "search_web", "db_search",
         "workspace_list", "workspace_search", "workspace_delete", "workspace_move",
         "index_file",

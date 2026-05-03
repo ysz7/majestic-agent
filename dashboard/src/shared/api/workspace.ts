@@ -52,3 +52,35 @@ export const mkdirWorkspace = (path: string) =>
     method: 'POST',
     body: JSON.stringify({ path }),
   })
+
+// ── Scripts ───────────────────────────────────────────────────────────────────
+
+export interface Script {
+  name: string
+  description: string
+  params: string[]
+  tags: string[]
+  created: string
+  size: number
+  modified_at: number
+}
+
+export interface ScriptRunResult {
+  ok: boolean
+  stdout?: string
+  stderr?: string
+  exit_code?: number
+  error?: string
+}
+
+export const listScripts = () =>
+  apiFetch<{ scripts: Script[] }>('/api/scripts')
+
+export const runScript = (name: string, params: Record<string, string> = {}, timeout = 30) =>
+  apiFetch<ScriptRunResult>('/api/scripts/run', {
+    method: 'POST',
+    body: JSON.stringify({ name, params, timeout }),
+  })
+
+export const deleteScript = (name: string) =>
+  apiFetch<{ ok: boolean }>(`/api/scripts/${encodeURIComponent(name)}`, { method: 'DELETE' })
