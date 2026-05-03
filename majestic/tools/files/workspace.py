@@ -222,3 +222,39 @@ def workspace_mkdir(path: str) -> str:
         return f"Created: {p.relative_to(_ws())}"
     except Exception as e:
         return f"Error: {e}"
+
+
+@tool(
+    name="copy_file",
+    description=(
+        "Copy a file to a new location within the workspace. "
+        "Use to duplicate a template or create a new file based on an existing one."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "src": {"type": "string", "description": "Source file path"},
+            "dst": {"type": "string", "description": "Destination path (file or folder)"},
+        },
+        "required": ["src", "dst"],
+    },
+)
+def copy_file(src: str, dst: str) -> str:
+    import shutil
+    from pathlib import Path
+    s = _resolve(src)
+    d = _resolve(dst)
+    if not _safe(s) or not _safe(d):
+        return "Paths must stay inside workspace."
+    if not s.exists():
+        return f"Source not found: {src}"
+    if not s.is_file():
+        return f"Source is not a file: {src}"
+    if d.is_dir():
+        d = d / s.name
+    try:
+        d.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(s, d)
+        return f"Copied: {s.relative_to(_ws())} → {d.relative_to(_ws())}"
+    except Exception as e:
+        return f"Error: {e}"
