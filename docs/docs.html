@@ -600,6 +600,8 @@
             <tbody>
               {[
                 ["Plain-language execution", "Any task described in natural language — agent picks the tools"],
+                ["Self-improvement", "Agent autonomously creates skills, scripts, and memory entries — its capability grows with use"],
+                ["Script library", "Saved Python scripts auto-discovered each session — agent reuses its own past solutions"],
                 ["Persistent memory", "Remembers preferences, context, and learned behaviors across sessions"],
                 ["Hybrid search", "FTS5 + vector search across news, documents, history, and reports"],
                 ["4 LLM providers", "Anthropic, OpenAI, OpenRouter, Ollama — switch without restart"],
@@ -873,6 +875,7 @@ docker compose up -d`}</CodeBlock>
               {[
                 ["web_search",       "tools/web/websearch.py",        "Web search via DuckDuckGo (free) or Tavily (if key set)"],
                 ["web_extract",      "tools/web/websearch.py",        "Extract readable text from a URL"],
+                ["http_request",     "tools/web/http_request.py",     "Make HTTP GET/POST/PUT/DELETE calls to any external API"],
                 ["run_research",     "tools/research/collect.py",     "Collect and index intel from HN, Reddit, GitHub, arXiv, news"],
                 ["get_briefing",     "tools/research/briefing.py",    "Generate market/tech briefing from indexed intel"],
                 ["generate_report",  "tools/research/briefing.py",    "Deep report on a topic, saved to workspace"],
@@ -880,11 +883,19 @@ docker compose up -d`}</CodeBlock>
                 ["get_market_data",  "tools/research/market_data.py", "Crypto, stocks, forex snapshot (CoinGecko, Alpha Vantage)"],
                 ["read_file",        "tools/files/workspace.py",      "Read a file from workspace"],
                 ["write_file",       "tools/files/workspace.py",      "Write a file to workspace"],
+                ["copy_file",        "tools/files/workspace.py",      "Copy a file to a new location within workspace"],
                 ["index_document",   "tools/files/workspace.py",      "Index PDF, DOCX, CSV, TXT, MD for RAG search"],
                 ["db_search",        "tools/db_search.py",            "Unified FTS5 + vector search across all indexed data"],
                 ["history_search",   "tools/history_search.py",       "Search and LLM-summarize past conversations"],
                 ["run_command",      "tools/system/terminal.py",      "Execute a shell command (requires user approval)"],
-                ["save_memory",      "memory/store.py",               "Save a fact or preference to persistent memory"],
+                ["run_python",       "tools/code/python_runner.py",   "Execute Python code in a subprocess (cwd = workspace)"],
+                ["get_datetime",     "tools/system/datetime_tool.py", "Current date/time in any timezone (iso, human, unix)"],
+                ["send_email",       "tools/email_tool.py",           "Send an email via configured SMTP (markdown → HTML)"],
+                ["remember",         "tools/memory_tool.py",          "Save a fact or preference to persistent memory.md / user.md"],
+                ["save_script",      "tools/scripts/script_tools.py", "Save a reusable Python script to workspace/scripts/"],
+                ["list_scripts",     "tools/scripts/script_tools.py", "List the agent's saved script library"],
+                ["run_script",       "tools/scripts/script_tools.py", "Run a saved script with parameters injected as env vars"],
+                ["save_memory",      "memory/store.py",               "(legacy) Save a fact or preference to persistent memory"],
               ].map(([t, m, d]) => (
                 <tr key={t}><td><code>{t}</code></td><td><code style={{fontSize:11}}>{m}</code></td><td>{d}</td></tr>
               ))}
@@ -902,9 +913,9 @@ docker compose up -d`}</CodeBlock>
             <thead><tr><th>Toolset</th><th>Included tools</th></tr></thead>
             <tbody>
               {[
-                ["research", "web_search, web_extract, run_research, get_briefing, generate_report, generate_ideas, db_search, history_search, save_memory"],
-                ["market",   "get_market_data, web_search, get_briefing, db_search, save_memory"],
-                ["coding",   "run_command, read_file, write_file, index_document, web_search, db_search, save_memory"],
+                ["research", "web_search, web_extract, http_request, run_research, get_briefing, generate_report, generate_ideas, db_search, history_search, remember"],
+                ["market",   "get_market_data, web_search, get_briefing, db_search, remember"],
+                ["coding",   "read_file, write_file, copy_file, run_command, run_python, http_request, get_datetime, remember, save_script, list_scripts, run_script, search_web, db_search, workspace_*"],
                 ["full",     "All tools enabled (default)"],
               ].map(([n, t]) => (
                 <tr key={n}><td><code>{n}</code></td><td style={{fontSize:13}}>{t}</td></tr>
@@ -1040,6 +1051,79 @@ Analyze the given GitHub repository and produce a concise architecture summary.
 
           <Callout type="tip">
             <p>Built-in skills for <code>/research</code>, <code>/briefing</code>, <code>/report</code>, and <code>/ideas</code> are pre-installed in <code>~/.majestic-agent/skills/</code> during <code>majestic setup</code>.</p>
+          </Callout>
+
+          <h2 className="section-title" id="scripts-library">Script library</h2>
+          <div className="prose">
+            <p>
+              The agent maintains its own Python script library in <code>~/.majestic-agent/workspace/scripts/</code>.
+              When it solves a task with reusable logic (parametric API calls, recurring data fetches, system checks),
+              it autonomously calls <code>save_script</code> to store the solution. On every new session, the agent
+              sees the library in its system prompt and reuses scripts via <code>run_script</code> instead of
+              writing the same code again.
+            </p>
+            <p>This is how Majestic <strong>self-improves</strong> over time — your agent grows a personalised toolkit shaped by the work you actually do.</p>
+          </div>
+
+          <h3 className="subsection-title">The three script tools</h3>
+          <table className="api-table">
+            <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+            <tbody>
+              {[
+                ["save_script",  "Save a reusable Python script with description, params, and tags"],
+                ["list_scripts", "List the agent's saved script library"],
+                ["run_script",   "Run a saved script — params injected as environment variables"],
+              ].map(([t, d]) => (
+                <tr key={t}><td><code>{t}</code></td><td>{d}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h3 className="subsection-title">Script format</h3>
+          <CodeBlock lang="python" filename="workspace/scripts/currency_rate.py">{`# description: Convert between currencies via exchange rate API
+# params: from_currency, to_currency, amount
+# tags: finance, api
+# created: 2026-05-03
+
+import os, urllib.request, json
+
+FROM   = os.environ.get("from_currency", "USD")
+TO     = os.environ.get("to_currency",   "EUR")
+AMOUNT = float(os.environ.get("amount", "1"))
+
+url  = f"https://api.exchangerate.host/latest?base={FROM}&symbols={TO}"
+data = json.loads(urllib.request.urlopen(url).read())
+rate = data["rates"][TO]
+print(f"{AMOUNT} {FROM} = {AMOUNT * rate:.2f} {TO} (rate: {rate})")`}</CodeBlock>
+
+          <div className="prose">
+            <p>Frontmatter is parsed automatically — <code>description</code> appears in the agent's system prompt under <code>[Script library]</code>; <code>params</code> are presented as input fields when running from the dashboard.</p>
+          </div>
+
+          <h3 className="subsection-title">Managing scripts from the dashboard</h3>
+          <div className="prose">
+            <p>
+              Open the <strong>Files</strong> page in the dashboard and switch to the <strong>Scripts</strong> tab.
+              Each script appears as a card with Run / Edit / Delete buttons. Run opens a dialog with input fields
+              for declared params and shows stdout, stderr, and exit code inline.
+            </p>
+          </div>
+
+          <h3 className="subsection-title">Enabling / disabling</h3>
+          <div className="prose">
+            <p>Scripts are enabled by default. To disable execution entirely:</p>
+          </div>
+          <CodeBlock lang="bash">{`# In CLI
+/set agent.allow_scripts false
+
+# Or in config.yaml
+agent:
+  allow_scripts: false
+
+# Or in dashboard: Settings → Agent → Allow scripts toggle`}</CodeBlock>
+
+          <Callout type="warning">
+            <p>Scripts run in a subprocess with full Python stdlib access. They are sandboxed to <code>workspace/</code> as the working directory, with a 30-second default timeout (max 120s). Treat them like any other code on your machine.</p>
           </Callout>
 
           <NavButtons current="memory-skills" navigate={navigate} />
@@ -1455,12 +1539,13 @@ majestic api start   # serves dashboard at http://localhost:8080`}</CodeBlock>
           <table className="api-table">
             <thead><tr><th>Page</th><th>Description</th></tr></thead>
             <tbody>
-              <tr><td><strong>Chat</strong></td><td>Real-time streaming chat with session history, search, and delete.</td></tr>
+              <tr><td><strong>Chat</strong></td><td>Real-time streaming chat with session history, agent graph, file artifacts, and delete.</td></tr>
               <tr><td><strong>Memory</strong></td><td>Edit agent memory and user profile as raw markdown.</td></tr>
               <tr><td><strong>Skills</strong></td><td>Browse, create, edit, and delete agent skills.</td></tr>
+              <tr><td><strong>Files</strong></td><td>Workspace browser with FileViewer (HTML, Markdown, code, CSV, images) and a <strong>Scripts</strong> tab to run / edit / delete agent-created Python scripts.</td></tr>
               <tr><td><strong>Tables</strong></td><td>Full CRUD for user-defined SQLite tables visible to the agent.</td></tr>
               <tr><td><strong>Monitoring</strong></td><td>Token cost chart, request counts, active schedules and reminders.</td></tr>
-              <tr><td><strong>Settings</strong></td><td>Full config.yaml editor — LLM, language, research, gateways, API key.</td></tr>
+              <tr><td><strong>Settings</strong></td><td>Full config.yaml editor — LLM keys (multi-config), agent role, MCP servers, email gateway, research, API key.</td></tr>
             </tbody>
           </table>
           <div className="prose">
@@ -1589,6 +1674,19 @@ majestic gateway setup            # All platforms`}</CodeBlock>
     - trusted@example.com      # whitelist; leave empty to accept all`}</CodeBlock>
           <CodeBlock lang="bash">{`majestic gateway start email`}</CodeBlock>
 
+          <div className="prose">
+            <p>
+              The email gateway can also be configured and started entirely from the dashboard:
+              <strong> Settings → Email</strong> tab. The form lets you test the IMAP connection,
+              start / stop the polling thread, manage the allowed-senders whitelist, and includes
+              a one-click "Auto-fill Gmail defaults" button plus a collapsible Gmail App Password guide.
+            </p>
+            <p>
+              The agent itself can also send mail using the <code>send_email</code> tool — useful for
+              "send this report to my address" or scheduled digests delivered by email.
+            </p>
+          </div>
+
           <NavButtons current="gateways" navigate={navigate} />
         </div>
       );
@@ -1631,8 +1729,34 @@ majestic gateway setup            # All platforms`}</CodeBlock>
   - name: my-service
     url: "http://localhost:3000/sse"`}</CodeBlock>
 
+          <h2 className="section-title" id="mcp-bundle">One-click bundled servers</h2>
+          <div className="prose">
+            <p>
+              Three commonly useful MCP servers are bundled as one-line installs. Each one expands what the agent can do
+              far beyond what's possible with built-in tools alone:
+            </p>
+          </div>
+          <table className="api-table">
+            <thead><tr><th>Preset</th><th>Provides</th><th>Install</th></tr></thead>
+            <tbody>
+              <tr><td><code>browser</code></td><td>Real browser with JS rendering, screenshots, form-fill, page navigation (Playwright MCP)</td><td><code>majestic mcp install browser</code></td></tr>
+              <tr><td><code>github</code></td><td>Full GitHub integration — repos, issues, PRs, code search, commits</td><td><code>majestic mcp install github</code></td></tr>
+              <tr><td><code>postgres</code></td><td>SQL queries to any PostgreSQL database — SELECT, INSERT, schema inspection</td><td><code>majestic mcp install postgres</code></td></tr>
+            </tbody>
+          </table>
+          <div className="prose">
+            <p>
+              <code>github</code> needs <code>GITHUB_TOKEN</code> in <code>.env</code>; <code>postgres</code> needs <code>DATABASE_URL</code>.
+              Bundled servers can also be added, removed, or temporarily disabled from the dashboard
+              under <strong>Settings → MCP</strong>.
+            </p>
+          </div>
+
           <h2 className="section-title" id="mcp-commands">CLI commands</h2>
-          <CodeBlock lang="bash">{`# Add a server:
+          <CodeBlock lang="bash">{`# Install a bundled preset:
+majestic mcp install browser
+
+# Add a custom server:
 majestic mcp add filesystem npx -y @modelcontextprotocol/server-filesystem /home/user
 
 # List servers and their tools:
@@ -1942,11 +2066,12 @@ def get_weather(city: str) -> str:
         { id: "tools-approval", label: "Command approval" },
       ],
       "memory-skills": [
-        { id: "memory-how",      label: "How memory works" },
-        { id: "memory-commands", label: "Memory commands" },
-        { id: "skills-how",      label: "How skills work" },
-        { id: "skills-user",     label: "User skills" },
-        { id: "skills-agent",    label: "Agent-created skills" },
+        { id: "memory-how",       label: "How memory works" },
+        { id: "memory-commands",  label: "Memory commands" },
+        { id: "skills-how",       label: "How skills work" },
+        { id: "skills-user",      label: "User skills" },
+        { id: "skills-agent",     label: "Agent-created skills" },
+        { id: "scripts-library",  label: "Script library" },
       ],
       "scheduling": [
         { id: "sched-basics",   label: "Managing schedules" },
@@ -1986,6 +2111,7 @@ def get_weather(city: str) -> str:
       ],
       "mcp": [
         { id: "mcp-what",     label: "What is MCP?" },
+        { id: "mcp-bundle",   label: "Bundled servers" },
         { id: "mcp-config",   label: "Configuration" },
         { id: "mcp-commands", label: "CLI commands" },
         { id: "mcp-naming",   label: "Tool naming" },

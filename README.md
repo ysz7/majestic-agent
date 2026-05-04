@@ -8,7 +8,7 @@ Not a chatbot. Not a command menu. A universal agent-executor — runs on your l
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.11+-red.svg)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.1.0-red.svg)](https://github.com/ysz7/majestic-agent)
+[![Version](https://img.shields.io/badge/version-0.16.0-red.svg)](https://github.com/ysz7/majestic-agent)
 [![Tests](https://img.shields.io/badge/tests-110%20passed-brightgreen.svg)](tests/)
 [![Docs](https://img.shields.io/badge/docs-read-blue.svg)](https://ysz7.github.io/majestic-agent/docs)
 
@@ -102,6 +102,8 @@ Data persists in `~/.majestic-agent/` on the host. Health check at `http://local
 | **Agent Specialization** | Set `agent.role` + `tools_enabled` in config to fork for any domain |
 | **Conversation History** | `/history <query>` — search and summarize past conversations with LLM |
 | **Web Dashboard** | Browser UI — chat, memory editor, skill CRUD, tables, monitoring |
+| **Script Library** | Agent creates reusable Python scripts from experience, auto-discovered each session |
+| **Self-Improving** | Adaptive profile + skill self-improvement; grows more capable with use |
 | **Docker Ready** | One command deploy with persistent volume and health endpoint |
 | **Tested** | 110 unit tests across all critical paths, GitHub Actions CI |
 

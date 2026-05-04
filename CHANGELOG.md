@@ -6,6 +6,127 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ---
 
 
+## [0.16.0] - 2026-05-04
+### Added
+- `save_script`, `list_scripts`, `run_script` tools — agent can write reusable Python scripts to `workspace/scripts/` and call them in future sessions
+- `agent.allow_scripts` config key (default enabled) — enable/disable script execution; toggle in Settings → Agent
+- `[Script library]` block injected into system prompt listing all saved scripts with descriptions
+- Scripts API endpoints: `GET /api/scripts`, `POST /api/scripts/run`, `DELETE /api/scripts/<name>`
+- Scripts tab in Dashboard Files page with Run/Edit/Delete actions
+- Judgment-based system prompt guideline: agent decides when to save scripts based on reusability, not mechanically
+
+---
+
+## [0.15.2] - 2026-05-04
+### Added
+- Settings → Email tab in dashboard: IMAP/SMTP form, allowed senders editor, "Test connection" button, Start/Stop gateway controls
+- Gmail setup guide with auto-fill defaults collapsible block
+- `GET /api/email/status`, `POST /api/email/test`, `POST /api/email/start`, `POST /api/email/stop` endpoints
+
+---
+
+## [0.15.1] - 2026-05-04
+### Added
+- MCP bundle presets: `majestic mcp install browser|github|postgres` — one command adds Playwright, GitHub, or PostgreSQL MCP server to config
+- Settings → MCP tab shows all configured servers with enable/disable toggles and tool counts
+- `GET /api/mcp/status` endpoint returns active servers and their tool inventory
+
+---
+
+## [0.15.0] - 2026-05-04
+### Added
+- `run_python` tool — execute Python code in subprocess, stdout/stderr returned; working dir is `WORKSPACE_DIR`
+- `http_request` tool — GET/POST any external REST API, auto-formats JSON responses
+- `get_datetime` tool — accurate current date/time in any timezone and format
+- `remember` tool — explicitly save a fact or preference to persistent memory mid-session
+- `send_email` tool — send email via configured SMTP; Markdown body converted to HTML
+- `copy_file` tool — copy files within the workspace
+
+---
+
+## [0.14.3] - 2026-05-04
+### Added
+- `file_artifact` SSE event emitted after each `write_file` tool call
+- File artifact badges rendered under assistant messages — icon, filename, download button
+- FileViewer component: HTML (sandboxed iframe), Markdown (ReactMarkdown), code (syntax highlight), CSV (table), images, and download fallback
+- `write_file` now enforces workspace-relative paths for all absolute paths
+
+---
+
+## [0.14.2] - 2026-05-04
+### Added
+- Silent Adaptive Layer (`majestic/profile/`) — collects session signals (language, tools used, query length) at zero cost
+- `user_profile.yaml` updated every N sessions via single background LLM call
+- `[User profile]` block injected into system prompt — agent adapts tone and style automatically
+- Config: `profile.enabled`, `profile.update_every`
+
+---
+
+## [0.14.1] - 2026-05-04
+### Added
+- Chat page redesigned to three-panel layout: Sessions | Agent Graph | Chat
+- Agent Graph (SVG-based): Majestic node with status ring, tool call nodes appearing in real time via SSE
+- Tool nodes show name, arg preview, and status (running spinner, done ✓, error ✗)
+- `AgentGraph` widget subscribes to `tool_call` / `done` SSE events — no new backend endpoints
+
+---
+
+## [0.14.0] - 2026-05-04
+### Added
+- Dashboard `/files` page (renamed from `/workspace`): breadcrumb navigation, file grid, inline viewer/editor
+- File viewer renders text/code, Markdown preview, images, CSV tables; binary files download-only
+- Upload file, create folder, delete with confirmation
+- Path-traversal protection — root locked to `~/.majestic-agent/workspace/`
+- `GET /api/workspace/list`, `GET /api/workspace/file`, `POST /api/workspace/file`, `POST /api/workspace/upload`, `DELETE /api/workspace/file`, `POST /api/workspace/mkdir`
+
+---
+
+## [0.13.4] - 2026-05-04
+### Added
+- LLM Keys Manager in Settings → LLM: multiple named provider configurations, one-click activation
+- Active config applies immediately to all gateways without restart
+- Keys stored in `.env` as `LLM_KEY_<NAME>`; `GET /api/llm/configs`, `POST /api/llm/configs`, `POST /api/llm/configs/<name>/activate`, `DELETE /api/llm/configs/<name>`
+
+---
+
+## [0.13.3] - 2026-05-04
+### Added
+- Dashboard `/tables` page: create/view/edit user SQLite tables with DataTable CRUD
+- Agent auto-receives user table schema in `[User tables]` system prompt block
+- Dashboard `/monitoring` page: token/cost chart, active schedules, reminders list
+- Delete schedule from monitoring UI
+- `GET /api/tables`, `POST /api/tables`, rows CRUD, `GET /api/monitoring`, `DELETE /api/schedules/:id`
+
+---
+
+## [0.13.2] - 2026-05-04
+### Added
+- Dashboard `/settings` page: all `config.yaml` keys editable in form, live system prompt preview
+- Dashboard `/memory` page: agent memory editor, user profile editor, skill list with Create/Edit/Delete
+- `GET/POST /api/settings`, `GET/POST /api/memory`, skills CRUD endpoints
+
+---
+
+## [0.13.1] - 2026-05-04
+### Added
+- Dashboard `/chat` page: session sidebar, SSE-streamed chat, tool call cards, New Chat button
+- `GET /stream` SSE endpoint streaming `text`, `tool_call`, and `done` events
+- `GET /api/sessions`, `GET /api/sessions/:id`, `DELETE /api/sessions/:id`
+
+---
+
+## [0.13.0] - 2026-05-04
+### Added
+- `majestic dashboard` command — builds React frontend and serves it via the existing API server
+- `--dev` flag starts Vite dev server + API in parallel with HMR
+- Onboarding wizard at `/onboarding`: LLM provider, basic settings, Telegram (optional)
+- `GET /api/setup/status`, `POST /api/setup` endpoints
+- Dashboard auth: `dashboard.password` config key; without password only localhost accepted
+- Zustand global store + TanStack Query for server state throughout dashboard
+- Node.js 20+ requirement; `majestic doctor` and `majestic dashboard` prompt to install if missing
+
+---
+
 ## [0.12.1] - 2026-04-28
 ### Added
 - `CHANGELOG.md` with full history in Keep a Changelog format
