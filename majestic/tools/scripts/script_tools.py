@@ -1,9 +1,14 @@
 """Agent Script Library — save, list, and run reusable scripts."""
 from __future__ import annotations
 
+import importlib.util
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -47,38 +52,56 @@ def _safe_name(name: str) -> str:
     return "".join(c if c.isalnum() or c in "_-" else "_" for c in name.strip())
 
 
+def _archive_version(path: Path) -> None:
+    """Copy current file to .history/<stem>_<ts>.py, keep last 10."""
+    try:
+        hist = path.parent / ".history"
+        hist.mkdir(exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        shutil.copy2(path, hist / f"{path.stem}_{ts}.py")
+        versions = sorted(hist.glob(f"{path.stem}_*.py"))
+        for old in versions[:-10]:
+            old.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
+def _validate_syntax(code: str) -> str | None:
+    """Return error string if code has a syntax error, else None."""
+    try:
+        with tempfile.NamedTemporaryFile(
+            suffix=".py", mode="w", delete=False, encoding="utf-8"
+        ) as f:
+            f.write(code)
+            tmp = f.name
+        result = subprocess.run(
+            [sys.executable, "-m", "py_compile", tmp],
+            capture_output=True, text=True, timeout=10,
+        )
+        Path(tmp).unlink(missing_ok=True)
+        if result.returncode != 0:
+            return result.stderr.strip() or "Syntax error"
+    except Exception:
+        pass
+    return None
+
+
+_STR  = {"type": "string"}
+_SARR = {"type": "array", "items": _STR}
+
+
 @tool(
     name="save_script",
-    description=(
-        "Save a reusable Python script to workspace/scripts/. "
-        "Use to store logic you or the user may want to reuse later. "
-        "Run with run_script."
-    ),
+    description="Save a reusable Python script to workspace/scripts/. Run with run_script.",
     input_schema={
         "type": "object",
         "properties": {
-            "name": {
-                "type": "string",
-                "description": "Script name without .py (e.g. 'currency_rate')",
-            },
-            "description": {
-                "type": "string",
-                "description": "One-line description of what the script does",
-            },
-            "code": {
-                "type": "string",
-                "description": "Python code for the script body",
-            },
-            "params": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Parameter names injected as env vars (e.g. ['from_currency', 'to_currency'])",
-            },
-            "tags": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "Optional tags",
-            },
+            "name":        {**_STR,  "description": "Script name without .py (e.g. 'currency_rate')"},
+            "description": {**_STR,  "description": "One-line description"},
+            "code":        {**_STR,  "description": "Python code"},
+            "params":      {**_SARR, "description": "Param names injected as env vars"},
+            "requires":    {**_SARR, "description": "PyPI packages needed (e.g. ['requests'])"},
+            "tags":        {**_SARR, "description": "Optional tags"},
         },
         "required": ["name", "description", "code"],
     },
@@ -88,6 +111,7 @@ def save_script(
     description: str,
     code: str,
     params: list[str] | None = None,
+    requires: list[str] | None = None,
     tags: list[str] | None = None,
 ) -> str:
     err = _check_allowed()
@@ -98,65 +122,71 @@ def save_script(
     if not safe:
         return "Invalid script name."
 
-    params_str = ", ".join(params) if params else ""
-    tags_str = ", ".join(tags) if tags else ""
-    created = datetime.now().strftime("%Y-%m-%d")
+    syntax_err = _validate_syntax(code)
+    if syntax_err:
+        return f"Syntax error — not saved:\n{syntax_err}"
+
+    params_str   = ", ".join(params)   if params   else ""
+    requires_str = ", ".join(requires) if requires else ""
+    tags_str     = ", ".join(tags)     if tags     else ""
+    created      = datetime.now().strftime("%Y-%m-%d")
 
     header = "\n".join([
         f"# description: {description}",
         f"# params: {params_str}",
+        f"# requires: {requires_str}",
         f"# tags: {tags_str}",
         f"# created: {created}",
+        "# auto_heal: true",
         "",
     ])
 
     path = _scripts_dir() / f"{safe}.py"
+    if path.exists():
+        _archive_version(path)
+
     path.write_text(header + code.strip() + "\n", encoding="utf-8")
     return f"Saved: scripts/{safe}.py"
 
 
 @tool(
     name="list_scripts",
-    description="List all saved scripts in workspace/scripts/ with their descriptions.",
+    description="List all saved scripts in workspace/scripts/ with their descriptions and usage stats.",
     input_schema={"type": "object", "properties": {}},
 )
 def list_scripts() -> str:
+    from majestic.tools.scripts.metrics import get_all_stats
     d = _scripts_dir()
     scripts = sorted(d.glob("*.py"))
     if not scripts:
         return "No scripts saved yet. Use save_script to create one."
 
+    stats = get_all_stats()
     rows = []
     for p in scripts:
         meta = _parse_frontmatter(p)
-        desc = meta.get("description", "")
-        params = meta.get("params", "")
+        desc    = meta.get("description", "")
+        params  = meta.get("params", "")
         created = meta.get("created", "")
-        rows.append(f"- {p.stem}: {desc} | params: [{params}] | {created}")
+        s       = stats.get(p.stem, {})
+        runs     = s.get("runs", 0)
+        failures = s.get("failures", 0)
+        stat_str = f"used {runs}x" if runs else "never run"
+        if failures:
+            stat_str += f" ⚠{failures} failures"
+        rows.append(f"- {p.stem}: {desc} | params: [{params}] | {stat_str} | {created}")
     return "\n".join(rows)
 
 
 @tool(
     name="run_script",
-    description=(
-        "Run a saved script from workspace/scripts/ with optional parameters. "
-        "Parameters are injected as environment variables."
-    ),
+    description="Run a saved script from workspace/scripts/. Parameters injected as env vars.",
     input_schema={
         "type": "object",
         "properties": {
-            "name": {
-                "type": "string",
-                "description": "Script name without .py",
-            },
-            "params": {
-                "type": "object",
-                "description": "Key-value pairs injected as env vars",
-            },
-            "timeout": {
-                "type": "integer",
-                "description": "Timeout in seconds (default: 30, max: 120)",
-            },
+            "name":    {**_STR,                    "description": "Script name without .py"},
+            "params":  {"type": "object",          "description": "Key-value pairs as env vars"},
+            "timeout": {"type": "integer",         "description": "Timeout seconds (default 30, max 120)"},
         },
         "required": ["name"],
     },
@@ -166,12 +196,41 @@ def run_script(name: str, params: dict | None = None, timeout: int = 30) -> str:
     if err:
         return err
 
-    d = _scripts_dir()
-    path = d / f"{_safe_name(name)}.py"
+    d    = _scripts_dir()
+    safe = _safe_name(name)
+    path = d / f"{safe}.py"
 
     if not path.exists():
         available = [p.stem for p in sorted(d.glob("*.py"))]
         return f"Script '{name}' not found. Available: {', '.join(available) or 'none'}"
+
+    meta = _parse_frontmatter(path)
+
+    # Dependency check
+    requires_str = meta.get("requires", "")
+    if requires_str:
+        pkgs    = [p.strip() for p in requires_str.split(",") if p.strip()]
+        missing = [
+            p for p in pkgs
+            if importlib.util.find_spec(p.split("[")[0].replace("-", "_")) is None
+        ]
+        if missing:
+            try:
+                from majestic import config as cfg
+                auto_install = cfg.get("agent.auto_install_deps", True)
+            except Exception:
+                auto_install = True
+            if auto_install:
+                for pkg in missing:
+                    subprocess.run(
+                        [sys.executable, "-m", "pip", "install", pkg],
+                        capture_output=True, timeout=60,
+                    )
+            else:
+                return (
+                    f"Missing packages: {', '.join(missing)}. "
+                    f"Run: pip install {' '.join(missing)}"
+                )
 
     env = {**os.environ}
     if params:
@@ -179,23 +238,44 @@ def run_script(name: str, params: dict | None = None, timeout: int = 30) -> str:
             env[str(k)] = str(v)
 
     timeout = min(max(1, timeout), 120)
+    t0 = time.monotonic()
     try:
         result = subprocess.run(
             [sys.executable, str(path)],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
+            capture_output=True, text=True,
+            timeout=timeout, env=env,
             cwd=str(d.parent),
         )
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        _bg_record(safe, result.returncode, duration_ms)
+
         parts = []
         if result.stdout:
             parts.append(f"stdout:\n{result.stdout.strip()}")
         if result.stderr:
             parts.append(f"stderr:\n{result.stderr.strip()}")
         parts.append(f"exit code: {result.returncode}")
-        return "\n\n".join(parts) or "(no output)"
+        output = "\n\n".join(parts) or "(no output)"
+
+        if result.returncode != 0 and meta.get("auto_heal", "true") != "false":
+            output += (
+                "\n\n[AUTO-HEAL] Script failed. Analyse the error above, "
+                "patch it via save_script, then retry run_script. "
+                "You may attempt up to 2 more fixes before giving up."
+            )
+        return output
     except subprocess.TimeoutExpired:
+        _bg_record(safe, -1, timeout * 1000)
         return f"Script timed out after {timeout}s."
     except Exception as e:
         return f"Error: {e}"
+
+
+def _bg_record(name: str, exit_code: int, duration_ms: int) -> None:
+    def _r():
+        try:
+            from majestic.tools.scripts.metrics import record_run
+            record_run(name, exit_code, duration_ms)
+        except Exception:
+            pass
+    threading.Thread(target=_r, daemon=True).start()

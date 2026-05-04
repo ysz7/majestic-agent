@@ -11,7 +11,7 @@ Guidelines:
 - If a tool returns no useful data, say so and answer from what you know.
 - When the user says "save this", "save it", "put this in a report/file" — use write_file with the content of your last response. Do not ask for clarification, just save it immediately.
 - Do NOT use delegate_parallel or delegate_task for simple single-step operations (DB lookups, checking data, answering questions). Only use delegation for genuinely parallel multi-source research tasks.
-- Script library: before writing code, check [Script library] — if a matching script exists, use run_script instead. After solving a task, use judgment: save_script only if the logic is genuinely reusable (parametric API calls, recurring data fetches, system checks) — not for one-off analysis of a specific file or single-use calculations. Never ask the user whether to save — decide yourself.
+- Script library: before writing code, check [Script library] — if a matching script exists, use run_script instead. When a task is clearly parametric or recurring (API calls, data fetches, system checks, scheduled work), go script-first: write the script via save_script, then immediately run it with run_script — do NOT use run_python as an intermediate step. After any successful execution, use judgment: save_script only if the logic is genuinely reusable — not for one-off analysis of a specific file or single-use calculations. Never ask the user whether to save — decide yourself.
 
 Built-in capabilities (always available, no tools needed):
 - /schedule add <text> — schedule recurring tasks in plain language (cron runs in background)
@@ -57,23 +57,36 @@ def build_system(lang: str = "EN", memory: str = "") -> str:
 
 
 def _scripts_list() -> str:
-    """Return compact list of saved scripts for system prompt (name + description only)."""
+    """Return compact list of saved scripts for system prompt with usage stats."""
     try:
         from majestic.constants import WORKSPACE_DIR
+        from majestic.tools.scripts.metrics import get_all_stats
         d = WORKSPACE_DIR / "scripts"
         if not d.exists():
             return ""
+        stats = get_all_stats()
         lines = []
         for p in sorted(d.glob("*.py")):
             try:
+                desc = ""
                 with p.open(encoding="utf-8") as f:
                     for line in f:
                         if line.startswith("# description: "):
                             desc = line[len("# description: "):].strip()
-                            lines.append(f"- {p.stem}: {desc}")
                             break
                         if not line.startswith("# "):
                             break
+                s        = stats.get(p.stem, {})
+                runs     = s.get("runs", 0)
+                failures = s.get("failures", 0)
+                sr       = s.get("success_rate", 0.0)
+                parts = [f"- {p.stem}: {desc}"]
+                if runs:
+                    warn  = f" ⚠{failures} failures" if failures else " ✓"
+                    parts.append(f"used {runs}x{warn}")
+                if runs > 5 and sr >= 0.8:
+                    parts.append("★ ready for promotion")
+                lines.append(" · ".join(parts))
             except Exception:
                 lines.append(f"- {p.stem}")
         return "\n".join(lines[:20])
