@@ -58,6 +58,9 @@ def build_system(lang: str = "EN", memory: str = "") -> str:
     learnings = _recent_learnings()
     if learnings:
         system += f"\n\n## [Recent learnings]\n{learnings}"
+    budget = _session_budget()
+    if budget:
+        system += f"\n\n{budget}"
     return system
 
 
@@ -115,6 +118,18 @@ def _user_tables_schema() -> str:
             lines.append(f"- {name}({', '.join(cols)})")
         con.close()
         return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+def _session_budget() -> str:
+    try:
+        from majestic.token_tracker import get_stats
+        d = get_stats()
+        tin  = (d.get("tokens_in", 0) or 0) + (d.get("cache_read", 0) or 0)
+        cost = d.get("cost_usd", 0.0) or 0.0
+        reqs = d.get("requests", 0) or 0
+        return f"[Session budget] Tokens: {tin:,} · Cost: ${cost:.4f} · Requests: {reqs}"
     except Exception:
         return ""
 

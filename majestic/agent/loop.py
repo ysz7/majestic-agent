@@ -262,20 +262,22 @@ def _parse_file_artifact(result: str) -> tuple[str, str] | None:
 
 
 def _fire_background(session_id: str, answer: str, tools_used: list[str]) -> None:
-    def _bg():
+    from majestic.agent.jobs import start_job
+    def _sig(job) -> None:
         try:
-            from majestic.profile.signals import collect_signals
-            collect_signals(session_id)
+            from majestic.profile.signals import collect_signals; collect_signals(session_id)
         except Exception:
             pass
-        try:
-            from majestic.config import get as _g
-            if _g("agent.reflect", True) and len(tools_used) >= int(_g("agent.reflect_min_tools", 3)):
+    start_job("signal", f"signals:{session_id[:8]}", _sig)
+    try:
+        from majestic.config import get as _g
+        if _g("agent.reflect", True) and len(tools_used) >= int(_g("agent.reflect_min_tools", 3)):
+            def _ref(job) -> None:
                 from majestic.agent.reflection import reflect_session
                 reflect_session(session_id, answer, tools_used)
-        except Exception:
-            pass
-    threading.Thread(target=_bg, daemon=True).start()
+            start_job("reflect", f"reflect:{session_id[:8]}", _ref)
+    except Exception:
+        pass
 
 
 def _track(resp) -> None:
@@ -285,10 +287,8 @@ def _track(resp) -> None:
         um = resp.usage
         if not um:
             return
-        try:
-            cost = get_provider().estimated_cost(um)
-        except Exception:
-            cost = None
+        try: cost = get_provider().estimated_cost(um)
+        except Exception: cost = None
         track(
             um.input_tokens or 0, um.output_tokens or 0, "agent_loop",
             cache_write=um.cache_write_tokens or 0,

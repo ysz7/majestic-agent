@@ -10,6 +10,7 @@ import { SkillsPage } from '@/pages/skills'
 import { TablesPage } from '@/pages/tables'
 import { MonitoringPage } from '@/pages/monitoring'
 import { WorkspacePage } from '@/pages/workspace'
+import { AgentPage } from '@/pages/agent'
 import { AppLayout } from './layout'
 
 function Page({ children }: { children: ReactNode }) {
@@ -47,6 +48,7 @@ export function AppRouter() {
                   <Route path="tables" element={<Page><TablesPage /></Page>} />
                   <Route path="monitoring" element={<Page><MonitoringPage /></Page>} />
                   <Route path="workspace" element={<Page><WorkspacePage /></Page>} />
+                  <Route path="agent" element={<Page><AgentPage /></Page>} />
                 </Routes>
               </AppLayout>
             </Guard>

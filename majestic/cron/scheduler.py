@@ -51,16 +51,13 @@ class CronScheduler:
 
     def _tick(self) -> None:
         from majestic.cron.jobs import get_due, mark_ran
+        from majestic.agent.jobs import start_job
         due = get_due()
         for schedule in due:
             try:
                 mark_ran(schedule["id"])
-                threading.Thread(
-                    target=self._run_schedule,
-                    args=(schedule,),
-                    daemon=True,
-                    name=f"cron-{schedule['name']}",
-                ).start()
+                start_job("cron", schedule["name"],
+                          lambda job, s=schedule: self._run_schedule(s))
             except Exception as e:
                 logger.error(f"Failed to start schedule {schedule['name']}: {e}")
 

@@ -34,6 +34,7 @@ import {
   FolderOpen,
   Plus,
   Trash2,
+  Bot,
 } from 'lucide-react'
 import { getSessions, deleteSession } from '@/shared/api/sessions'
 import { cn } from '@/lib/utils'
@@ -45,6 +46,7 @@ const navItems = [
   { label: 'Skills', icon: Zap, href: '/skills' },
   { label: 'Tables', icon: Table2, href: '/tables' },
   { label: 'Monitoring', icon: Activity, href: '/monitoring' },
+  { label: 'Agent', icon: Bot, href: '/agent' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ]
 

@@ -134,6 +134,27 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/scripts":
             from majestic.api import scripts_api as sa
             return self._json(sa.handle_list_scripts())
+        if path == "/api/jobs":
+            from majestic.api import jobs_api as ja
+            return self._json(ja.handle_list_jobs())
+        if path == "/api/jobs/stream":
+            return self._handle_jobs_stream()
+        if path == "/api/schedules":
+            from majestic.api import jobs_api as ja
+            return self._json(ja.handle_list_schedules())
+        if path == "/api/reflections":
+            from majestic.api import jobs_api as ja
+            return self._json(ja.handle_list_reflections())
+        if path == "/api/script-stats":
+            from majestic.api import jobs_api as ja
+            return self._json(ja.handle_script_stats())
+        m_ref = _match(path, "/api/reflections/", "")
+        if m_ref:
+            from urllib.parse import unquote
+            from majestic.api import jobs_api as ja
+            return self._json(ja.handle_get_reflection(unquote(m_ref)))
+        if path in ("/agent", "/agent.html"):
+            return self._serve_static("/agent.html")
         # workspace
         if path == "/api/workspace/list":
             from majestic.api import workspace as ws
@@ -200,6 +221,11 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/scripts/run":
             from majestic.api import scripts_api as sa
             return self._json(sa.handle_run_script(body))
+        job_cancel = _match(path, "/api/jobs/", "/cancel")
+        if job_cancel:
+            from urllib.parse import unquote
+            from majestic.api import jobs_api as ja
+            return self._json(ja.handle_cancel_job(unquote(job_cancel)))
         if path.startswith("/api/llm/configs/") and path.endswith("/activate"):
             cfg_name = path[len("/api/llm/configs/"):-len("/activate")]
             if cfg_name:
@@ -361,6 +387,16 @@ class _Handler(BaseHTTPRequestHandler):
             self._sse_json({"type": "error", "data": str(e)})
 
         self._sse("[DONE]")
+
+    def _handle_jobs_stream(self) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Accel-Buffering", "no")
+        self._cors()
+        self.end_headers()
+        from majestic.api import jobs_api as ja
+        ja.stream_jobs(self.wfile, self.wfile.flush)
 
     def _handle_run(self, body: dict) -> None:
         prompt = body.get("prompt", "").strip()
