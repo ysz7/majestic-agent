@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Majestic Agent — Documentation</title>
-  <link rel="icon" type="image/png" href="assets/helmet.png" />
+  <link rel="icon" type="image/png" href="assets/majestic-icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -1065,19 +1065,31 @@ Analyze the given GitHub repository and produce a concise architecture summary.
             <p>This is how Majestic <strong>self-improves</strong> over time — your agent grows a personalised toolkit shaped by the work you actually do.</p>
           </div>
 
-          <h3 className="subsection-title">The three script tools</h3>
+          <h3 className="subsection-title">Script tools</h3>
           <table className="api-table">
             <thead><tr><th>Tool</th><th>Description</th></tr></thead>
             <tbody>
               {[
-                ["save_script",  "Save a reusable Python script with description, params, and tags"],
-                ["list_scripts", "List the agent's saved script library"],
-                ["run_script",   "Run a saved script — params injected as environment variables"],
+                ["save_script",         "Save a reusable Python script with description, params, and tags"],
+                ["list_scripts",        "List the agent's saved script library"],
+                ["run_script",          "Run a saved script synchronously — params injected as env vars"],
+                ["run_script_async",    "Run a script in the background; returns a job_id immediately"],
+                ["revert_script",       "Restore a previous version of a script from its history"],
+                ["promote_script_to_skill", "Convert a well-used script into a reusable skill"],
               ].map(([t, d]) => (
                 <tr key={t}><td><code>{t}</code></td><td>{d}</td></tr>
               ))}
             </tbody>
           </table>
+
+          <h3 className="subsection-title">Advanced features</h3>
+          <div className="prose">
+            <p><strong>Self-healing.</strong> When <code>run_script</code> exits with a non-zero code, the agent automatically analyses stderr, patches the script, and retries — up to 3 times. Add <code># auto_heal: false</code> to a script's frontmatter to opt out.</p>
+            <p><strong>Dependency management.</strong> Declare pip dependencies with <code># requires: requests, pandas</code> in the frontmatter. Majestic checks availability and installs missing packages automatically (<code>agent.auto_install_deps: true</code> by default).</p>
+            <p><strong>Versioning.</strong> Every <code>save_script</code> call backs up the previous version to <code>workspace/scripts/.history/</code> (last 10 kept). Use the History button in the Scripts dashboard tab or the <code>revert_script</code> tool to restore any version.</p>
+            <p><strong>Skill promotion.</strong> Scripts used more than 5 times with a success rate above 80 % appear as promotion candidates in the system prompt. Call <code>promote_script_to_skill</code> or click Promote in the dashboard to turn the script into a permanent skill available via <code>/slash-command</code>.</p>
+            <p><strong>Background execution.</strong> <code>run_script_async</code> starts a script as a background job and returns a <code>job_id</code> immediately. Set <code>notify: true</code> to receive a Telegram or email notification when it finishes. Track all background jobs with the <code>list_jobs</code> tool or on the <strong>Agent</strong> dashboard page.</p>
+          </div>
 
           <h3 className="subsection-title">Script format</h3>
           <CodeBlock lang="python" filename="workspace/scripts/currency_rate.py">{`# description: Convert between currencies via exchange rate API
@@ -1394,10 +1406,21 @@ majestic config set llm.model gpt-4o`}</CodeBlock>
           </div>
           <CodeBlock lang="yaml">{`llm:
   provider: ollama
-  model: llama3.1             # or mistral, phi3, gemma2, etc.`}</CodeBlock>
+  model: llama3.1             # or mistral, phi3, gemma2, etc.
+  num_ctx: 8192               # context window (tokens) — default 8192`}</CodeBlock>
           <Callout type="info">
             <p>Ollama tool use quality varies by model. Llama 3.1 70B and above give the best results for multi-tool tasks.</p>
           </Callout>
+
+          <h3 className="subsection-title">Context window</h3>
+          <div className="prose">
+            <p>Set <code>llm.num_ctx</code> in <code>config.yaml</code> or use the <strong>Context window</strong> slider in Settings → LLM (available when Ollama is the active provider). Steps: 2 048 / 4 096 / 8 192 / 16 384 / 32 768 / 65 536 / 131 072. Larger values give the agent more room for long research results but increase VRAM usage.</p>
+          </div>
+
+          <h3 className="subsection-title">Tool reliability</h3>
+          <div className="prose">
+            <p>Majestic automatically limits local models to 15 priority tools per request (web search, knowledge, file I/O, memory, etc.) and excludes MCP browser tools that tend to confuse smaller models. If a model writes a JSON object as plain text instead of a proper tool call, Majestic detects and rescues it automatically.</p>
+          </div>
 
           <NavButtons current="llm-providers" navigate={navigate} />
         </div>
@@ -1544,6 +1567,7 @@ majestic api start   # serves dashboard at http://localhost:8080`}</CodeBlock>
               <tr><td><strong>Skills</strong></td><td>Browse, create, edit, and delete agent skills.</td></tr>
               <tr><td><strong>Files</strong></td><td>Workspace browser with FileViewer (HTML, Markdown, code, CSV, images) and a <strong>Scripts</strong> tab to run / edit / delete agent-created Python scripts.</td></tr>
               <tr><td><strong>Tables</strong></td><td>Full CRUD for user-defined SQLite tables visible to the agent.</td></tr>
+              <tr><td><strong>Agent</strong></td><td>Autonomous activity hub — live background job feed, cron schedules with enable/disable and manual-run, last reflections, top script stats.</td></tr>
               <tr><td><strong>Monitoring</strong></td><td>Token cost chart, request counts, active schedules and reminders.</td></tr>
               <tr><td><strong>Settings</strong></td><td>Full config.yaml editor — LLM keys (multi-config), agent role, MCP servers, email gateway, research, API key.</td></tr>
             </tbody>

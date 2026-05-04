@@ -6,6 +6,59 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ---
 
 
+## [0.19.1] - 2026-05-04
+### Fixed
+- Double user messages in chat on new sessions — user message now removed from stream state as soon as DB confirms it via `session_id` SSE event
+- Tool result messages (raw search/news content) no longer shown in chat history — `get_session_messages` filters to `user` and `assistant` roles only
+- Model selector showing stale model after switching active LLM config — settings query now invalidated alongside `llm-configs` on activation
+- Search Mode field in Settings showing blank instead of current value
+
+### Changed
+- Ollama: tool list capped at 15 priority tools per request (MCP browser tools excluded) — improves reliability on smaller local models
+- Ollama: context window now configurable via Settings → LLM → Context window slider (2 048 – 131 072 tokens in steps)
+- Ollama: JSON objects written as plain text are rescued and matched to the correct tool call automatically
+- System prompt cached 30 s in memory — reduces redundant file reads across consecutive tool-call iterations
+- Monitoring refetch interval 15 s → 30 s
+
+---
+
+## [0.19.0] - 2026-05-04
+### Added
+- **Job registry** (`majestic/agent/jobs.py`) — all background work (reflection, signal collection, async scripts) runs through a unified `start_job` / `get_job` / `list_jobs` / `cancel_job` API
+- `run_script_async` tool — run a saved script in the background; returns `job_id` immediately; delivers a Telegram/email notification on completion when `notify=true`
+- `list_jobs` tool — formatted table of recent background jobs with type, status, duration, and result
+- `cancel_job` tool — cancel a running background job by id
+- Dashboard `/agent` page — unified view of autonomous activity: live job feed, cron schedules with enable/disable and manual-run controls, last reflections, top-10 script stats
+- Cost awareness: `[Session budget]` block injected into system prompt shows cumulative tokens and cost for the current session
+- `GET /api/jobs`, `POST /api/jobs/<id>/cancel`, `GET /api/jobs/stream` (SSE), `GET /api/reflections`, `GET /api/reflections/<id>`, `GET /api/script-stats` endpoints
+- Config keys: `agent.async_notify` (default true), `agent.job_history` (default 200)
+
+---
+
+## [0.18.0] - 2026-05-04
+### Added
+- **Reflection layer** — after sessions with 3+ tool calls the agent runs a background self-review: what worked, what didn't, reusable patterns, memory suggestions. Results saved to `workspace/.reflections/`. Last 5 reflections injected as `[Recent learnings]` in the system prompt
+- **Confidence tags** — every final answer includes `[confidence: high|medium|low]` based on whether the data came from live tools, recent memory, or training knowledge
+- `plan_task` tool — agent creates an explicit step-by-step plan for multi-step tasks (required for tasks with 3+ steps)
+- `update_step` tool — marks individual plan steps as `in_progress`, `done`, or `blocked`; plan state visible in CLI and dashboard chat
+- Config keys: `agent.reflect` (default true), `agent.reflect_min_tools` (default 3), `agent.confidence_tags` (default true)
+
+---
+
+## [0.17.0] - 2026-05-04
+### Added
+- **Script self-healing** — when `run_script` returns a non-zero exit code the agent automatically analyses stderr, patches the script via `save_script`, and retries (up to 3 iterations). Controlled by `# auto_heal: true` frontmatter (default) and `agent.auto_heal` config key
+- **Execution log + metrics** — every script run written to `workspace/scripts/.log.jsonl` with params, exit code, duration, and session id. `[Script library]` prompt block now shows usage counts and last-run date per script
+- **Dependency management** — `# requires: <pkg>` frontmatter field; `run_script` checks availability and installs automatically when `agent.auto_install_deps: true` (default)
+- **Script versioning** — previous version backed up to `workspace/scripts/.history/<name>_<ts>.py` on every save (last 10 kept); `revert_script` tool restores any version
+- **Skill promotion** — scripts used >5 times with >80% success rate surface as promotion candidates in the system prompt; `promote_script_to_skill` tool converts them to a `.yaml` skill file in `~/.majestic-agent/skills/`
+- `run_script_async` tool (background execution with job notification)
+- Dashboard Scripts tab: History button shows version list; Revert action available per version
+- `GET /api/scripts/<name>/history`, `POST /api/scripts/<name>/revert`, `GET /api/scripts/metrics` endpoints
+- Config keys: `agent.auto_heal`, `agent.auto_install_deps`
+
+---
+
 ## [0.16.0] - 2026-05-04
 ### Added
 - `save_script`, `list_scripts`, `run_script` tools — agent can write reusable Python scripts to `workspace/scripts/` and call them in future sessions
