@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Majestic Agent — The Agent That Gets Things Done</title>
+<link rel="icon" type="image/png" href="assets/majestic-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Josefin+Sans:wght@200;300;400;600&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #1A1A1A;
+  --bg2:       #222222;
+  --bg3:       #2A2A2A;
+  --border:    rgba(255,255,255,0.055);
+  --border2:   rgba(255,255,255,0.09);
+  --red:       #E8293A;
+  --red-dim:   rgba(232,41,58,0.08);
+  --text:      #F5F5F5;
+  --text-mid:  #888888;
+  --text-dim:  #444444;
+  --green:     #34C759;
+  --mono:      'DM Mono', monospace;
+}
+
+html { scroll-behavior: smooth; background: var(--bg); }
+body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+
+/* ─── TEXTURE ─────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 1000;
+  pointer-events: none;
+  opacity: 0.032;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 999;
+  pointer-events: none;
+  opacity: 0.018;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255,255,255,0.6) 0px,
+    rgba(255,255,255,0.6) 0.5px,
+    transparent 0.5px,
+    transparent 6px
+  );
+}
+
+/* ─── NAV ─────────────────────────────────── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 80px; height: 56px;
+  background: rgba(26,26,26,0.92);
+  backdrop-filter: blur(24px) saturate(1.2);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  font-family: 'Josefin Sans', sans-serif; font-size: 14px; font-weight: 300;
+  color: var(--text); text-decoration: none; letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+.nav-logo span { color: var(--red); }
+.nav-links { display: flex; align-items: center; gap: 4px; list-style: none; }
+.nav-links a {
+  font-size: 13px; font-weight: 450; color: var(--text-mid);
+  text-decoration: none; padding: 6px 14px; border-radius: 6px;
+  transition: color 0.2s;
+  letter-spacing: 0.01em;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-btn {
+  color: var(--text) !important;
+  border: 1px solid var(--border2) !important;
+  background: var(--bg3) !important;
+  transition: all 0.2s !important;
+}
+.nav-btn:hover { border-color: rgba(255,255,255,0.18) !important; background: #222 !important; }
+.hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 8px; }
+.hamburger span { display: block; width: 20px; height: 1.5px; background: var(--text-mid); transition: 0.3s; }
+.hamburger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+/* ─── HERO ─────────────────────────────────── */
+.hero {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center;
+  padding: 104px 80px 72px;
+  position: relative; overflow: hidden;
+}
+.hero-left {
+  display: flex; flex-direction: column; align-items: flex-start;
+}
+.hero-right {
+  animation: fadeUp 0.8s ease 0.4s both;
+}
+.hero-line {
+  position: absolute; top: 0; left: 50%; width: 1px; height: 100%;
+  background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.04) 30%, rgba(255,255,255,0.04) 70%, transparent);
+  transform: translateX(-50%); pointer-events: none;
+}
+.hero-glow { display: none; }
+
+.hero-label {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+  letter-spacing: 0.14em; text-transform: uppercase;
+  margin-bottom: 36px;
+  animation: fadeUp 0.8s ease both;
+}
+.hero-label::before {
+  content: ''; flex: 0 0 20px; height: 1px; background: var(--red);
+}
+
+.hero-title-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; width: 100%;
+}
+.hero-icon {
+  width: 164px; height: 164px; border-radius: 14px;
+  flex-shrink: 0; margin-top: 6px;
+  animation: fadeUp 0.8s ease 0.08s both;
+  margin-inline: auto;
+}
+@media (max-width: 600px) {
+  .hero-title-row { flex-direction: column; align-items: center; text-align: center; }
+  .hero-icon { margin-top: 12px; width: 94px; height: 94px;}
+}
+
+.hero-title {
+  font-family: 'Inter', sans-serif;
+  font-size: clamp(40px, 5.5vw, 72px);
+  font-weight: 700;
+  line-height: 1.0; letter-spacing: -0.02em;
+  animation: fadeUp 0.8s ease 0.08s both;
+}
+.hero-title .line-1 { display: block; color: var(--text); font-style: normal; }
+.hero-title .line-2 {
+  display: block; font-style: normal; font-weight: 700;
+  color: rgba(245,245,245,0.2);
+}
+.hero-title .line-3 { display: block; color: var(--red); font-style: normal; }
+
+.hero-sub {
+  margin-top: 24px; font-size: 15px; color: var(--text-mid);
+  max-width: 420px; line-height: 1.75; font-weight: 400;
+  animation: fadeUp 0.8s ease 0.16s both;
+  letter-spacing: 0.01em;
+}
+
+/* Install */
+.install-wrap {
+  margin-top: 36px; display: flex; flex-direction: column;
+  align-items: stretch; gap: 8px; width: 100%;
+  animation: fadeUp 0.8s ease 0.24s both;
+}
+.install-row { display: flex; align-items: center; gap: 12px; width: 100%; }
+.install-num { font-family: var(--mono); font-size: 10px; color: var(--text-dim); min-width: 18px; text-align: right; }
+.install-cmd {
+  flex: 1; display: flex; align-items: center; gap: 12px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 12px 16px; overflow: hidden;
+}
+.cmd-p { font-family: var(--mono); font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
+.cmd-t { font-family: var(--mono); font-size: 12px; color: var(--text); flex: 1; text-align: left; word-break: break-all; }
+.copy-btn {
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  padding: 3px 10px; cursor: pointer; letter-spacing: 0.06em;
+  transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+}
+.copy-btn:hover { color: var(--text); border-color: var(--border2); }
+
+.hero-btns {
+  display: flex; gap: 10px; margin-top: 24px;
+  animation: fadeUp 0.8s ease 0.32s both;
+}
+.btn-p {
+  font-size: 13px; font-weight: 600; color: #fff; background: var(--red);
+  border: none; padding: 12px 26px; border-radius: 8px; cursor: pointer;
+  text-decoration: none; transition: all 0.2s; display: inline-block;
+  letter-spacing: 0.01em;
+}
+.btn-p:hover { background: #f03344; }
+.btn-s {
+  font-size: 13px; font-weight: 500; color: var(--text-mid);
+  background: transparent; border: 1px solid var(--border2);
+  padding: 12px 26px; border-radius: 8px; cursor: pointer;
+  text-decoration: none; transition: all 0.2s; display: inline-block;
+}
+.btn-s:hover { color: var(--text); border-color: rgba(255,255,255,0.18); }
+
+/* ─── TERMINAL ─────────────────────────────── */
+.terminal {
+  width: 100%;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 4px; overflow: hidden;
+  box-shadow: 0 32px 64px rgba(0,0,0,0.4);
+}
+.term-bar {
+  display: flex; align-items: center; gap: 7px;
+  padding: 12px 16px; background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+}
+.dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; opacity: 0.7; }
+.dr { background: #FF5F57; } .dy { background: #FFBD2E; } .dg { background: #28CA41; }
+.term-title { font-family: var(--mono); font-size: 11px; color: var(--text-dim); flex: 1; text-align: center; letter-spacing: 0.06em; }
+.term-body { padding: 24px; font-family: var(--mono); font-size: 12.5px; line-height: 2; overflow-x: auto; }
+.tp { color: var(--red); } .tc { color: var(--text); } .td { color: #505050; } .tg { color: var(--green); } .tcy { color: #7DD3FC; } .tb { display: block; height: 4px; }
+.cursor { display: inline-block; width: 7px; height: 13px; background: var(--red); vertical-align: middle; animation: blink 1.1s step-end infinite; opacity: 0.7; }
+@keyframes blink { 0%,100%{opacity:0.7} 50%{opacity:0} }
+
+/* ─── SECTION COMMON ───────────────────────── */
+.sw { max-width: 1080px; margin: 0 auto; padding: 52px 24px; }
+.section-rule { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+.section-rule hr { border: none; border-top: 1px solid var(--border); }
+
+.eyebrow {
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+  letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 20px;
+  display: flex; align-items: center; gap: 12px;
+}
+.eyebrow::before { content: ''; width: 20px; height: 1px; background: var(--red); display: block; }
+.eyebrow-center { justify-content: center; }
+.eyebrow-center::after { content: ''; width: 20px; height: 1px; background: var(--red); display: block; }
+
+.stitle {
+  font-size: clamp(36px, 5vw, 58px); font-weight: 700; font-family: 'Inter', sans-serif;
+  font-style: normal;
+  line-height: 1.04; letter-spacing: -0.02em;
+  color: #C8CDD8; margin-bottom: 16px;
+}
+.stitle-center { text-align: center; }
+.ssub {
+  font-size: 15px; color: var(--text-mid); max-width: 460px;
+  line-height: 1.7; font-weight: 400;
+}
+.ssub-center { text-align: center; margin: 0 auto 72px; }
+
+/* ─── FEATURES ─────────────────────────────── */
+.fg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.fc {
+  background: var(--bg); padding: 36px 32px; transition: background 0.2s;
+  position: relative;
+}
+.fc:hover { background: var(--bg2); }
+.fc-num {
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+  letter-spacing: 0.1em; margin-bottom: 28px; display: block;
+}
+.fc-icon {
+  width: 28px; height: 28px; margin-bottom: 20px;
+  display: flex; align-items: center; justify-content: center;
+}
+.fc-icon svg { width: 20px; height: 20px; stroke: var(--red); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.ft { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 10px; color: var(--text); }
+.fd { font-size: 13px; color: var(--text-mid); line-height: 1.7; font-weight: 400; }
+.ftag {
+  display: inline-block; margin-top: 20px;
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+  letter-spacing: 0.06em; border-top: 1px solid var(--border); padding-top: 12px;
+  width: 100%;
+}
+
+/* ─── TOOLS ────────────────────────────────── */
+.tl { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start; }
+
+.tl-title { font-family: 'Inter', sans-serif; font-style: normal; font-weight: 700; font-size: clamp(32px, 4vw, 52px); line-height: 1.04; letter-spacing: -0.02em; color: #C8CDD8; margin-bottom: 16px; }
+.tl-desc { font-size: 14px; color: var(--text-mid); line-height: 1.7; margin-bottom: 36px; max-width: 360px; }
+.code-block {
+  background: var(--bg); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 20px 22px;
+  font-family: var(--mono); font-size: 12px; line-height: 1.9;
+}
+.cd { color: #505050; } .cr { color: #FDA4AF; } .cc { color: #7DD3FC; } .cw { color: var(--text); }
+.tlist { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.ti {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 18px; background: var(--bg);
+  border-bottom: 1px solid var(--border); transition: background 0.15s;
+}
+.ti:last-child { border-bottom: none; }
+.ti:hover { background: var(--bg2); }
+.tdot { width: 5px; height: 5px; border-radius: 50%; background: var(--red); flex-shrink: 0; opacity: 0.7; }
+.tname { font-family: var(--mono); font-size: 12px; color: var(--text-mid); flex: 1; }
+.ti:hover .tname { color: var(--text); }
+.tbadge {
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 2px 8px; letter-spacing: 0.04em;
+}
+.ti-add { opacity: 0.4; }
+.ti-add .tdot { background: var(--text-dim); }
+
+/* ─── STORAGE ──────────────────────────────── */
+.storage-sec { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.db-grid { display: grid; grid-template-columns: 1fr 80px 1fr; gap: 0; align-items: stretch; margin-top: 48px; border: 1px solid var(--border2); border-radius: 4px; overflow: hidden; }
+.dbc { background: var(--bg); padding: 32px; }
+.dbc-right { border-left: 1px solid var(--border); }
+.dbc-title {
+  font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+  letter-spacing: 0.16em; text-transform: uppercase;
+  margin-bottom: 24px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.dbc-title-accent { color: var(--red); }
+.dbr { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.dbr:last-child { border-bottom: none; }
+.dbi { width: 6px; height: 6px; border-radius: 50%; background: var(--border2); flex-shrink: 0; }
+.dbn { font-family: var(--mono); font-size: 12px; color: var(--text-mid); flex: 1; }
+.dbtag { font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: 0.04em; }
+.db-arrow-col {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--bg2); border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+  gap: 8px;
+}
+.db-arrow-line { width: 1px; flex: 1; background: var(--border); }
+.db-arrow-chevron { color: var(--red); font-size: 16px; font-weight: 300; }
+.db-arrow-lbl { font-family: var(--mono); font-size: 8px; color: var(--text-dim); letter-spacing: 0.12em; text-transform: uppercase; writing-mode: vertical-rl; }
+
+/* ─── PLATFORMS ────────────────────────────── */
+.plat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-top: 48px; }
+.pill-new {
+  background: var(--bg); padding: 24px 28px;
+  display: flex; align-items: center; gap: 12px;
+  transition: background 0.15s; cursor: default;
+}
+.pill-new:hover { background: var(--bg2); }
+.pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border2); flex-shrink: 0; }
+.pill-name { font-size: 13px; font-weight: 500; color: var(--text-mid); }
+.pill-new:hover .pill-name { color: var(--text); }
+.gw-box {
+  margin-top: 48px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 28px 32px;
+  font-family: var(--mono); font-size: 12.5px; line-height: 2.1;
+  display: inline-block; text-align: left;
+}
+.plat-center { text-align: center; }
+.plat-center .gw-box { display: inline-block; }
+
+/* ─── CTA ──────────────────────────────────── */
+.cta { text-align: center; padding: 72px 24px; position: relative; overflow: hidden; }
+.cta-glow { display: none; }
+.cta-title {
+  font-family: 'Inter', sans-serif; font-style: normal; font-weight: 700;
+  font-size: clamp(32px, 4.5vw, 52px);
+  line-height: 1.0; letter-spacing: -0.02em;
+  color: #C8CDD8; margin-bottom: 20px;
+}
+.cta-title em { font-style: normal; color: var(--red); }
+.cta-sub { font-family: var(--mono); font-size: 13px; color: var(--text-dim); margin-bottom: 48px; letter-spacing: 0.06em; }
+.cta-btns { display: flex; gap: 10px; justify-content: center; }
+
+/* ─── FOOTER ───────────────────────────────── */
+footer {
+  padding: 28px 40px;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+}
+.fl { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700; color: var(--text-dim); letter-spacing: -0.02em; }
+.flinks { display: flex; gap: 28px; list-style: none; }
+.flinks a { font-family: var(--mono); font-size: 11px; color: var(--text-dim); text-decoration: none; transition: color 0.2s; letter-spacing: 0.04em; }
+.flinks a:hover { color: var(--text-mid); }
+.fcopy { font-family: var(--mono); font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em; }
+
+/* ─── ANIMATIONS ───────────────────────────── */
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* ─── RESPONSIVE ───────────────────────────── */
+@media (max-width: 960px) {
+  nav { padding: 0 32px; }
+  .hero { grid-template-columns: 1fr; gap: 40px; padding: 88px 32px 56px; }
+  .fg { grid-template-columns: repeat(2, 1fr); }
+  .tl { grid-template-columns: 1fr; gap: 48px; }
+  .db-grid { grid-template-columns: 1fr; }
+  .db-arrow-col { display: none; }
+  .dbc-right { border-left: none; border-top: 1px solid var(--border); }
+  .nav-links { display: none; }
+  .hamburger { display: flex; }
+  .plat-grid { grid-template-columns: repeat(2, 1fr); }
+
+  .nav-links.mobile-open {
+    display: flex; flex-direction: column; gap: 0;
+    position: fixed; top: 56px; left: 0; right: 0;
+    background: rgba(16,16,16,0.98);
+    backdrop-filter: blur(24px) saturate(1.2);
+    border-bottom: 1px solid var(--border);
+    z-index: 199;
+    padding: 0;
+  }
+  .nav-links.mobile-open li {
+    border-bottom: 1px solid var(--border);
+    width: 100%;
+  }
+  .nav-links.mobile-open li:last-child {
+    border-bottom: none;
+    padding: 16px 24px;
+  }
+  .nav-links.mobile-open a {
+    display: block; width: 100%;
+    padding: 16px 24px !important;
+    font-size: 14px !important; font-weight: 400 !important;
+    color: var(--text-mid) !important;
+    border-radius: 0 !important;
+    background: none !important;
+    border: none !important;
+    letter-spacing: 0.01em;
+  }
+  .nav-links.mobile-open a:hover { color: var(--text) !important; background: rgba(255,255,255,0.03) !important; }
+  .nav-links.mobile-open .nav-btn {
+    display: block;
+    padding: 10px 20px !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--border2) !important;
+    background: var(--bg3) !important;
+    color: var(--text) !important;
+    font-size: 13px !important;
+    text-align: center;
+  }
+}
+@media (max-width: 600px) {
+  .hero { padding: 80px 16px 48px; }
+  .fg { grid-template-columns: 1fr; }
+  .sw { padding: 40px 16px; }
+  .hero-btns { flex-direction: column; width: 100%; }
+  .hero-btns a { display: block; width: 100%; text-align: center; box-sizing: border-box; }
+  footer { padding: 24px 16px; }
+  .cta { padding: 72px 24px; }
+  .cta-btns { flex-direction: column; align-items: center; }
+  .cta-btns a { width: 100%; max-width: 300px; text-align: center; box-sizing: border-box; }
+  .plat-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">Majestic Agent<span>.</span></a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#tools">Tools</a></li>
+    <li><a href="#platforms">Platforms</a></li>
+    <li><a href="docs">Docs</a></li>
+    <li><a href="https://github.com/ysz7/majestic-agent" class="nav-btn">GitHub ↗</a></li>
+  </ul>
+  <div class="hamburger" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-line"></div>
+  <div class="hero-glow"></div>
+
+  <div class="hero-left">
+    <div class="hero-label">Open Source &nbsp;·&nbsp; MIT License</div>
+
+    <div class="hero-title-row">
+      <h1 class="hero-title">
+        <span class="line-1">The Agent</span>
+        <span class="line-2">That Simply</span>
+        <span class="line-3">Executes.</span>
+      </h1>
+      <img src="assets/majestic-icon.png" class="hero-icon" alt="" />
+    </div>
+
+    <p class="hero-sub">
+      Not a chatbot. Not a command menu. A universal agent that runs on your laptop or server — gets any task done, creates skills and scripts from experience, and grows more capable over time.
+    </p>
+
+    <div class="install-wrap">
+      <div class="install-row">
+        <span class="install-num">01</span>
+        <div class="install-cmd">
+          <span class="cmd-p">$</span>
+          <span class="cmd-t">curl -fsSL https://raw.githubusercontent.com/ysz7/majestic-agent/main/scripts/install.sh | bash</span>
+          <button class="copy-btn" onclick="copy(this,'curl -fsSL https://raw.githubusercontent.com/ysz7/majestic-agent/main/scripts/install.sh | bash')">copy</button>
+        </div>
+      </div>
+      <div class="install-row">
+        <span class="install-num">02</span>
+        <div class="install-cmd">
+          <span class="cmd-p">$</span>
+          <span class="cmd-t">majestic setup</span>
+          <button class="copy-btn" onclick="copy(this,'majestic setup')">copy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-btns">
+      <a href="https://ysz7.github.io/majestic-agent/docs" class="btn-p">Read the Docs</a>
+      <a href="https://github.com/ysz7/majestic-agent" class="btn-s">View on GitHub</a>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="terminal">
+      <div class="term-bar">
+        <div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div>
+        <span class="term-title">majestic — ~/projects</span>
+      </div>
+      <div class="term-body">
+        <div><span class="tp">majestic ❯ </span><span class="tc">Research BTC market and send briefing to Telegram</span></div>
+        <div class="tb"></div>
+        <div><span class="td">◆ Session started · claude-sonnet-4 · 0 tokens</span></div>
+        <div class="tb"></div>
+        <div><span class="td">  ┌ </span><span class="tcy">web_search</span><span class="td"> · collecting 8 sources...</span></div>
+        <div><span class="td">  ├ </span><span class="tcy">market_data</span><span class="td"> · BTC $67,420 ↑2.4% · ETH $3,891 ↑1.8%</span></div>
+        <div><span class="td">  ├ </span><span class="tcy">db_search</span><span class="td"> · scanning 1,204 indexed items</span></div>
+        <div><span class="td">  ├ </span><span class="tcy">briefing</span><span class="td"> · generating analysis · 1,847 tokens</span></div>
+        <div><span class="td">  └ </span><span class="tcy">telegram</span><span class="td"> · delivering to @you</span></div>
+        <div class="tb"></div>
+        <div><span class="tg">✓</span><span class="td"> Done · 4 tool calls · $0.004 · 8.2s</span></div>
+        <div class="tb"></div>
+        <div><span class="tp">majestic ❯ </span><span class="cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<div class="section-rule"><hr></div>
+<section class="sw" id="features">
+  <div class="reveal" style="margin-bottom:36px;">
+    <div class="eyebrow eyebrow-center">Capabilities</div>
+    <h2 class="stitle stitle-center">Built Different.</h2>
+    <p class="ssub ssub-center">Clean architecture. No 10,000-line files. Every component has one job.</p>
+  </div>
+
+  <div class="fg reveal">
+    <div class="fc">
+      <span class="fc-num">01</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><polyline points="13 2 13 9 20 9"></polyline><path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path><polygon points="3 16 8 12 13 16 20 7 21 8 13 18 8 14 3 17"></polygon></svg>
+      </div>
+      <div class="ft">Universal Execution</div>
+      <p class="fd">Give it any task in plain language. The agent picks the right tools and executes — no command menus.</p>
+      <span class="ftag">agentic-loop</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">02</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+      </div>
+      <div class="ft">Persistent Memory</div>
+      <p class="fd">Remembers preferences, past sessions, and learned patterns across every conversation and platform.</p>
+      <span class="ftag">cross-session</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">03</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </div>
+      <div class="ft">Universal Search</div>
+      <p class="fd">One query across news, docs, market data, and all past conversations. Hybrid FTS5 + vector.</p>
+      <span class="ftag">sqlite-vec · fts5</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">04</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+      </div>
+      <div class="ft">MCP Integration</div>
+      <p class="fd">Any MCP server becomes agent tools instantly. One config line — no Python code.</p>
+      <span class="ftag">mcp · stdio · sse</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">05</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+      </div>
+      <div class="ft">Cron Automations</div>
+      <p class="fd">"Every Monday at 9am, send me a market briefing" — plain language, delivered to any platform.</p>
+      <span class="ftag">apscheduler</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">06</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+      </div>
+      <div class="ft">REST API</div>
+      <p class="fd">POST /chat, GET /health, GET /sessions — connect any frontend, script, or service. Optional API key auth.</p>
+      <span class="ftag">http · no-dep</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">07</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5z"></path><path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"></path><path d="M9.5 14c.83 0 1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5S8 21.33 8 20.5v-5c0-.83.67-1.5 1.5-1.5z"></path><path d="M3.5 14H5v1.5c0 .83-.67 1.5-1.5 1.5S2 16.33 2 15.5 2.67 14 3.5 14z"></path><path d="M14 14.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-5c-.83 0-1.5-.67-1.5-1.5z"></path><path d="M15.5 19H14v1.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"></path><path d="M10 9.5C10 8.67 9.33 8 8.5 8h-5C2.67 8 2 8.67 2 9.5S2.67 11 3.5 11h5c.83 0 1.5-.67 1.5-1.5z"></path><path d="M8.5 5H10V3.5C10 2.67 9.33 2 8.5 2S7 2.67 7 3.5 7.67 5 8.5 5z"></path></svg>
+      </div>
+      <div class="ft">4 LLM Providers</div>
+      <p class="fd">Anthropic, OpenAI, OpenRouter, Ollama. Switch anytime with <code>majestic model</code> or <code>/model</code>.</p>
+      <span class="ftag">anthropic · openai · openrouter · ollama</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">08</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+      </div>
+      <div class="ft">Agent Specialization</div>
+      <p class="fd">Set role and tool whitelist in config.yaml — fork for any domain without touching source code.</p>
+      <span class="ftag">agent.role · tools_enabled</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">09</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+      </div>
+      <div class="ft">Plug-in Tools</div>
+      <p class="fd">Drop a file in tools/ and the agent picks it up automatically. No wiring, no config changes needed.</p>
+      <span class="ftag">auto-registry</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">10</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+      </div>
+      <div class="ft">Web Dashboard</div>
+      <p class="fd">Browser UI with real-time chat, memory editor, skill CRUD, user tables, token monitoring and schedules.</p>
+      <span class="ftag">react · shadcn · sse</span>
+    </div>
+    <div class="fc">
+      <span class="fc-num">11</span>
+      <div class="fc-icon">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+      </div>
+      <div class="ft">Self-Improving Agent</div>
+      <p class="fd">Creates skills and scripts from experience, reuses them in future sessions. Gets smarter the more you use it — zero effort.</p>
+      <span class="ftag">skills · scripts · adaptive</span>
+    </div>
+  </div>
+</section>
+
+<!-- TOOLS -->
+<div class="section-rule"><hr></div>
+<section class="sw" id="tools">
+  <div class="tl">
+    <div class="reveal">
+      <div class="eyebrow">Toolsets</div>
+      <h2 class="tl-title">Every Tool.<br>One Registry.</h2>
+      <p class="tl-desc">Tools grouped by domain. Agent selects automatically. Add your integration — one file, zero config.</p>
+      <div class="code-block">
+        <div><span class="cd"># drop any file in tools/</span></div>
+        <div><span class="cr">@registry</span><span class="cw">.tool</span></div>
+        <div><span class="cc">def</span><span class="cw"> my_integration(query: str):</span></div>
+        <div><span class="cw">&nbsp;&nbsp;...</span></div>
+        <div><span class="cd"># agent picks it up automatically</span></div>
+      </div>
+    </div>
+    <div class="tlist reveal">
+      <div class="ti"><div class="tdot"></div><span class="tname">web / search · extract</span><span class="tbadge">web</span></div>
+      <div class="ti"><div class="tdot"></div><span class="tname">research / news · briefing · report · ideas</span><span class="tbadge">research</span></div>
+      <div class="ti"><div class="tdot"></div><span class="tname">research / market · crypto · forex</span><span class="tbadge">research</span></div>
+      <div class="ti"><div class="tdot"></div><span class="tname">files / read · write · index</span><span class="tbadge">files</span></div>
+      <div class="ti"><div class="tdot"></div><span class="tname">system / terminal</span><span class="tbadge">system</span></div>
+      <div class="ti"><div class="tdot"></div><span class="tname">history_search — search past conversations</span><span class="tbadge">memory</span></div>
+      <div class="ti"><div class="tdot" style="background:#FDA4AF"></div><span class="tname">db_search — unified search</span><span class="tbadge">core</span></div>
+      <div class="ti"><div class="tdot" style="background:#7DD3FC"></div><span class="tname">mcp_{server}_{tool} — any MCP server</span><span class="tbadge">mcp</span></div>
+      <div class="ti ti-add"><div class="tdot" style="background:var(--text-dim)"></div><span class="tname">your_integration/ ···</span><span class="tbadge">+ add</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- STORAGE -->
+<div class="section-rule"><hr></div>
+<section class="storage-sec">
+  <div class="sw">
+    <div class="reveal" style="max-width:520px;">
+      <div class="eyebrow">Storage</div>
+      <h2 class="stitle">One File.<br>Everything Inside.</h2>
+      <p class="ssub">No ChromaDB. No separate processes. All data in a single SQLite file — trivial to backup, trivial to move.</p>
+    </div>
+    <div class="db-grid reveal">
+      <div class="dbc">
+        <div class="dbc-title">Input Sources</div>
+        <div class="dbr"><div class="dbi"></div><span class="dbn">conversations</span><span class="dbtag">all platforms</span></div>
+        <div class="dbr"><div class="dbi"></div><span class="dbn">news · signals</span><span class="dbtag">8 sources</span></div>
+        <div class="dbr"><div class="dbi"></div><span class="dbn">market data</span><span class="dbtag">realtime</span></div>
+        <div class="dbr"><div class="dbi"></div><span class="dbn">documents</span><span class="dbtag">pdf · md · csv</span></div>
+        <div class="dbr"><div class="dbi"></div><span class="dbn">reports</span><span class="dbtag">generated</span></div>
+      </div>
+      <div class="db-arrow-col">
+        <div class="db-arrow-line"></div>
+        <div class="db-arrow-chevron">›</div>
+        <div class="db-arrow-lbl">indexed</div>
+        <div class="db-arrow-chevron">›</div>
+        <div class="db-arrow-line"></div>
+      </div>
+      <div class="dbc dbc-right">
+        <div class="dbc-title dbc-title-accent">~/.majestic/state.db</div>
+        <div class="dbr"><div class="dbi" style="background:rgba(232,41,58,0.3)"></div><span class="dbn">sessions · messages</span><span class="dbtag">FTS5</span></div>
+        <div class="dbr"><div class="dbi" style="background:rgba(232,41,58,0.3)"></div><span class="dbn">messages_fts</span><span class="dbtag">BM25</span></div>
+        <div class="dbr"><div class="dbi" style="background:rgba(232,41,58,0.3)"></div><span class="dbn">market_history</span><span class="dbtag">SQL</span></div>
+        <div class="dbr"><div class="dbi" style="background:rgba(232,41,58,0.3)"></div><span class="dbn">vectors</span><span class="dbtag">sqlite-vec</span></div>
+        <div class="dbr"><div class="dbi" style="background:rgba(232,41,58,0.3)"></div><span class="dbn">schedules</span><span class="dbtag">cron</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLATFORMS -->
+<div class="section-rule"><hr></div>
+<section class="sw" id="platforms">
+  <div class="reveal" style="margin-bottom:0;">
+    <div class="eyebrow eyebrow-center">Platforms</div>
+    <h2 class="stitle stitle-center">One Agent.<br>Any Device.</h2>
+    <p class="ssub ssub-center">Run on your laptop, a $5 VPS, or any server. Talk from any device, anywhere.</p>
+  </div>
+  <div class="plat-grid reveal">
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">CLI (terminal)</span></div>
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">Telegram bot</span></div>
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">Discord bot</span></div>
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">REST API</span></div>
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">Cron / scheduled</span></div>
+    <div class="pill-new"><div class="pill-dot" style="background:var(--green)"></div><span class="pill-name">VPS / Server</span></div>
+  </div>
+  <div class="plat-center reveal">
+    <div class="gw-box">
+      <div><span style="color:#505050">Terminal → </span><span style="color:#7DD3FC">CLI</span><span style="color:#505050"> ──────────┐</span></div>
+      <div><span style="color:#505050">Phone    → </span><span style="color:#7DD3FC">Telegram</span><span style="color:#505050"> ────────┤</span></div>
+      <div><span style="color:#505050">Server   → </span><span style="color:#7DD3FC">Discord</span><span style="color:#505050"> ────────┤── </span><span style="color:var(--red)">majestic</span><span style="color:#505050"> → </span><span style="color:var(--green)">LLM</span></div>
+      <div><span style="color:#505050">Script   → </span><span style="color:#7DD3FC">REST API</span><span style="color:#505050"> ───────┤</span></div>
+      <div><span style="color:#505050">Timer    → </span><span style="color:#7DD3FC">Cron</span><span style="color:#505050"> ────────────┘</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="section-rule"><hr></div>
+<section class="cta">
+  <div class="cta-glow"></div>
+  <h2 class="cta-title reveal">Start Running<br><em>Majestic.</em></h2>
+  <p class="cta-sub reveal">One command. Everything configured. 60 seconds to your first task.</p>
+  <div class="cta-btns reveal">
+    <a href="docs" class="btn-p">Get Started</a>
+    <a href="https://github.com/ysz7/majestic-agent" class="btn-s">Star on GitHub</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="fl">Majestic</div>
+  <ul class="flinks">
+    <li><a href="docs">Docs</a></li>
+    <li><a href="https://github.com/ysz7/majestic-agent">GitHub</a></li>
+    <li><a href="#">Discord</a></li>
+  </ul>
+  <div class="fcopy">MIT · 2026 · majestic-agent</div>
+</footer>
+
+<script>
+// Scroll reveal
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach((e, i) => {
+    if (e.isIntersecting) setTimeout(() => e.target.classList.add('visible'), i * 60);
+  });
+}, { threshold: 0.06 });
+document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+
+// Copy
+function copy(btn, text) {
+  navigator.clipboard.writeText(text);
+  const o = btn.textContent;
+  btn.textContent = 'copied';
+  setTimeout(() => { btn.textContent = o; }, 1500);
+}
+
+// Mobile menu
+let menuOpen = false;
+function toggleMenu() {
+  const links = document.querySelector('.nav-links');
+  const btn = document.querySelector('.hamburger');
+  menuOpen = !menuOpen;
+  links.classList.toggle('mobile-open', menuOpen);
+  btn.classList.toggle('open', menuOpen);
+}
+</script>
+</body>
+</html>

@@ -104,7 +104,10 @@ export function LlmKeysManager() {
     staleTime: 30_000,
   })
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['llm-configs'] })
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['llm-configs'] })
+    qc.invalidateQueries({ queryKey: ['settings'] })
+  }
 
   const create = useMutation({
     mutationFn: () => createLlmConfig(form),

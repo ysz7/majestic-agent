@@ -301,7 +301,7 @@ class StateDB:
 
     def get_session_messages(self, session_id: str, limit: int = 50) -> list[dict]:
         rows = self._conn.execute(
-            "SELECT role, content, timestamp FROM messages WHERE session_id = ? ORDER BY id LIMIT ?",
+            "SELECT role, content, timestamp FROM messages WHERE session_id = ? AND role IN ('user', 'assistant') ORDER BY id LIMIT ?",
             (session_id, limit),
         ).fetchall()
         return [dict(r) for r in rows]

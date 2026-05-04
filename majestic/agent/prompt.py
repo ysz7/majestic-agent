@@ -1,4 +1,12 @@
 """System prompt builder for the agentic loop."""
+import time as _time
+
+_prompt_cache: dict = {}  # {"key": (ts, prompt)}
+_CACHE_TTL = 30  # seconds — safe since settings/memory rarely change within a session
+
+
+def _cache_key(lang: str, memory: str) -> str:
+    return f"{lang}:{hash(memory)}"
 
 _BASE = """\
 You are Majestic, a universal AI agent. You have access to tools to help answer questions and complete tasks.
@@ -32,6 +40,10 @@ Be concise. Return only the final result, no preamble.\
 
 
 def build_system(lang: str = "EN", memory: str = "") -> str:
+    key = _cache_key(lang, memory)
+    cached = _prompt_cache.get(key)
+    if cached and _time.time() - cached[0] < _CACHE_TTL:
+        return cached[1]
     system = _BASE + f"\n\nRespond in {lang}."
     try:
         from majestic import config as _cfg
@@ -61,6 +73,7 @@ def build_system(lang: str = "EN", memory: str = "") -> str:
     budget = _session_budget()
     if budget:
         system += f"\n\n{budget}"
+    _prompt_cache[key] = (_time.time(), system)
     return system
 
 

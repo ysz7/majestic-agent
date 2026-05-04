@@ -13,6 +13,7 @@ interface UseSendMessageOptions {
 export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOptions) {
   const qc = useQueryClient()
   const [streaming, setStreaming] = useState(false)
+  const streamingRef = useRef(false)  // sync guard against stale-closure double-send
   const [streamMsgs, setStreamMsgs] = useState<StreamMessage[]>([])
   const [streamSessionId, setStreamSessionId] = useState<string | null>(null)
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([])
@@ -30,8 +31,9 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
 
   const send = useCallback(
     (text: string) => {
-      if (!text.trim() || streaming) return
+      if (!text.trim() || streamingRef.current) return
 
+      streamingRef.current = true
       setStreaming(true)
       setToolEvents(prev => prev.map(e => ({ ...e, dim: true })))
       setFileArtifacts([])
@@ -49,6 +51,8 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
             activeSessionRef.current = event.data
             setStreamSessionId(event.data)
             onSessionCreated?.(event.data)
+            // user message is now saved to DB — drop it from streamMsgs to avoid duplicate
+            setStreamMsgs(prev => prev.filter(m => m.id === '__stream__'))
           } else if (event.type === 'tool_call') {
             const te: ToolEvent = {
               id: `${event.data.name}_${++counterRef.current}`,
@@ -74,6 +78,7 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
               return [user, { ...cur, content: cur.content + event.data, streaming: true }]
             })
           } else if (event.type === 'done') {
+            streamingRef.current = false
             setStreaming(false)
             setToolEvents(prev => prev.map(e => e.status === 'running' && !e.dim ? { ...e, status: 'done' } : e))
             setStreamMsgs((prev) => {
@@ -84,6 +89,7 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
             qc.invalidateQueries({ queryKey: ['messages', activeSessionRef.current] })
             qc.invalidateQueries({ queryKey: ['sessions'] })
           } else if (event.type === 'error') {
+            streamingRef.current = false
             setStreaming(false)
             setToolEvents(prev => prev.map(e => e.status === 'running' && !e.dim ? { ...e, status: 'error' } : e))
             setStreamMsgs((prev) => {
@@ -100,6 +106,7 @@ export function useSendMessage({ sessionId, onSessionCreated }: UseSendMessageOp
 
   const stop = useCallback(() => {
     stopRef.current?.()
+    streamingRef.current = false
     setStreaming(false)
     setStreamMsgs([])
     setStreamSessionId(null)

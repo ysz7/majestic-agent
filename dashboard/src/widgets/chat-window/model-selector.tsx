@@ -27,7 +27,7 @@ function shortName(id: string): string {
 
 export function ModelSelector() {
   const qc = useQueryClient()
-  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: getSettings })
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: getSettings, staleTime: 30_000 })
   const provider = settings?.llm?.provider ?? 'anthropic'
   const currentModel = settings?.llm?.model ?? ''
 

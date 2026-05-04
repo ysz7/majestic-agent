@@ -28,7 +28,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 export function SettingsPage() {
   const qc = useQueryClient()
-  const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: getSettings })
+  const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: getSettings, staleTime: 30_000 })
   const [form, setForm] = useState<Settings>({})
   const [dirty, setDirty] = useState(false)
 
@@ -110,8 +110,8 @@ export function SettingsPage() {
                 <Input value={form.currency ?? ''} onChange={(e) => set('currency', e.target.value)} />
               </Field>
               <Field label="Search Mode">
-                <Select value={form.search_mode ?? undefined} onValueChange={(v) => set('search_mode', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select value={form.search_mode ?? 'all'} onValueChange={(v) => set('search_mode', v)}>
+                  <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
                   <SelectContent>
                     {SEARCH_MODES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                   </SelectContent>
@@ -128,6 +128,12 @@ export function SettingsPage() {
               <LlmKeysManager />
             </CardContent>
           </Card>
+          {form.llm?.provider === 'ollama' && (
+            <OllamaContextSlider
+              value={form.llm?.num_ctx ?? 8192}
+              onChange={(v) => setNested('llm', 'num_ctx', v)}
+            />
+          )}
         </TabsContent>
 
         {/* ── Agent ── */}
@@ -295,6 +301,57 @@ export function SettingsPage() {
 
       </Tabs>
     </div>
+  )
+}
+
+// ── Ollama Context Slider ─────────────────────────────────────────────────────
+
+const CTX_STEPS = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
+
+function fmtCtx(n: number): string {
+  return n >= 1024 ? `${n / 1024}k` : String(n)
+}
+
+function OllamaContextSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const idx = CTX_STEPS.reduce((best, s, i) =>
+    Math.abs(s - value) < Math.abs(CTX_STEPS[best] - value) ? i : best, 0)
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">Context Window</CardTitle>
+        <CardDescription className="text-xs">
+          Larger context = more conversation history, but more VRAM and slower responses
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-muted-foreground">tokens</span>
+          <span className="text-sm font-semibold tabular-nums">{fmtCtx(CTX_STEPS[idx])}</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={CTX_STEPS.length - 1}
+          step={1}
+          value={idx}
+          onChange={(e) => onChange(CTX_STEPS[Number(e.target.value)])}
+          className="w-full h-2 rounded-full appearance-none cursor-pointer bg-muted accent-primary"
+        />
+        <div className="flex justify-between mt-1">
+          {CTX_STEPS.map((s, i) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onChange(s)}
+              className={`text-[10px] tabular-nums transition-colors ${i === idx ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              {fmtCtx(s)}
+            </button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

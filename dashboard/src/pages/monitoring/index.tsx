@@ -71,7 +71,8 @@ export function MonitoringPage() {
   const { data, isLoading } = useQuery<MonitoringData>({
     queryKey: ['monitoring'],
     queryFn: () => apiFetch('/api/monitoring'),
-    refetchInterval: 15_000,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
   })
 
   const delSchedule = useMutation({

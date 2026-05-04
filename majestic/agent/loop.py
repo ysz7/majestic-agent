@@ -1,16 +1,11 @@
-"""
-Agentic loop — the core execution engine.
-
-Flow: user input → LLM (with tools) → tool calls → results → LLM → ... → final answer
-Each iteration is tracked in the messages table. Parallel tool execution via ThreadPoolExecutor.
-"""
+"""Agentic loop — LLM + tool calls, up to 10 iterations. Parallel tool execution via ThreadPoolExecutor."""
 from __future__ import annotations
 
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Optional
 
-from majestic.llm.base import ToolCall
+from majestic.llm.base import LLMResponse, ToolCall
 
 MAX_ITERATIONS = 10
 
@@ -47,6 +42,7 @@ class AgentLoop:
 
         provider     = get_provider()
         tool_schemas = _tools.get_schemas()
+        is_local     = type(provider).__name__ == "OllamaProvider"
 
         if system is None:
             from majestic.memory.store import load_both
@@ -62,16 +58,11 @@ class AgentLoop:
         except Exception:
             pass
 
-        # Build initial messages from history (last 5 turns for context)
         messages = _build_initial_messages(user_input, history)
-
-        # Save user message to DB
         if session_id:
             _save_msg(session_id, "user", user_input)
 
-        sources:    list[str] = []
-        tools_used: list[str] = []
-        iterations = 0
+        sources: list[str] = []; tools_used: list[str] = []; iterations = 0
 
         while iterations < self._max_iter:
             if self._stop.is_set():
@@ -90,11 +81,22 @@ class AgentLoop:
             _track(resp)
 
             if not resp.tool_calls:
-                # Final answer — no more tool calls
+                # If model only emitted a tag with no real content, retry with a nudge
+                content = resp.content or ""
+                if is_local and _is_empty_response(content) and iterations < self._max_iter:
+                    messages.append({"role": "assistant", "content": content})
+                    messages.append({"role": "user",
+                                     "content": "Your response was empty. Please provide a full answer in plain text."})
+                    continue
                 if session_id:
-                    _save_msg(session_id, "assistant", resp.content,
-                              finish_reason=resp.finish_reason)
-                    _fire_background(session_id, resp.content or "", list(tools_used))
+                    _save_msg(session_id, "assistant", content, finish_reason=resp.finish_reason)
+                    _fire_background(session_id, content, list(tools_used))
+                return {"answer": content, "sources": sources}
+
+            # Drop tool calls with names not in the registry (e.g. hallucinated browser API calls)
+            resp = _filter_tool_calls(resp, session_id, sources, tools_used)
+            if not resp.tool_calls:
+                if session_id: _save_msg(session_id, "assistant", resp.content or ""); _fire_background(session_id, resp.content or "", list(tools_used))
                 return {"answer": resp.content, "sources": sources}
 
             # ── Execute tool calls ────────────────────────────────────────────
@@ -104,7 +106,7 @@ class AgentLoop:
                 for tc in resp.tool_calls:
                     on_tool_call(tc.name, tc.arguments)
 
-            tool_results = _execute_tools(resp.tool_calls, self._stop)
+            tool_results = _execute_tools(resp.tool_calls, self._stop, is_local)
 
             # Emit file artifact events for write_file results
             if on_file_artifact:
@@ -122,26 +124,15 @@ class AgentLoop:
                 ):
                     sources.append(tc.name)
 
-            # Append assistant message (with tool calls) to conversation
             messages.append({
-                "role":       "assistant",
-                "content":    resp.content or "",
-                "tool_calls": [
-                    {"id": tc.id, "name": tc.name, "arguments": tc.arguments}
-                    for tc in resp.tool_calls
-                ],
+                "role": "assistant", "content": resp.content or "",
+                "tool_calls": [{"id": tc.id, "name": tc.name, "arguments": tc.arguments} for tc in resp.tool_calls],
             })
-
-            # Append tool results (cap size to avoid context bloat)
             for tc in resp.tool_calls:
                 result_text = tool_results.get(tc.id, "[no result]")
-                if session_id:
-                    _save_msg(session_id, "tool", result_text, tool_name=tc.name)
-                messages.append({
-                    "role":         "tool_result",
-                    "tool_call_id": tc.id,
-                    "content":      _cap_tool_result(tc.name, result_text),
-                })
+                if session_id: _save_msg(session_id, "tool", result_text, tool_name=tc.name)
+                messages.append({"role": "tool_result", "tool_call_id": tc.id,
+                                  "content": _cap_tool_result(tc.name, result_text, is_local)})
 
         # Safety: max iterations reached
         return {"answer": "Reached maximum tool-call iterations.", "sources": sources}
@@ -166,37 +157,34 @@ def _build_initial_messages(user_input: str, history: Optional[list[tuple[str, s
     return msgs
 
 
-def _execute_tools(
-    tool_calls: list[ToolCall],
-    stop_event: threading.Event,
-) -> dict[str, str]:
-    import majestic.tools as _tools
+def _is_empty_response(content: str) -> bool:
+    import re as _re
+    return len(_re.sub(r'\[confidence:\s*\w+\]', '', content).strip()) < 20
 
+
+def _execute_tools(tool_calls: list[ToolCall], stop_event: threading.Event,
+                   is_local: bool = False) -> dict[str, str]:
+    import majestic.tools as _tools
     if stop_event.is_set():
         return {tc.id: "[Stopped]" for tc in tool_calls}
-
     if len(tool_calls) == 1:
         tc = tool_calls[0]
         return {tc.id: _tools.execute(tc.name, tc.arguments)}
-
     results: dict[str, str] = {}
     with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = {
-            executor.submit(_tools.execute, tc.name, tc.arguments): tc
-            for tc in tool_calls
-            if not stop_event.is_set()
-        }
+        futures = {executor.submit(_tools.execute, tc.name, tc.arguments): tc
+                   for tc in tool_calls if not stop_event.is_set()}
         for future, tc in [(f, futures[f]) for f in futures]:
-            try:
-                results[tc.id] = future.result(timeout=30)
-            except Exception as e:
-                results[tc.id] = f"[tool error] {e}"
+            try: results[tc.id] = future.result(timeout=30)
+            except Exception as e: results[tc.id] = f"[tool error] {e}"
     return results
 
 
-_TOOL_RESULT_MAX   = 6000
-_TOOL_RESULT_SMALL = 2000
-_PRUNE_AFTER = 2   # prune older batches once there are more than N tool_result msgs
+_TOOL_RESULT_MAX        = 6000
+_TOOL_RESULT_SMALL      = 2000
+_TOOL_RESULT_LOCAL_MAX  = 1500   # local models have small context — keep results short
+_TOOL_RESULT_LOCAL_SMALL = 800
+_PRUNE_AFTER = 2
 
 
 def _prune_old_tool_results(messages: list[dict]) -> list[dict]:
@@ -231,14 +219,18 @@ def _prune_old_tool_results(messages: list[dict]) -> list[dict]:
     return pruned
 
 
-def _cap_tool_result(name: str, text: str) -> str:
-    limit = _TOOL_RESULT_SMALL if name in (
-        "get_briefing", "get_report", "generate_ideas",
-        "run_research", "get_news", "delegate_parallel", "delegate_task",
-    ) else _TOOL_RESULT_MAX
+_SMALL_TOOLS = {"get_briefing", "get_report", "generate_ideas", "run_research",
+                "get_news", "delegate_parallel", "delegate_task"}
+
+
+def _cap_tool_result(name: str, text: str, is_local: bool = False) -> str:
+    if is_local:
+        limit = _TOOL_RESULT_LOCAL_SMALL if name in _SMALL_TOOLS else _TOOL_RESULT_LOCAL_MAX
+    else:
+        limit = _TOOL_RESULT_SMALL if name in _SMALL_TOOLS else _TOOL_RESULT_MAX
     if len(text) <= limit:
         return text
-    return text[:limit] + f"\n…[output truncated — {len(text)} chars total]"
+    return text[:limit] + f"\n…[truncated — {len(text)} chars total]"
 
 
 def _save_msg(session_id: str, role: str, content: str, **kwargs) -> None:
@@ -285,15 +277,22 @@ def _track(resp) -> None:
         from majestic.token_tracker import track
         from majestic.llm import get_provider
         um = resp.usage
-        if not um:
-            return
+        if not um: return
         try: cost = get_provider().estimated_cost(um)
         except Exception: cost = None
-        track(
-            um.input_tokens or 0, um.output_tokens or 0, "agent_loop",
-            cache_write=um.cache_write_tokens or 0,
-            cache_read=um.cache_read_tokens or 0,
-            cost_override=cost,
-        )
-    except Exception:
-        pass
+        track(um.input_tokens or 0, um.output_tokens or 0, "agent_loop",
+              cache_write=um.cache_write_tokens or 0, cache_read=um.cache_read_tokens or 0,
+              cost_override=cost)
+    except Exception: pass
+
+
+def _filter_tool_calls(resp: "LLMResponse", session_id, sources, tools_used) -> "LLMResponse":
+    """Remove tool calls whose names are not in the registry (hallucinations / MCP browser calls)."""
+    from majestic.tools.registry import _registry as _reg
+    valid = [tc for tc in resp.tool_calls if tc.name in _reg]
+    invalid = [tc.name for tc in resp.tool_calls if tc.name not in _reg]
+    if not invalid:
+        return resp
+    note = f"\n(attempted unknown tools: {', '.join(invalid)})"
+    return LLMResponse(content=(resp.content or "") + note, usage=resp.usage,
+                       finish_reason=resp.finish_reason, model=resp.model, tool_calls=valid)
