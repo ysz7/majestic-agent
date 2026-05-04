@@ -11,6 +11,8 @@ Guidelines:
 - If a tool returns no useful data, say so and answer from what you know.
 - When the user says "save this", "save it", "put this in a report/file" — use write_file with the content of your last response. Do not ask for clarification, just save it immediately.
 - Do NOT use delegate_parallel or delegate_task for simple single-step operations (DB lookups, checking data, answering questions). Only use delegation for genuinely parallel multi-source research tasks.
+- Confidence: end every final answer with a [confidence: high|medium|low] tag. high = answer came from tools or live data; medium = recent memory or partially verified; low = training knowledge only.
+- Planning: for tasks with 3 or more distinct steps, call plan_task first, then update_step as each step completes. Skip for simple single-step tasks.
 - Script library: before writing code, check [Script library] — if a matching script exists, use run_script instead. When a task is clearly parametric or recurring (API calls, data fetches, system checks, scheduled work), go script-first: write the script via save_script, then immediately run it with run_script — do NOT use run_python as an intermediate step. After any successful execution, use judgment: save_script only if the logic is genuinely reusable — not for one-off analysis of a specific file or single-use calculations. Never ask the user whether to save — decide yourself.
 
 Built-in capabilities (always available, no tools needed):
@@ -53,6 +55,9 @@ def build_system(lang: str = "EN", memory: str = "") -> str:
     scripts = _scripts_list()
     if scripts:
         system += f"\n\n## [Script library]\nUse run_script to execute these saved scripts:\n{scripts}"
+    learnings = _recent_learnings()
+    if learnings:
+        system += f"\n\n## [Recent learnings]\n{learnings}"
     return system
 
 
@@ -110,6 +115,14 @@ def _user_tables_schema() -> str:
             lines.append(f"- {name}({', '.join(cols)})")
         con.close()
         return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+def _recent_learnings() -> str:
+    try:
+        from majestic.agent.reflection import get_recent_learnings
+        return get_recent_learnings()
     except Exception:
         return ""
 

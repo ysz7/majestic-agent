@@ -54,16 +54,13 @@ class AgentLoop:
             system = build_system(lang=get("language", "EN"), memory=load_both())
 
         # Inject per-project context from AGENTS.md if present in cwd
-        import os
-        from pathlib import Path
-        _agents_md = Path(os.getcwd()) / "AGENTS.md"
-        if _agents_md.exists():
-            try:
-                _project_ctx = _agents_md.read_text(encoding="utf-8").strip()
-                if _project_ctx:
-                    system += f"\n\n[Project context]\n{_project_ctx}"
-            except Exception:
-                pass
+        try:
+            import os; from pathlib import Path as _P
+            _ctx = (_P(os.getcwd()) / "AGENTS.md").read_text(encoding="utf-8").strip()
+            if _ctx:
+                system += f"\n\n[Project context]\n{_ctx}"
+        except Exception:
+            pass
 
         # Build initial messages from history (last 5 turns for context)
         messages = _build_initial_messages(user_input, history)
@@ -72,7 +69,8 @@ class AgentLoop:
         if session_id:
             _save_msg(session_id, "user", user_input)
 
-        sources: list[str] = []
+        sources:    list[str] = []
+        tools_used: list[str] = []
         iterations = 0
 
         while iterations < self._max_iter:
@@ -96,19 +94,12 @@ class AgentLoop:
                 if session_id:
                     _save_msg(session_id, "assistant", resp.content,
                               finish_reason=resp.finish_reason)
-                    # Collect interaction signals for adaptive profile (background, non-blocking)
-                    import threading as _threading
-                    _sid = session_id
-                    def _collect():
-                        try:
-                            from majestic.profile.signals import collect_signals
-                            collect_signals(_sid)
-                        except Exception:
-                            pass
-                    _threading.Thread(target=_collect, daemon=True).start()
+                    _fire_background(session_id, resp.content or "", list(tools_used))
                 return {"answer": resp.content, "sources": sources}
 
             # ── Execute tool calls ────────────────────────────────────────────
+            for tc in resp.tool_calls:
+                tools_used.append(tc.name)
             if on_tool_call:
                 for tc in resp.tool_calls:
                     on_tool_call(tc.name, tc.arguments)
@@ -166,12 +157,9 @@ def _trim(text: str, limit: int) -> str:
     return text[:limit] + "…[truncated]" if len(text) > limit else text
 
 
-def _build_initial_messages(
-    user_input: str,
-    history: Optional[list[tuple[str, str]]],
-) -> list[dict]:
+def _build_initial_messages(user_input: str, history: Optional[list[tuple[str, str]]]) -> list[dict]:
     msgs: list[dict] = []
-    for u, a in (history or [])[-8:]:   # last 8 turns of conversation
+    for u, a in (history or [])[-8:]:
         msgs.append({"role": "user",      "content": _trim(u, _HIST_USER_MAX)})
         msgs.append({"role": "assistant", "content": _trim(a, _HIST_ANSWER_MAX)})
     msgs.append({"role": "user", "content": user_input})
@@ -262,19 +250,32 @@ def _save_msg(session_id: str, role: str, content: str, **kwargs) -> None:
 
 
 def _parse_file_artifact(result: str) -> tuple[str, str] | None:
-    """Extract (workspace_relative_path, filename) from a write_file result string."""
-    import re
-    from pathlib import Path
-    from majestic.constants import WORKSPACE_DIR
+    import re; from pathlib import Path; from majestic.constants import WORKSPACE_DIR
     m = re.match(r"(?:Written|Appended to) (.+?) \(\d+ chars\)", result)
     if not m:
         return None
-    abs_path = Path(m.group(1))
+    p = Path(m.group(1))
     try:
-        rel = str(abs_path.relative_to(WORKSPACE_DIR))
+        return str(p.relative_to(WORKSPACE_DIR)), p.name
     except ValueError:
-        rel = abs_path.name
-    return rel, abs_path.name
+        return p.name, p.name
+
+
+def _fire_background(session_id: str, answer: str, tools_used: list[str]) -> None:
+    def _bg():
+        try:
+            from majestic.profile.signals import collect_signals
+            collect_signals(session_id)
+        except Exception:
+            pass
+        try:
+            from majestic.config import get as _g
+            if _g("agent.reflect", True) and len(tools_used) >= int(_g("agent.reflect_min_tools", 3)):
+                from majestic.agent.reflection import reflect_session
+                reflect_session(session_id, answer, tools_used)
+        except Exception:
+            pass
+    threading.Thread(target=_bg, daemon=True).start()
 
 
 def _track(resp) -> None:
@@ -284,15 +285,12 @@ def _track(resp) -> None:
         um = resp.usage
         if not um:
             return
-        cost = None
         try:
             cost = get_provider().estimated_cost(um)
         except Exception:
-            pass
+            cost = None
         track(
-            um.input_tokens or 0,
-            um.output_tokens or 0,
-            "agent_loop",
+            um.input_tokens or 0, um.output_tokens or 0, "agent_loop",
             cache_write=um.cache_write_tokens or 0,
             cache_read=um.cache_read_tokens or 0,
             cost_override=cost,
