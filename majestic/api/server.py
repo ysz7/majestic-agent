@@ -28,7 +28,7 @@ import mimetypes
 import os
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +43,7 @@ def start(port: int = PORT) -> None:
     if _started:
         return
     _started = True
-    server = HTTPServer(("0.0.0.0", port), _Handler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), _Handler)
     threading.Thread(target=server.serve_forever, daemon=True, name="api-server").start()
     print(f"  API server listening on http://0.0.0.0:{port}", flush=True)
 
