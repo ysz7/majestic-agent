@@ -1,7 +1,11 @@
 """
 Entry point for the `majestic` command.
 
-  majestic              — launch agent REPL
+  majestic              — launch agent REPL (default instance)
+  majestic <name>       — launch REPL for a named agent
+  majestic init <name>  — create a new named agent instance
+  majestic list         — list all agents
+  majestic ps           — show running agents
   majestic setup        — first-run configuration wizard
   majestic model        — switch LLM provider/model
   majestic config       — show / get / set config values
@@ -14,10 +18,17 @@ import sys
 import pathlib
 
 _HELP = """\
-Usage: majestic [command]
+Usage: majestic [agent] [command]
+
+Agents:
+  (none)           Default agent
+  <name>           Named agent (e.g. finance_bot)
+  init <name>      Create a new named agent
+  list             List all agents and their status
+  ps               Show running agents
 
 Commands:
-  (none)           Launch agent
+  (none)           Launch agent REPL
   setup            First-run configuration wizard
   model            Switch LLM provider/model
   config           Show current config
@@ -26,7 +37,6 @@ Commands:
   doctor           Diagnose configuration problems
   update           Update to the latest version from GitHub
   tools            Interactive tool checklist (enable/disable tools)
-  tools list       Show available toolsets
   api start        Start REST API server (POST /chat, GET /health, GET /sessions)
   dashboard        Start web dashboard (serves React UI + REST API)
   mcp list              List configured MCP servers and their tools
@@ -95,11 +105,32 @@ def _launch_agent() -> None:
     run()
 
 
+_BUILTIN_CMDS = {
+    "--version", "-v", "--help", "-h", "help",
+    "setup", "model", "config", "doctor", "update",
+    "api", "tools", "mcp", "gateway", "dashboard",
+    "init", "list", "ps",
+}
+
+
 def main() -> None:
     _reexec_with_venv_if_needed()
     args = sys.argv[1:]
     cmd  = args[0] if args else None
 
+    # ── Named agent dispatch ──────────────────────────────────────────────────
+    # If the first arg is not a known built-in command, check if it's a
+    # registered agent name. If so, set MAJESTIC_HOME and strip it from args
+    # before any majestic module is imported (all imports below are lazy).
+    if cmd and cmd not in _BUILTIN_CMDS:
+        from majestic.cli.agents import read_registry, resolve_home
+        if cmd in read_registry():
+            home = resolve_home(cmd)
+            os.environ["MAJESTIC_HOME"] = str(home)
+            args = args[1:]
+            cmd  = args[0] if args else None
+
+    # ── Commands ──────────────────────────────────────────────────────────────
     if cmd in ("--version", "-v"):
         from importlib.metadata import version, PackageNotFoundError
         try:
@@ -107,8 +138,24 @@ def main() -> None:
         except PackageNotFoundError:
             print("majestic 0.1.0-dev")
 
-    elif cmd in ("--help", "-h", "help", None) and cmd != None:
+    elif cmd in ("--help", "-h", "help"):
         print(_HELP)
+
+    elif cmd == "init":
+        name = args[1] if len(args) > 1 else None
+        if not name:
+            print("Usage: majestic init <name>")
+            sys.exit(1)
+        from majestic.cli.agents import init_agent
+        init_agent(name)
+
+    elif cmd == "list":
+        from majestic.cli.agents import list_agents
+        list_agents()
+
+    elif cmd == "ps":
+        from majestic.cli.agents import ps_agents
+        ps_agents()
 
     elif cmd == "setup":
         from majestic.cli.setup import run_setup
