@@ -437,6 +437,7 @@
         group: "Getting Started",
         items: [
           { id: "introduction", label: "Introduction" },
+          { id: "vertical",     label: "Building a Vertical Agent" },
           { id: "quickstart",   label: "Quick Start"  },
         ]
       },
@@ -476,15 +477,16 @@
     ];
 
     const PAGE_ORDER = [
-      "introduction","quickstart","cli-commands","tools","memory-skills",
+      "introduction","vertical","quickstart","cli-commands","tools","memory-skills",
       "scheduling","configuration","llm-providers","rest-api","dashboard","gateways",
       "mcp","specialization","local-tools","update"
     ];
     const PAGE_LABELS = {
       "introduction":  "Introduction",
+      "vertical":      "Building a Vertical Agent",
       "quickstart":    "Quick Start",
       "cli-commands":  "CLI Commands",
-      "tools":         "Tools & Toolsets",
+      "tools":         "Built-in Tools",
       "memory-skills": "Memory & Skills",
       "scheduling":    "Scheduling",
       "configuration": "Configuration",
@@ -546,35 +548,41 @@
           <div className="page-label">Overview</div>
           <h1 className="page-title">Introduction</h1>
           <p className="page-desc">
-            Majestic is a self-hosted AI agent that runs on your laptop or VPS
-            and executes any task you describe in plain language.
+            Majestic is a lean AI agent core — fork it, add domain tools, set a role, and ship a vertical agent.
           </p>
           <hr className="page-divider" />
 
           <h2 className="section-title" id="what-is">What is Majestic?</h2>
           <div className="prose">
             <p>
-              Majestic is a <strong>universal agent-executor</strong>. You give it a task — it picks
-              the right tools, calls them in sequence, and returns a result. No workflows to configure,
-              no API schemas to write. Research, market data, file operations, automations — all from
-              one agent, driven by your words.
+              <strong>Majestic Core</strong> is a lean AI agent infrastructure (~20 tools) built to be specialized.
+              You fork the repo, add 3–5 domain tools, configure <code>agent.role</code>, and ship a
+              purpose-built vertical agent — a finance bot, support agent, dev tool, or anything else.
+            </p>
+            <p>
+              Out of the box the core agent handles everyday tasks: web search, file operations, code
+              execution, persistent memory, scheduling, and a REST API. This makes it immediately useful
+              — and a solid foundation when you're ready to specialize.
             </p>
             <p>
               Everything runs on your own machine. Your API keys, your data, your models.
-              Nothing is sent to a third-party service beyond the LLM provider you choose.
+              Works with Anthropic, OpenAI, OpenRouter, and Ollama (local, no API key needed).
             </p>
           </div>
 
-          <CodeBlock lang="text">{`  ▶ Research BTC market and send a briefing to Telegram
+          <CodeBlock lang="text">{`  # Core — everyday tasks out of the box
+  ▶ Summarize the PDF and save it to workspace
 
- ┌ web_search · BTC price today
- ├ Working...
- ├ get_market_data · BTC,ETH,SOL
- ├ Working...
- ├ send_telegram · briefing
- └ Done · 3 tool calls · $0.004 · 8.2s
+ ┌ read_file · report_q3.pdf · 42 pages
+ ├ run_python · extracting text...
+ └ write_file · summary.md written
 
-  BTC is trading at $67,420 (+2.4%)...`}</CodeBlock>
+  # Vertical — after forking and adding domain tools
+  ▶ Check portfolio and alert if BTC drops below threshold
+
+ ┌ get_portfolio · fetching positions...
+ ├ price_feed · BTC $67,420 · threshold: $64,049
+ └ set_alert · registered · notify via Telegram`}</CodeBlock>
 
           <h2 className="section-title" id="how-it-works">How it works</h2>
           <div className="prose">
@@ -589,7 +597,7 @@
             </ol>
             <p>
               The agent maintains <strong>session history</strong> (last 10 turns) and loads
-              <strong> persistent memory</strong> on startup — so it knows your preferences, past
+              <strong> persistent memory</strong> on startup — so it knows preferences, past
               decisions, and ongoing context.
             </p>
           </div>
@@ -599,15 +607,16 @@
             <thead><tr><th>Feature</th><th>Details</th></tr></thead>
             <tbody>
               {[
-                ["Plain-language execution", "Any task described in natural language — agent picks the tools"],
-                ["Self-improvement", "Agent autonomously creates skills, scripts, and memory entries — its capability grows with use"],
-                ["Script library", "Saved Python scripts auto-discovered each session — agent reuses its own past solutions"],
+                ["Lean core (~20 tools)", "Web search, files, code execution, memory, scheduling, REST API — everything essential, nothing extra"],
+                ["Vertical-ready", "Fork + domain tools + agent.role = a purpose-built vertical agent"],
+                ["Local-first", "Full support for Ollama — all core tools fit within the 15-tool safe window"],
+                ["4 LLM providers", "Anthropic, OpenAI, OpenRouter, Ollama — switch anytime"],
                 ["Persistent memory", "Remembers preferences, context, and learned behaviors across sessions"],
-                ["Hybrid search", "FTS5 + vector search across news, documents, history, and reports"],
-                ["4 LLM providers", "Anthropic, OpenAI, OpenRouter, Ollama — switch without restart"],
+                ["Script library", "Saved Python scripts auto-discovered each session — agent reuses past solutions"],
+                ["Hybrid search", "FTS5 + vector search across documents, memory, and history"],
                 ["Scheduling", "Natural-language cron jobs delivered to any platform"],
                 ["REST API", "POST /chat, GET /health, GET /sessions — connect any UI or script"],
-                ["Gateways", "Telegram, Discord, Email — same agent, all platforms"],
+                ["Telegram gateway", "Most common deployment target — same agent, instant mobile access"],
                 ["MCP integration", "Any MCP server becomes agent tools instantly, no Python needed"],
                 ["Skills", "Reusable procedures stored as Markdown, invoked as /skill-name"],
                 ["Command approval", "Shell commands require explicit approval before execution"],
@@ -625,23 +634,142 @@
             </p>
           </div>
           <CodeBlock lang="text">{`majestic/
-├── agent/        loop.py · prompt.py · runner.py
+├── agent/        loop.py · prompt.py · delegate.py
 ├── api/          server.py            REST API
 ├── cli/          main.py · repl.py · setup.py
 ├── cron/         scheduler.py · jobs.py
 ├── db/           state.py · embedder.py · parser.py
-├── gateway/      telegram.py · discord.py · email_gw.py · formatter.py
+├── gateway/      telegram/  ← main gateway
 ├── llm/          anthropic.py · openai.py · openrouter.py · ollama.py
 ├── mcp/          client.py · bridge.py
 ├── memory/       store.py · nudge.py
 ├── skills/       loader.py · creator.py
-└── tools/        registry.py · web/ · research/ · files/ · system/`}</CodeBlock>
+└── tools/        registry.py · web/ · files/ · system/ · scripts/
+                  local/   ← drop your domain tools here`}</CodeBlock>
 
           <Callout type="info">
-            <p>All runtime data lives under <code>~/.majestic-agent/</code> — config, keys, memory, skills, workspace, and backups.</p>
+            <p>All runtime data lives under <code>~/.majestic-agent/</code> — config, keys, memory, skills, workspace.</p>
           </Callout>
 
           <NavButtons current="introduction" navigate={navigate} />
+        </div>
+      );
+    }
+
+
+    /* ── Building a Vertical Agent ──────────────────────────────────────────── */
+    function SectionVertical({ navigate }) {
+      return (
+        <div>
+          <div className="page-label">Getting Started</div>
+          <h1 className="page-title">Building a Vertical Agent</h1>
+          <p className="page-desc">
+            Fork the core, add domain tools, set a role — ship a purpose-built agent in days.
+          </p>
+          <hr className="page-divider" />
+
+          <h2 className="section-title" id="v-pattern">The pattern</h2>
+          <div className="prose">
+            <p>
+              A vertical agent = Majestic Core + domain tools + <code>agent.role</code>.
+              The core handles the loop, memory, scheduling, and API. You add what makes the agent
+              specialized.
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`# 1. Fork and install
+git clone https://github.com/ysz7/majestic-agent finance_bot
+cd finance_bot
+pip install -r requirements.txt
+majestic setup
+
+# 2. Add domain tools (auto-registered on startup)
+# Drop a file in majestic/tools/local/
+# Example: majestic/tools/local/price_feed.py
+
+# 3. Set the role in config.yaml
+# agent:
+#   role: "Financial analyst. Monitors portfolio, tracks prices, sends alerts."
+
+# 4. Start
+majestic start   # CLI
+majestic dashboard  # Web UI
+majestic gateway start telegram  # Telegram bot`}</CodeBlock>
+
+          <h2 className="section-title" id="v-tool">Writing a domain tool</h2>
+          <div className="prose">
+            <p>
+              Drop a <code>.py</code> file in <code>majestic/tools/local/</code>.
+              Use the <code>@tool</code> decorator — the agent picks it up automatically on next start.
+            </p>
+          </div>
+          <CodeBlock lang="python" filename="majestic/tools/local/price_feed.py">{`from majestic.tools.registry import tool
+
+@tool(
+    name="get_price",
+    description="Get current price for a crypto or stock ticker.",
+    input_schema={
+        "type": "object",
+        "properties": {
+            "ticker": {"type": "string", "description": "e.g. BTC, ETH, AAPL"},
+        },
+        "required": ["ticker"],
+    },
+)
+def get_price(ticker: str) -> str:
+    import requests
+    # your data source here
+    r = requests.get(f"https://api.example.com/price/{ticker}", timeout=5)
+    data = r.json()
+    return f"{ticker}: ${data['price']:,.2f} ({data['change_24h']:+.1f}%)"
+`}</CodeBlock>
+
+          <Callout type="info">
+            <p>The <code>@tool</code> decorator registers the function in the global registry.
+            The agent sees it in the tool list on the next request — no other changes needed.</p>
+          </Callout>
+
+          <h2 className="section-title" id="v-role">Setting the role</h2>
+          <div className="prose">
+            <p>
+              The role is injected into the system prompt. It tells the LLM what kind of agent
+              this is and how to prioritize tools and responses.
+            </p>
+          </div>
+          <CodeBlock lang="yaml" filename="~/.majestic-agent/config.yaml">{`agent:
+  role: >
+    Financial analyst. You monitor portfolio positions, track crypto and stock
+    prices, set price alerts, and deliver briefings via Telegram. Always
+    include price change percentages and portfolio impact in your answers.
+    Use get_price and set_alert tools proactively.`}</CodeBlock>
+
+          <h2 className="section-title" id="v-examples">Vertical examples</h2>
+          <table className="api-table">
+            <thead><tr><th>Vertical</th><th>Domain tools to add</th><th>Role hint</th></tr></thead>
+            <tbody>
+              {[
+                ["Finance bot",     "price_feed, portfolio_tracker, alert_sender",  "Financial analyst — monitors markets and portfolio"],
+                ["Support agent",   "ticket_api, kb_search, escalation",            "Support specialist — answers from knowledge base"],
+                ["Dev agent",       "github_api, ci_status, deploy_trigger",        "DevOps engineer — monitors CI and manages deploys"],
+                ["Research agent",  "arxiv_fetcher, scholar_api, digest_mailer",    "Research assistant — monitors papers, sends digests"],
+              ].map(([v, t, r]) => (
+                <tr key={v}><td><strong>{v}</strong></td><td><code style={{fontFamily:"var(--font-mono)",fontSize:"11px"}}>{t}</code></td><td>{r}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h2 className="section-title" id="v-checklist">Launch checklist</h2>
+          <div className="prose">
+            <ol>
+              <li>Domain tools added to <code>majestic/tools/local/</code></li>
+              <li><code>agent.role</code> set in <code>config.yaml</code></li>
+              <li>API keys configured in <code>.env</code></li>
+              <li>Test with <code>majestic start</code> — verify tools appear in registry</li>
+              <li>Connect Telegram (optional): <code>majestic gateway start telegram</code></li>
+              <li>Set up scheduling (optional): <code>/schedule add "every day at 9am ..."</code></li>
+            </ol>
+          </div>
+
+          <NavButtons current="vertical" navigate={navigate} />
         </div>
       );
     }
@@ -754,36 +882,27 @@ docker compose up -d`}</CodeBlock>
                 ["majestic doctor", "Diagnose configuration problems and security warnings"],
                 ["majestic update", "Pull latest changes from GitHub, preserve local customizations"],
                 ["majestic tools", "Interactive checklist to enable/disable individual tools"],
-                ["majestic tools list", "Show available toolsets"],
                 ["majestic api start", "Start the REST API server (default port 8080)"],
                 ["majestic mcp list", "List configured MCP servers and their tools"],
                 ["majestic mcp add NAME CMD", "Add an MCP server"],
                 ["majestic mcp remove NAME", "Remove an MCP server"],
                 ["majestic gateway start telegram", "Start Telegram bot"],
-                ["majestic gateway start discord", "Start Discord bot"],
-                ["majestic gateway start all", "Start all configured gateways simultaneously"],
                 ["majestic gateway setup telegram", "Configure Telegram token only (does not touch other settings)"],
-                ["majestic gateway setup discord", "Configure Discord token only"],
-                ["majestic gateway setup email", "Configure email gateway (SMTP/IMAP)"],
-                ["majestic gateway setup", "Configure all platforms interactively"],
+                ["majestic gateway setup", "Configure Telegram interactively"],
               ].map(([cmd, desc]) => (
                 <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
               ))}
             </tbody>
           </table>
 
-          <h2 className="section-title" id="cli-agent">Agent tools (REPL)</h2>
-          <div className="prose"><p>Research and intelligence commands. Each triggers the agent with specialized tooling.</p></div>
+          <h2 className="section-title" id="cli-agent">Agent shortcuts (REPL)</h2>
+          <div className="prose"><p>Quick commands that trigger the agent with a pre-set prompt.</p></div>
           <table className="api-table">
             <thead><tr><th>Command</th><th>Description</th></tr></thead>
             <tbody>
               {[
-                ["/research", "Collect intel from all sources (HN, Reddit, GitHub, arXiv, newsapi...)"],
-                ["/briefing [days]", "Market + tech briefing, default 14 days"],
-                ["/market", "Crypto, stocks, forex snapshot"],
                 ["/news [N]", "Latest N news items sorted by relevance (default 10)"],
                 ["/report <topic>", "Deep research report on any topic, saved to workspace"],
-                ["/ideas", "Business ideas generated from recent cross-source signals"],
               ].map(([cmd, desc]) => (
                 <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
               ))}
@@ -819,12 +938,10 @@ docker compose up -d`}</CodeBlock>
             <tbody>
               {[
                 ["/model", "Switch LLM provider or model"],
-                ["/set", "Show current agent.role, toolset, tools_enabled, tools_disabled"],
+                ["/set", "Show current agent.role, tools_enabled, tools_disabled"],
                 ["/set agent.role <text>", "Set agent persona/role"],
-                ["/set toolset <name>", "Switch toolset (research / coding / market / full)"],
                 ["/set agent.tools_enabled <list>", "Comma-separated whitelist of tool names"],
                 ["/set agent.tools_disabled <list>", "Comma-separated blacklist of tool names"],
-                ["/toolsets", "List available toolsets with descriptions"],
                 ["/usage [reset]", "Token usage and cost stats for the current session"],
                 ["/insights [days]", "Usage analytics by day (default 7)"],
                 ["/schedule list", "List active cron schedules"],
@@ -832,9 +949,6 @@ docker compose up -d`}</CodeBlock>
                 ["/schedule remove <id>", "Remove a schedule by ID"],
                 ["/remind <text>", "Add a natural-language reminder"],
                 ["/reminders", "List active reminders"],
-                ["/rss list", "List configured RSS feeds"],
-                ["/rss add <url>", "Add an RSS feed"],
-                ["/rss remove <id>", "Remove an RSS feed by ID"],
                 ["/reports", "List saved reports"],
                 ["/reports view <N>", "View report number N"],
                 ["/reports del <N>", "Delete report number N"],
@@ -861,10 +975,10 @@ docker compose up -d`}</CodeBlock>
       return (
         <div>
           <div className="page-label">Reference</div>
-          <h1 className="page-title">Tools & Toolsets</h1>
+          <h1 className="page-title">Built-in Tools</h1>
           <p className="page-desc">
-            Tools are the atomic capabilities the agent can invoke. Toolsets group them by domain
-            so you can switch the agent's focus without touching config manually.
+            Tools are the atomic capabilities the agent can invoke during a conversation.
+            Each tool is a Python function registered via the <code>@tool</code> decorator.
           </p>
           <hr className="page-divider" />
 
@@ -876,11 +990,6 @@ docker compose up -d`}</CodeBlock>
                 ["web_search",       "tools/web/websearch.py",        "Web search via DuckDuckGo (free) or Tavily (if key set)"],
                 ["web_extract",      "tools/web/websearch.py",        "Extract readable text from a URL"],
                 ["http_request",     "tools/web/http_request.py",     "Make HTTP GET/POST/PUT/DELETE calls to any external API"],
-                ["run_research",     "tools/research/collect.py",     "Collect and index intel from HN, Reddit, GitHub, arXiv, news"],
-                ["get_briefing",     "tools/research/briefing.py",    "Generate market/tech briefing from indexed intel"],
-                ["generate_report",  "tools/research/briefing.py",    "Deep report on a topic, saved to workspace"],
-                ["generate_ideas",   "tools/research/ideas.py",       "Business ideas from recent cross-source signals"],
-                ["get_market_data",  "tools/research/market_data.py", "Crypto, stocks, forex snapshot (CoinGecko, Alpha Vantage)"],
                 ["read_file",        "tools/files/workspace.py",      "Read a file from workspace"],
                 ["write_file",       "tools/files/workspace.py",      "Write a file to workspace"],
                 ["copy_file",        "tools/files/workspace.py",      "Copy a file to a new location within workspace"],
@@ -890,7 +999,6 @@ docker compose up -d`}</CodeBlock>
                 ["run_command",      "tools/system/terminal.py",      "Execute a shell command (requires user approval)"],
                 ["run_python",       "tools/code/python_runner.py",   "Execute Python code in a subprocess (cwd = workspace)"],
                 ["get_datetime",     "tools/system/datetime_tool.py", "Current date/time in any timezone (iso, human, unix)"],
-                ["send_email",       "tools/email_tool.py",           "Send an email via configured SMTP (markdown → HTML)"],
                 ["remember",         "tools/memory_tool.py",          "Save a fact or preference to persistent memory.md / user.md"],
                 ["save_script",      "tools/scripts/script_tools.py", "Save a reusable Python script to workspace/scripts/"],
                 ["list_scripts",     "tools/scripts/script_tools.py", "List the agent's saved script library"],
@@ -902,36 +1010,14 @@ docker compose up -d`}</CodeBlock>
             </tbody>
           </table>
 
-          <h2 className="section-title" id="tools-toolsets">Toolsets</h2>
-          <div className="prose">
-            <p>
-              A toolset is a named group of tools. Switching toolsets instantly changes which tools
-              the agent can use without modifying config by hand.
-            </p>
-          </div>
-          <table className="api-table">
-            <thead><tr><th>Toolset</th><th>Included tools</th></tr></thead>
-            <tbody>
-              {[
-                ["research", "web_search, web_extract, http_request, run_research, get_briefing, generate_report, generate_ideas, db_search, history_search, remember"],
-                ["market",   "get_market_data, web_search, get_briefing, db_search, remember"],
-                ["coding",   "read_file, write_file, copy_file, run_command, run_python, http_request, get_datetime, remember, save_script, list_scripts, run_script, search_web, db_search, workspace_*"],
-                ["full",     "All tools enabled (default)"],
-              ].map(([n, t]) => (
-                <tr key={n}><td><code>{n}</code></td><td style={{fontSize:13}}>{t}</td></tr>
-              ))}
-            </tbody>
-          </table>
+          <h2 className="section-title" id="tools-disable">Enabling / disabling tools</h2>
+          <CodeBlock lang="bash">{`# Interactive checklist (shell):
+majestic tools
 
-          <h2 className="section-title" id="tools-switch">Switching toolsets</h2>
-          <CodeBlock lang="bash">{`# From within the REPL:
-/set toolset research
-/set toolset coding
-/toolsets            # list all available toolsets
-
-# Or via shell:
-majestic tools list  # show toolsets
-majestic tools       # interactive checkbox selector`}</CodeBlock>
+# Or via config:
+agent:
+  tools_disabled: [run_command, run_python]   # blacklist
+  tools_enabled:  []                           # whitelist (empty = all active)`}</CodeBlock>
 
           <h2 className="section-title" id="tools-approval">Command approval</h2>
           <div className="prose">
@@ -1049,10 +1135,6 @@ Analyze the given GitHub repository and produce a concise architecture summary.
           </div>
           <CodeBlock lang="bash">{`/agent-skills    # list skills auto-created by the agent`}</CodeBlock>
 
-          <Callout type="tip">
-            <p>Built-in skills for <code>/research</code>, <code>/briefing</code>, <code>/report</code>, and <code>/ideas</code> are pre-installed in <code>~/.majestic-agent/skills/</code> during <code>majestic setup</code>.</p>
-          </Callout>
-
           <h2 className="section-title" id="scripts-library">Script library</h2>
           <div className="prose">
             <p>
@@ -1073,9 +1155,6 @@ Analyze the given GitHub repository and produce a concise architecture summary.
                 ["save_script",         "Save a reusable Python script with description, params, and tags"],
                 ["list_scripts",        "List the agent's saved script library"],
                 ["run_script",          "Run a saved script synchronously — params injected as env vars"],
-                ["run_script_async",    "Run a script in the background; returns a job_id immediately"],
-                ["revert_script",       "Restore a previous version of a script from its history"],
-                ["promote_script_to_skill", "Convert a well-used script into a reusable skill"],
               ].map(([t, d]) => (
                 <tr key={t}><td><code>{t}</code></td><td>{d}</td></tr>
               ))}
@@ -1086,9 +1165,7 @@ Analyze the given GitHub repository and produce a concise architecture summary.
           <div className="prose">
             <p><strong>Self-healing.</strong> When <code>run_script</code> exits with a non-zero code, the agent automatically analyses stderr, patches the script, and retries — up to 3 times. Add <code># auto_heal: false</code> to a script's frontmatter to opt out.</p>
             <p><strong>Dependency management.</strong> Declare pip dependencies with <code># requires: requests, pandas</code> in the frontmatter. Majestic checks availability and installs missing packages automatically (<code>agent.auto_install_deps: true</code> by default).</p>
-            <p><strong>Versioning.</strong> Every <code>save_script</code> call backs up the previous version to <code>workspace/scripts/.history/</code> (last 10 kept). Use the History button in the Scripts dashboard tab or the <code>revert_script</code> tool to restore any version.</p>
-            <p><strong>Skill promotion.</strong> Scripts used more than 5 times with a success rate above 80 % appear as promotion candidates in the system prompt. Call <code>promote_script_to_skill</code> or click Promote in the dashboard to turn the script into a permanent skill available via <code>/slash-command</code>.</p>
-            <p><strong>Background execution.</strong> <code>run_script_async</code> starts a script as a background job and returns a <code>job_id</code> immediately. Set <code>notify: true</code> to receive a Telegram or email notification when it finishes. Track all background jobs with the <code>list_jobs</code> tool or on the <strong>Agent</strong> dashboard page.</p>
+
           </div>
 
           <h3 className="subsection-title">Script format</h3>
@@ -1151,14 +1228,14 @@ agent:
           <h1 className="page-title">Scheduling</h1>
           <p className="page-desc">
             Run any agent task on a schedule, described in plain language.
-            Results are delivered to CLI, Telegram, or Discord.
+            Results are delivered to CLI or Telegram.
           </p>
           <hr className="page-divider" />
 
           <h2 className="section-title" id="sched-basics">Managing schedules</h2>
           <CodeBlock lang="bash">{`/schedule list                          # list active schedules
-/schedule add "every Monday at 9am, send me a market briefing on Telegram"
-/schedule add "daily at 7am, research AI news and brief me"
+/schedule add "every Monday at 9am, send me the top AI news on Telegram"
+/schedule add "daily at 7am, check GitHub trending and brief me"
 /schedule remove 2                      # remove schedule by ID`}</CodeBlock>
 
           <div className="prose">
@@ -1174,10 +1251,10 @@ agent:
             <thead><tr><th>Plain language</th><th>Interpreted as</th></tr></thead>
             <tbody>
               {[
-                ["every Monday at 9am, market briefing to Telegram", "0 9 * * 1 → get_briefing, deliver via Telegram"],
-                ["daily at 7am, research AI news", "0 7 * * * → run_research + summarize, deliver to CLI"],
-                ["every weekday at 8am, check my crypto portfolio", "0 8 * * 1-5 → get_market_data, deliver to CLI"],
-                ["every hour, fetch new HN stories", "0 * * * * → run_research, deliver to CLI"],
+                ["every Monday at 9am, send me the top AI news on Telegram", "0 9 * * 1 → get_news + summarize, deliver via Telegram"],
+                ["daily at 7am, search web for AI news and brief me", "0 7 * * * → web_search + summarize, deliver to CLI"],
+                ["every weekday at 8am, check project status via GitHub API", "0 8 * * 1-5 → http_request, deliver to CLI"],
+                ["every hour, pull latest RSS items", "0 * * * * → web_search, deliver to CLI"],
               ].map(([nl, interp]) => (
                 <tr key={nl}><td>{nl}</td><td style={{fontSize:12}}>{interp}</td></tr>
               ))}
@@ -1191,7 +1268,7 @@ agent:
               from natural language and marks the schedule with a <code>[parallel]</code> tag.
             </p>
           </div>
-          <CodeBlock lang="bash">{`/schedule add "every morning at 8am, in parallel: research AI news, check BTC price, and scan GitHub trending"
+          <CodeBlock lang="bash">{`/schedule add "every morning at 8am, in parallel: search AI news, check GitHub trending, and summarize workspace files"
 
 # Schedule list shows:
 # ● [3] morning-parallel-brief     0 8 * * *  [parallel]`}</CodeBlock>
@@ -1232,7 +1309,7 @@ agent:
           <h2 className="section-title" id="config-full">Full example</h2>
           <CodeBlock lang="yaml" filename="~/.majestic-agent/config.yaml">{`language: EN
 currency: USD
-search_mode: all          # all | docs | intel
+search_mode: all          # all | docs
 
 llm:
   provider: anthropic     # anthropic | openai | openrouter | ollama
@@ -1240,7 +1317,6 @@ llm:
 
 agent:
   role: ""                # extra system prompt block (optional)
-  toolset: full           # research | coding | market | full
   tools_enabled: []       # whitelist (empty = all active)
   tools_disabled: []      # blacklist
   allowed_commands: []    # shell commands approved with "always"
@@ -1250,17 +1326,6 @@ telegram:
   token: ""
   allowed_user_ids: []    # leave empty to allow anyone
   voice_transcription: false
-
-discord:
-  token: ""
-
-email:
-  imap_host: imap.gmail.com
-  smtp_host: smtp.gmail.com
-  username: ""
-  password: ""
-  poll_interval: 60
-  allowed_senders: []
 
 api:
   port: 8080
@@ -1293,7 +1358,6 @@ mcp_servers:
           <div className="config-grid">
             {[
               { key: "agent.role",             type: "string",   desc: "Extra system prompt injected at the top of every request. Use to specialize the agent for a domain.", def: '""' },
-              { key: "agent.toolset",          type: "string",   desc: "Named toolset to activate. Overrides tools_enabled/disabled.", def: "full" },
               { key: "agent.tools_enabled",    type: "string[]", desc: "Whitelist of tool names. If non-empty, only these tools are active.", def: "[]" },
               { key: "agent.tools_disabled",   type: "string[]", desc: "Blacklist of tool names to exclude.", def: "[]" },
               { key: "agent.allowed_commands", type: "string[]", desc: "Shell command names approved permanently via 'always' prompt.", def: "[]" },
@@ -1315,7 +1379,7 @@ mcp_servers:
               {[
                 ["all",   "Vector chunks + news FTS5 — broadest context"],
                 ["docs",  "Locally indexed documents only (uploaded files)"],
-                ["intel", "Collected research intel only"],
+
               ].map(([v, d]) => <tr key={v}><td><code>{v}</code></td><td>{d}</td></tr>)}
             </tbody>
           </table>
@@ -1325,10 +1389,7 @@ mcp_servers:
 OPENAI_API_KEY=sk-...
 OPENROUTER_API_KEY=sk-or-...
 TELEGRAM_BOT_TOKEN=123456:...
-DISCORD_BOT_TOKEN=...
-NEWSAPI_KEY=...
-TAVILY_API_KEY=...
-ALPHA_VANTAGE_KEY=...`}</CodeBlock>
+TAVILY_API_KEY=...`}</CodeBlock>
 
           <NavButtons current="configuration" navigate={navigate} />
         </div>
@@ -1472,10 +1533,10 @@ majestic config set llm.model gpt-4o`}</CodeBlock>
           </div>
           <CodeBlock lang="bash">{`curl -X POST http://localhost:8080/chat \\
   -H "Content-Type: application/json" \\
-  -d '{"message": "What is the BTC price today?"}'`}</CodeBlock>
+  -d '{"message": "Search the web for the latest AI releases this week"}'`}</CodeBlock>
           <CodeBlock lang="json">{`{
-  "answer": "BTC is currently trading at $67,420...",
-  "tools_used": ["get_market_data"],
+  "answer": "Here are the top AI releases this week: ...",
+  "tools_used": ["web_search"],
   "cost_usd": 0.0031,
   "elapsed_s": 4.2
 }`}</CodeBlock>
@@ -1499,7 +1560,7 @@ majestic config set llm.model gpt-4o`}</CodeBlock>
           </div>
           <CodeBlock lang="bash">{`curl -X POST http://localhost:8080/run \\
   -H "Content-Type: application/json" \\
-  -d '{"message": "Research AI news and save a report to workspace"}'`}</CodeBlock>
+  -d '{"message": "Summarize the workspace files and save a report"}'`}</CodeBlock>
 
           <div className="endpoint-card">
             <div className="endpoint-header">
@@ -1567,9 +1628,9 @@ majestic api start   # serves dashboard at http://localhost:8080`}</CodeBlock>
               <tr><td><strong>Skills</strong></td><td>Browse, create, edit, and delete agent skills.</td></tr>
               <tr><td><strong>Files</strong></td><td>Workspace browser with FileViewer (HTML, Markdown, code, CSV, images) and a <strong>Scripts</strong> tab to run / edit / delete agent-created Python scripts.</td></tr>
               <tr><td><strong>Tables</strong></td><td>Full CRUD for user-defined SQLite tables visible to the agent.</td></tr>
-              <tr><td><strong>Agent</strong></td><td>Autonomous activity hub — live background job feed, cron schedules with enable/disable and manual-run, last reflections, top script stats.</td></tr>
+              <tr><td><strong>Agent</strong></td><td>Cron schedules with enable/disable and manual-run, active reminders.</td></tr>
               <tr><td><strong>Monitoring</strong></td><td>Token cost chart, request counts, active schedules and reminders.</td></tr>
-              <tr><td><strong>Settings</strong></td><td>Full config.yaml editor — LLM keys (multi-config), agent role, MCP servers, email gateway, research, API key.</td></tr>
+              <tr><td><strong>Settings</strong></td><td>Full config.yaml editor — LLM keys (multi-config), agent role, MCP servers, API key.</td></tr>
             </tbody>
           </table>
           <div className="prose">
@@ -1605,18 +1666,15 @@ majestic api start     # now serves the dashboard at http://localhost:8080`}</Co
           <h1 className="page-title">Gateways</h1>
           <p className="page-desc">
             Gateways connect Majestic to messaging platforms.
-            The same agent, same tools, same memory — just a different delivery channel.
+            The same agent, same tools, same memory — just a different interface.
           </p>
           <hr className="page-divider" />
 
           <h2 className="section-title" id="gw-start">Starting gateways</h2>
-          <CodeBlock lang="bash">{`majestic gateway start telegram   # Telegram only
-majestic gateway start discord    # Discord only
-majestic gateway start all        # All configured platforms simultaneously`}</CodeBlock>
+          <CodeBlock lang="bash">{`majestic gateway start telegram`}</CodeBlock>
           <div className="prose">
             <p>
-              Platforms that are not configured (no token set) are silently skipped when using
-              <code> start all</code>. The health endpoint starts on port 8080 regardless.
+              The health endpoint also starts on port 8080 as a side effect.
             </p>
           </div>
 
@@ -1629,8 +1687,6 @@ majestic gateway start all        # All configured platforms simultaneously`}</C
             </p>
           </div>
           <CodeBlock lang="bash">{`majestic gateway setup telegram   # Telegram token only
-majestic gateway setup discord    # Discord token only
-majestic gateway setup email      # Email SMTP/IMAP settings
 majestic gateway setup            # All platforms`}</CodeBlock>
           <div className="prose">
             <p>
@@ -1656,8 +1712,6 @@ majestic gateway setup            # All platforms`}</CodeBlock>
             <tbody>
               {[
                 ["/ask <text>", "Send any question to the agent"],
-                ["/briefing", "Generate market/tech briefing"],
-                ["/research", "Collect and index intel from all sources"],
                 ["/remind <text>", "Add a natural-language reminder"],
                 ["/schedule <text>", "Add or list schedules"],
               ].map(([c, d]) => <tr key={c}><td><code>{c}</code></td><td>{d}</td></tr>)}
@@ -1666,50 +1720,6 @@ majestic gateway setup            # All platforms`}</CodeBlock>
           <Callout type="tip">
             <p>Enable <code>voice_transcription: true</code> to have voice messages automatically transcribed via OpenAI Whisper and forwarded to the agent as text. Requires <code>OPENAI_API_KEY</code>.</p>
           </Callout>
-
-          <h2 className="section-title" id="gw-discord">Discord</h2>
-          <div className="prose">
-            <p>
-              Create a bot in the Discord Developer Portal, grant the <code>MESSAGE_CONTENT</code> intent,
-              and copy the bot token to config.
-            </p>
-          </div>
-          <CodeBlock lang="yaml">{`discord:
-  token: "..."
-  allowed_user_ids: []    # leave empty to allow all guild members`}</CodeBlock>
-          <div className="prose">
-            <p>Discord supports the same slash commands as Telegram: <code>/ask</code>, <code>/briefing</code>, <code>/research</code>, <code>/remind</code>, <code>/schedule</code>.</p>
-          </div>
-
-          <h2 className="section-title" id="gw-email">Email</h2>
-          <div className="prose">
-            <p>
-              The email gateway polls an IMAP inbox and replies via SMTP. The subject line of
-              each email becomes the agent's prompt; the reply contains the agent's answer.
-            </p>
-          </div>
-          <CodeBlock lang="yaml">{`email:
-  imap_host: imap.gmail.com
-  smtp_host: smtp.gmail.com
-  username: you@gmail.com
-  password: app-password       # use an App Password, not your main password
-  poll_interval: 60            # seconds between inbox checks
-  allowed_senders:
-    - trusted@example.com      # whitelist; leave empty to accept all`}</CodeBlock>
-          <CodeBlock lang="bash">{`majestic gateway start email`}</CodeBlock>
-
-          <div className="prose">
-            <p>
-              The email gateway can also be configured and started entirely from the dashboard:
-              <strong> Settings → Email</strong> tab. The form lets you test the IMAP connection,
-              start / stop the polling thread, manage the allowed-senders whitelist, and includes
-              a one-click "Auto-fill Gmail defaults" button plus a collapsible Gmail App Password guide.
-            </p>
-            <p>
-              The agent itself can also send mail using the <code>send_email</code> tool — useful for
-              "send this report to my address" or scheduled digests delivered by email.
-            </p>
-          </div>
 
           <NavButtons current="gateways" navigate={navigate} />
         </div>
@@ -1836,7 +1846,7 @@ majestic mcp remove filesystem`}</CodeBlock>
           <CodeBlock lang="yaml" filename="~/.majestic-agent/config.yaml">{`agent:
   role: "You are a trading specialist. Focus on market analysis and signals.
          Always include risk disclaimers. Never suggest specific trades."
-  toolset: market`}</CodeBlock>
+  tools_enabled: [web_search, http_request, db_search, remember]`}</CodeBlock>
           <CodeBlock lang="bash">{`# Set from within the REPL:
 /set agent.role You are a DevOps specialist focused on infrastructure monitoring.`}</CodeBlock>
 
@@ -1849,28 +1859,16 @@ majestic mcp remove filesystem`}</CodeBlock>
           </div>
           <CodeBlock lang="yaml">{`agent:
   tools_enabled:
-    - get_market_data
     - web_search
-    - save_memory`}</CodeBlock>
+    - http_request
+    - remember`}</CodeBlock>
           <CodeBlock lang="bash">{`# From the REPL:
-/set agent.tools_enabled get_market_data,web_search,save_memory
+/set agent.tools_enabled web_search,http_request,remember
 /set agent.tools_disabled run_command
 
 # Reset to all tools:
 /set agent.tools_enabled -
 /set agent.tools_disabled -`}</CodeBlock>
-
-          <h2 className="section-title" id="spec-toolsets">Toolsets</h2>
-          <div className="prose">
-            <p>
-              Toolsets are predefined groups. They're the fastest way to switch domain focus.
-            </p>
-          </div>
-          <CodeBlock lang="bash">{`/set toolset research   # web + research tools only
-/set toolset coding     # terminal + file tools + web search
-/set toolset market     # market data + briefing + web
-/set toolset full       # all tools (default)
-/toolsets               # list all available toolsets`}</CodeBlock>
 
           <h2 className="section-title" id="spec-project">Per-project context</h2>
           <div className="prose">
@@ -2079,14 +2077,13 @@ def get_weather(city: str) -> str:
       ],
       "cli-commands": [
         { id: "cli-top",        label: "Shell commands" },
-        { id: "cli-agent",      label: "Agent tools" },
+        { id: "cli-agent",      label: "Agent shortcuts" },
         { id: "cli-memory",     label: "Memory & workspace" },
         { id: "cli-management", label: "Management" },
       ],
       "tools": [
         { id: "tools-builtin",  label: "Built-in tools" },
-        { id: "tools-toolsets", label: "Toolsets" },
-        { id: "tools-switch",   label: "Switching toolsets" },
+        { id: "tools-disable",  label: "Enabling / disabling tools" },
         { id: "tools-approval", label: "Command approval" },
       ],
       "memory-skills": [
@@ -2130,8 +2127,6 @@ def get_weather(city: str) -> str:
       "gateways": [
         { id: "gw-start",    label: "Starting gateways" },
         { id: "gw-telegram", label: "Telegram" },
-        { id: "gw-discord",  label: "Discord" },
-        { id: "gw-email",    label: "Email" },
       ],
       "mcp": [
         { id: "mcp-what",     label: "What is MCP?" },
@@ -2141,10 +2136,9 @@ def get_weather(city: str) -> str:
         { id: "mcp-naming",   label: "Tool naming" },
       ],
       "specialization": [
-        { id: "spec-role",     label: "Agent role" },
-        { id: "spec-tools",    label: "Restricting tools" },
-        { id: "spec-toolsets", label: "Toolsets" },
-        { id: "spec-project",  label: "Per-project context" },
+        { id: "spec-role",    label: "Agent role" },
+        { id: "spec-tools",   label: "Restricting tools" },
+        { id: "spec-project", label: "Per-project context" },
       ],
       "local-tools": [
         { id: "local-dir",       label: "The local/ directory" },
@@ -2188,6 +2182,7 @@ def get_weather(city: str) -> str:
 
       const SECTION_MAP = {
         "introduction":  <SectionIntroduction  navigate={navigate} />,
+        "vertical":      <SectionVertical       navigate={navigate} />,
         "quickstart":    <SectionQuickStart    navigate={navigate} />,
         "cli-commands":  <SectionCLICommands   navigate={navigate} />,
         "tools":         <SectionTools         navigate={navigate} />,

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Majestic Agent — The Agent That Gets Things Done</title>
+  <title>Majestic Agent — Build Vertical AI Agents Without the Bloat</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -789,6 +789,94 @@
     @media (max-width: 420px) {
       .platforms-grid { grid-template-columns: 1fr; }
     }
+
+    .hero-terminals {
+      display: flex;
+      gap: 16px;
+    }
+    .hero-terminals .hero-terminal {
+      flex: 1;
+      min-width: 0;
+    }
+    @media (max-width: 768px) {
+      .hero-terminals { flex-direction: column; }
+      .hero-terminals .hero-terminal:last-child { display: none; }
+    }
+    .feature-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 40px;
+      margin-bottom: 16px;
+    }
+    .feature-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text2);
+      background: var(--bg2);
+      letter-spacing: -0.01em;
+    }
+    .feature-badge .fb-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+    .built-on {
+      padding: 100px 0;
+    }
+    .built-on-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-top: 48px;
+    }
+    .built-on-card {
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg2);
+    }
+    .built-on-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 10px;
+    }
+    .built-on-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .built-on-desc {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.55;
+    }
+    .built-on-tools {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .built-on-tool {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--bg3, rgba(0,0,0,0.05));
+      color: var(--text3);
+    }
   </style>
 </head>
 <body>
@@ -831,9 +919,9 @@
     <div class="container">
       <div class="hero-grid">
       <div class="hero-left">
-      <div class="hero-badge">Open Source · MIT License</div>
-      <h1 class="hero-title">The Agent That<br /><em>Simply Executes.</em></h1>
-      <p class="hero-sub">Not a chatbot. Not a command menu. A universal agent that runs on your laptop or server — gets any task done, creates skills from experience, and grows more capable over time.</p>
+      <div class="hero-badge">Open Source · MIT License · Local-first</div>
+      <h1 class="hero-title">Build Vertical AI Agents<br /><em>Without the Bloat.</em></h1>
+      <p class="hero-sub">A lean agent core you fork, specialize, and ship. Add domain tools, set a role — get a purpose-built agent in days, not months. Works with Anthropic, OpenAI, OpenRouter, and Ollama.</p>
 
       <div class="install-steps">
         <div class="install-step">
@@ -864,25 +952,44 @@
       </div>
       </div>
 
-      <div class="hero-terminal">
-        <div class="terminal-bar">
-          <span class="terminal-dot r"></span>
-          <span class="terminal-dot y"></span>
-          <span class="terminal-dot g"></span>
-          <span class="terminal-title">majestic — ~/projects</span>
+      <div class="hero-terminals">
+        <div class="hero-terminal">
+          <div class="terminal-bar">
+            <span class="terminal-dot r"></span>
+            <span class="terminal-dot y"></span>
+            <span class="terminal-dot g"></span>
+            <span class="terminal-title">core — any task, any model</span>
+          </div>
+          <div class="terminal-body">
+            <span class="t-line"><span class="t-prompt">majestic ❯</span> <span class="t-cmd">Summarize the PDF and save to workspace</span></span>
+            <span class="t-line t-dim" style="margin-top:4px">◆ claude-sonnet-4 · tools ready</span>
+            <span class="t-line">&nbsp;</span>
+            <span class="t-line"><span class="t-dim">┌</span> <span class="t-blue">read_file</span> <span class="t-dim">· report_q3.pdf · 42 pages</span></span>
+            <span class="t-line"><span class="t-dim">├</span> <span class="t-blue">run_python</span> <span class="t-dim">· extracting text...</span></span>
+            <span class="t-line"><span class="t-dim">└</span> <span class="t-blue">write_file</span> <span class="t-dim">· summary.md · 1,240 chars</span></span>
+            <span class="t-line">&nbsp;</span>
+            <span class="t-line"><span class="t-success">✓ Done</span> <span class="t-dim">· 3 tool calls · $0.002 · 4.1s</span></span>
+            <span class="t-line" style="margin-top:4px"><span class="t-prompt">majestic ❯</span> <span class="t-cursor"></span></span>
+          </div>
         </div>
-        <div class="terminal-body">
-          <span class="t-line"><span class="t-prompt">majestic ❯</span> <span class="t-cmd">Research BTC market and send briefing to Telegram</span></span>
-          <span class="t-line t-dim" style="margin-top:4px">◆ Session started · claude-sonnet-4 · 0 tokens</span>
-          <span class="t-line">&nbsp;</span>
-          <span class="t-line"><span class="t-dim">┌</span> <span class="t-blue">web_search</span> <span class="t-dim">· collecting 8 sources...</span></span>
-          <span class="t-line"><span class="t-dim">├</span> <span class="t-blue">market_data</span> <span class="t-dim">· BTC</span> <span class="t-yellow">$67,420 ↑2.4%</span> <span class="t-dim">· ETH</span> <span class="t-yellow">$3,891 ↑1.8%</span></span>
-          <span class="t-line"><span class="t-dim">├</span> <span class="t-blue">db_search</span> <span class="t-dim">· scanning 1,204 indexed items</span></span>
-          <span class="t-line"><span class="t-dim">├</span> <span class="t-blue">briefing</span> <span class="t-dim">· generating analysis · 1,847 tokens</span></span>
-          <span class="t-line"><span class="t-dim">└</span> <span class="t-blue">telegram</span> <span class="t-dim">· delivering to</span> <span class="t-cmd">@you</span></span>
-          <span class="t-line">&nbsp;</span>
-          <span class="t-line"><span class="t-success">✓ Done</span> <span class="t-dim">· 4 tool calls · $0.004 · 8.2s</span></span>
-          <span class="t-line" style="margin-top:4px"><span class="t-prompt">majestic ❯</span> <span class="t-cursor"></span></span>
+        <div class="hero-terminal">
+          <div class="terminal-bar">
+            <span class="terminal-dot r"></span>
+            <span class="terminal-dot y"></span>
+            <span class="terminal-dot g"></span>
+            <span class="terminal-title">vertical — finance_bot</span>
+          </div>
+          <div class="terminal-body">
+            <span class="t-line"><span class="t-prompt">finance_bot ❯</span> <span class="t-cmd">Check portfolio and alert if BTC drops 5%</span></span>
+            <span class="t-line t-dim" style="margin-top:4px">◆ Role: Financial analyst · domain tools active</span>
+            <span class="t-line">&nbsp;</span>
+            <span class="t-line"><span class="t-dim">┌</span> <span class="t-blue">get_portfolio</span> <span class="t-dim">· fetching positions...</span></span>
+            <span class="t-line"><span class="t-dim">├</span> <span class="t-blue">price_feed</span> <span class="t-dim">· BTC <span class="t-yellow">$67,420</span> · threshold: $64,049</span></span>
+            <span class="t-line"><span class="t-dim">└</span> <span class="t-blue">set_alert</span> <span class="t-dim">· registered · notify via Telegram</span></span>
+            <span class="t-line">&nbsp;</span>
+            <span class="t-line"><span class="t-success">✓ Done</span> <span class="t-dim">· 3 tool calls · $0.001 · 2.8s</span></span>
+            <span class="t-line" style="margin-top:4px"><span class="t-prompt">finance_bot ❯</span> <span class="t-cursor"></span></span>
+          </div>
         </div>
       </div>
     </div>
@@ -893,12 +1000,18 @@
   <!-- CAPABILITIES -->
   <section id="features">
     <div class="container">
+      <div class="feature-badges">
+        <div class="feature-badge"><span class="fb-dot"></span>Lean Core — ~20 tools</div>
+        <div class="feature-badge"><span class="fb-dot"></span>Local-first — Ollama ready</div>
+        <div class="feature-badge"><span class="fb-dot"></span>Vertical-ready — fork &amp; specialize</div>
+        <div class="feature-badge"><span class="fb-dot"></span>One-command install</div>
+      </div>
       <div class="features-header">
         <div>
           <p class="section-label">Capabilities</p>
-          <h2 class="section-heading">Built<br />Different.</h2>
+          <h2 class="section-heading">The Core.<br />Nothing More.</h2>
         </div>
-        <p class="section-sub">Clean architecture. No 10,000-line files. Every component has one job — and does it well.</p>
+        <p class="section-sub">Every capability you need for a production agent. Nothing you don't. Fork it, add your domain tools, ship a vertical.</p>
       </div>
 
       <div class="caps-grid">
@@ -946,9 +1059,9 @@
         </div>
         <div class="cap-card">
           <span class="cap-num">08</span>
-          <div class="cap-title">Agent Specialization</div>
-          <p class="cap-desc">Set role and tool whitelist in config.yaml — fork for any domain without touching source code.</p>
-          <div class="cap-tags"><span class="cap-tag">agent.role</span><span class="cap-tag">tools_enabled</span></div>
+          <div class="cap-title">Vertical-ready Core</div>
+          <p class="cap-desc">Set <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">agent.role</code>, add domain tools, ship. One repo — infinite verticals: finance bot, support agent, dev tool.</p>
+          <div class="cap-tags"><span class="cap-tag">agent.role</span><span class="cap-tag">tools/local/</span></div>
         </div>
         <div class="cap-card">
           <span class="cap-num">09</span>
@@ -984,9 +1097,9 @@
       <div class="tools-inner">
         <div>
           <div class="tools-header">
-            <p class="section-label">Toolsets</p>
-            <h2 class="section-heading">Every Tool.<br />One Registry.</h2>
-            <p class="section-sub" style="margin-top:14px">Tools grouped by domain. Agent selects automatically. Add your integration — one file, zero config.</p>
+            <p class="section-label">Tools</p>
+            <h2 class="section-heading">~20 Tools.<br />One Registry.</h2>
+            <p class="section-sub" style="margin-top:14px">Lean core tools cover the essential 80%. Add your domain tools in <code style="font-family:var(--font-mono);font-size:12px">tools/local/</code> — auto-registered, zero config.</p>
           </div>
           <div class="tools-list">
             <div class="tool-row">
@@ -995,14 +1108,9 @@
               <span class="tool-badge badge-web">web</span>
             </div>
             <div class="tool-row">
-              <span class="tool-name">news · briefing · report</span>
-              <span class="tool-desc">Research and news monitoring</span>
-              <span class="tool-badge badge-research">research</span>
-            </div>
-            <div class="tool-row">
-              <span class="tool-name">market · crypto · forex</span>
-              <span class="tool-desc">Real-time market data</span>
-              <span class="tool-badge badge-research">research</span>
+              <span class="tool-name">get_news</span>
+              <span class="tool-desc">Latest indexed news from DB</span>
+              <span class="tool-badge badge-web">web</span>
             </div>
             <div class="tool-row">
               <span class="tool-name">read · write · index</span>
@@ -1169,6 +1277,59 @@
         <div class="pd-line"><span class="pd-source">Server → Discord</span><span class="pd-arrow">────────┤──&nbsp;</span><span class="pd-core">majestic</span><span class="pd-arrow">&nbsp;→&nbsp;</span><span class="pd-llm">LLM</span></div>
         <div class="pd-line"><span class="pd-source">Script → REST API</span><span class="pd-arrow">────────┤</span></div>
         <div class="pd-line"><span class="pd-source">Timer → Cron</span><span class="pd-arrow">────────┘</span></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="section-divider" />
+
+  <!-- BUILT ON MAJESTIC -->
+  <section class="built-on">
+    <div class="container">
+      <p class="section-label">Verticals</p>
+      <h2 class="section-heading">Built on Majestic.</h2>
+      <p class="section-sub" style="margin-top:14px;max-width:520px">Examples of what a focused vertical agent looks like. Fork the core, add 3–5 domain tools, set a role.</p>
+      <div class="built-on-grid">
+        <div class="built-on-card">
+          <div class="built-on-label">Finance</div>
+          <div class="built-on-name">finance_bot</div>
+          <p class="built-on-desc">Monitors portfolio, tracks prices, sets alerts, sends briefings to Telegram.</p>
+          <div class="built-on-tools">
+            <span class="built-on-tool">price_feed</span>
+            <span class="built-on-tool">portfolio_tracker</span>
+            <span class="built-on-tool">alert_sender</span>
+          </div>
+        </div>
+        <div class="built-on-card">
+          <div class="built-on-label">Support</div>
+          <div class="built-on-name">support_agent</div>
+          <p class="built-on-desc">Answers tickets from a knowledge base, escalates edge cases, logs resolutions.</p>
+          <div class="built-on-tools">
+            <span class="built-on-tool">ticket_api</span>
+            <span class="built-on-tool">kb_search</span>
+            <span class="built-on-tool">escalation</span>
+          </div>
+        </div>
+        <div class="built-on-card">
+          <div class="built-on-label">Dev</div>
+          <div class="built-on-name">dev_agent</div>
+          <p class="built-on-desc">Monitors CI, triggers deploys, creates GitHub issues from logs, reviews PRs.</p>
+          <div class="built-on-tools">
+            <span class="built-on-tool">github_api</span>
+            <span class="built-on-tool">ci_status</span>
+            <span class="built-on-tool">deploy_trigger</span>
+          </div>
+        </div>
+        <div class="built-on-card">
+          <div class="built-on-label">Research</div>
+          <div class="built-on-name">research_agent</div>
+          <p class="built-on-desc">Monitors arXiv, Scholar, HN — indexes papers, generates daily digest.</p>
+          <div class="built-on-tools">
+            <span class="built-on-tool">arxiv_fetcher</span>
+            <span class="built-on-tool">scholar_api</span>
+            <span class="built-on-tool">digest_mailer</span>
+          </div>
+        </div>
       </div>
     </div>
   </section>
