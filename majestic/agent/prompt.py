@@ -14,22 +14,19 @@ You are Majestic, a universal AI agent. You have access to tools to help answer 
 
 Guidelines:
 - Answer directly from your knowledge when you already know the answer.
-- Use tools when you need specific information: documents, web data, market prices.
+- Use tools when you need specific information: documents, web data, files.
 - For multi-step tasks, use multiple tools in sequence or parallel.
 - Be concise and structured in your final answer.
 - If a tool returns no useful data, say so and answer from what you know.
 - When the user says "save this", "save it", "put this in a report/file" — use write_file with the content of your last response. Do not ask for clarification, just save it immediately.
 - Do NOT use delegate_parallel or delegate_task for simple single-step operations (DB lookups, checking data, answering questions). Only use delegation for genuinely parallel multi-source research tasks.
 - Confidence: end every final answer with a [confidence: high|medium|low] tag. high = answer came from tools or live data; medium = recent memory or partially verified; low = training knowledge only.
-- Planning: for tasks with 3 or more distinct steps, call plan_task first, then update_step as each step completes. Skip for simple single-step tasks.
 - Script library: before writing code, check [Script library] — if a matching script exists, use run_script instead. When a task is clearly parametric or recurring (API calls, data fetches, system checks, scheduled work), go script-first: write the script via save_script, then immediately run it with run_script — do NOT use run_python as an intermediate step. After any successful execution, use judgment: save_script only if the logic is genuinely reusable — not for one-off analysis of a specific file or single-use calculations. Never ask the user whether to save — decide yourself.
 
 Built-in capabilities (always available, no tools needed):
 - /schedule add <text> — schedule recurring tasks in plain language (cron runs in background)
 - /schedule list / remove <id> — manage schedules
 - /remind <text> — natural language reminders
-- /research — collect fresh intel from HN, Reddit, GitHub, arXiv and more
-- /briefing — daily market and tech briefing
 - /memory, /forget — persistent memory across sessions
 - When the user asks to schedule something recurring, tell them to use /schedule add.\
 """
@@ -55,22 +52,12 @@ def build_system(lang: str = "EN", memory: str = "") -> str:
         pass
     if memory:
         system += f"\n\n## Persistent memory\n{memory}"
-    try:
-        from majestic.profile.updater import get_profile_block
-        profile = get_profile_block()
-        if profile:
-            system += f"\n\n## [User profile]\n{profile}"
-    except Exception:
-        pass
     user_tables = _user_tables_schema()
     if user_tables:
         system += f"\n\n## [User tables]\n{user_tables}"
     scripts = _scripts_list()
     if scripts:
         system += f"\n\n## [Script library]\nUse run_script to execute these saved scripts:\n{scripts}"
-    learnings = _recent_learnings()
-    if learnings:
-        system += f"\n\n## [Recent learnings]\n{learnings}"
     budget = _session_budget()
     if budget:
         system += f"\n\n{budget}"
@@ -79,14 +66,12 @@ def build_system(lang: str = "EN", memory: str = "") -> str:
 
 
 def _scripts_list() -> str:
-    """Return compact list of saved scripts for system prompt with usage stats."""
+    """Return compact list of saved scripts for system prompt."""
     try:
         from majestic.constants import WORKSPACE_DIR
-        from majestic.tools.scripts.metrics import get_all_stats
         d = WORKSPACE_DIR / "scripts"
         if not d.exists():
             return ""
-        stats = get_all_stats()
         lines = []
         for p in sorted(d.glob("*.py")):
             try:
@@ -98,17 +83,7 @@ def _scripts_list() -> str:
                             break
                         if not line.startswith("# "):
                             break
-                s        = stats.get(p.stem, {})
-                runs     = s.get("runs", 0)
-                failures = s.get("failures", 0)
-                sr       = s.get("success_rate", 0.0)
-                parts = [f"- {p.stem}: {desc}"]
-                if runs:
-                    warn  = f" ⚠{failures} failures" if failures else " ✓"
-                    parts.append(f"used {runs}x{warn}")
-                if runs > 5 and sr >= 0.8:
-                    parts.append("★ ready for promotion")
-                lines.append(" · ".join(parts))
+                lines.append(f"- {p.stem}: {desc}")
             except Exception:
                 lines.append(f"- {p.stem}")
         return "\n".join(lines[:20])
@@ -147,13 +122,6 @@ def _session_budget() -> str:
     except Exception:
         return ""
 
-
-def _recent_learnings() -> str:
-    try:
-        from majestic.agent.reflection import get_recent_learnings
-        return get_recent_learnings()
-    except Exception:
-        return ""
 
 
 def build_sub_system(lang: str = "EN") -> str:

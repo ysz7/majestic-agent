@@ -3,12 +3,9 @@ from __future__ import annotations
 
 import importlib.util
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
-import threading
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -51,19 +48,6 @@ def _parse_frontmatter(path: Path) -> dict[str, str]:
 def _safe_name(name: str) -> str:
     return "".join(c if c.isalnum() or c in "_-" else "_" for c in name.strip())
 
-
-def _archive_version(path: Path) -> None:
-    """Copy current file to .history/<stem>_<ts>.py, keep last 10."""
-    try:
-        hist = path.parent / ".history"
-        hist.mkdir(exist_ok=True)
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        shutil.copy2(path, hist / f"{path.stem}_{ts}.py")
-        versions = sorted(hist.glob(f"{path.stem}_*.py"))
-        for old in versions[:-10]:
-            old.unlink(missing_ok=True)
-    except Exception:
-        pass
 
 
 def _validate_syntax(code: str) -> str | None:
@@ -142,9 +126,6 @@ def save_script(
     ])
 
     path = _scripts_dir() / f"{safe}.py"
-    if path.exists():
-        _archive_version(path)
-
     path.write_text(header + code.strip() + "\n", encoding="utf-8")
     return f"Saved: scripts/{safe}.py"
 
@@ -155,26 +136,18 @@ def save_script(
     input_schema={"type": "object", "properties": {}},
 )
 def list_scripts() -> str:
-    from majestic.tools.scripts.metrics import get_all_stats
     d = _scripts_dir()
     scripts = sorted(d.glob("*.py"))
     if not scripts:
         return "No scripts saved yet. Use save_script to create one."
 
-    stats = get_all_stats()
     rows = []
     for p in scripts:
-        meta = _parse_frontmatter(p)
+        meta    = _parse_frontmatter(p)
         desc    = meta.get("description", "")
         params  = meta.get("params", "")
         created = meta.get("created", "")
-        s       = stats.get(p.stem, {})
-        runs     = s.get("runs", 0)
-        failures = s.get("failures", 0)
-        stat_str = f"used {runs}x" if runs else "never run"
-        if failures:
-            stat_str += f" ⚠{failures} failures"
-        rows.append(f"- {p.stem}: {desc} | params: [{params}] | {stat_str} | {created}")
+        rows.append(f"- {p.stem}: {desc} | params: [{params}] | {created}")
     return "\n".join(rows)
 
 
@@ -238,7 +211,6 @@ def run_script(name: str, params: dict | None = None, timeout: int = 30) -> str:
             env[str(k)] = str(v)
 
     timeout = min(max(1, timeout), 120)
-    t0 = time.monotonic()
     try:
         result = subprocess.run(
             [sys.executable, str(path)],
@@ -246,9 +218,6 @@ def run_script(name: str, params: dict | None = None, timeout: int = 30) -> str:
             timeout=timeout, env=env,
             cwd=str(d.parent),
         )
-        duration_ms = int((time.monotonic() - t0) * 1000)
-        _bg_record(safe, result.returncode, duration_ms)
-
         parts = []
         if result.stdout:
             parts.append(f"stdout:\n{result.stdout.strip()}")
@@ -265,17 +234,8 @@ def run_script(name: str, params: dict | None = None, timeout: int = 30) -> str:
             )
         return output
     except subprocess.TimeoutExpired:
-        _bg_record(safe, -1, timeout * 1000)
         return f"Script timed out after {timeout}s."
     except Exception as e:
         return f"Error: {e}"
 
 
-def _bg_record(name: str, exit_code: int, duration_ms: int) -> None:
-    def _r():
-        try:
-            from majestic.tools.scripts.metrics import record_run
-            record_run(name, exit_code, duration_ms)
-        except Exception:
-            pass
-    threading.Thread(target=_r, daemon=True).start()

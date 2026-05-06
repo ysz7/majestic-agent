@@ -138,12 +138,7 @@ class _SpinnerProxy:
 _TOOL_LABELS: dict[str, str] = {
     "search_knowledge":  "searching knowledge base",
     "search_web":        "searching web",
-    "get_market_data":   "fetching market data",
-    "run_research":      "collecting intel",
-    "get_briefing":      "generating briefing",
     "get_news":          "fetching news",
-    "get_report":        "generating report",
-    "generate_ideas":    "generating ideas",
     "delegate_task":     "delegating sub-task",
     "delegate_parallel": "running parallel tasks",
     "read_file":         "reading file",
@@ -266,12 +261,7 @@ def dispatch_shortcut(cmd: str, rest: str) -> None:
     import sys as _sys
 
     args: dict = {}
-    if cmd == "briefing" and rest:
-        try:
-            args["days"] = int(rest.split()[0])
-        except ValueError:
-            pass
-    elif cmd == "news" and rest:
+    if cmd == "news" and rest:
         try:
             args["limit"] = int(rest.split()[0])
         except ValueError:

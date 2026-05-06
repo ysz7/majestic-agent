@@ -9,33 +9,14 @@ def cmd_set(rest: str) -> None:
     if len(parts) < 2:
         cfg = _cfg.load()
         agent = cfg.get("agent", {})
-        try:
-            from majestic.tools.toolsets import current_toolset
-            ts = current_toolset() or "(custom)"
-        except Exception:
-            ts = "—"
         print(f"\n  {B}agent.role{R}          {DIM}{agent.get('role', '') or '(none)'}{R}")
-        print(f"  {B}agent.toolset{R}       {DIM}{ts}{R}")
         print(f"  {B}agent.tools_enabled{R} {DIM}{agent.get('tools_enabled', []) or '(all)'}{R}")
         print(f"  {B}agent.tools_disabled{R}{DIM}{agent.get('tools_disabled', []) or '(none)'}{R}\n")
         print(f"  {DIM}Usage: /set <key> <value>{R}")
-        print(f"  {DIM}Keys: agent.role, toolset, agent.tools_enabled, agent.tools_disabled{R}\n")
+        print(f"  {DIM}Keys: agent.role, agent.tools_enabled, agent.tools_disabled{R}\n")
         return
 
     key, val_str = parts[0], parts[1]
-
-    # /set toolset <name>
-    if key == "toolset":
-        try:
-            from majestic.tools.toolsets import apply_toolset, list_toolsets
-            if apply_toolset(val_str.strip()):
-                print(f"  {G}✓ Toolset → {val_str.strip()}{R}\n")
-            else:
-                available = ", ".join(list_toolsets().keys())
-                print(f"  {Y}Unknown toolset. Available: {available}{R}\n")
-        except Exception as e:
-            print(f"  {Y}Error: {e}{R}\n")
-        return
 
     if key in ("agent.tools_enabled", "agent.tools_disabled"):
         val = [v.strip() for v in val_str.split(",") if v.strip()] if val_str.strip() != "-" else []
@@ -271,29 +252,6 @@ def cmd_workspace(rest: str) -> None:
     else:
         print(f"  {Y}Usage: /workspace [view|search|del|move|mkdir] ...{R}\n")
 
-
-def cmd_rss(rest: str) -> None:
-    try:
-        from majestic.tools.web.rss import list_feeds, add_feed, remove_feed
-        parts = rest.split(None, 1)
-        sub   = parts[0].lower() if parts else "list"
-        arg   = parts[1] if len(parts) > 1 else ""
-        if sub == "add":
-            add_feed(arg)
-            print(f"  {G}✓ Feed added.{R}\n")
-        elif sub == "remove":
-            remove_feed(int(arg))
-            print(f"  {G}✓ Feed removed.{R}\n")
-        else:
-            feeds = list_feeds()
-            if not feeds:
-                print(f"  {DIM}No RSS feeds configured.{R}\n")
-            else:
-                for i, f in enumerate(feeds, 1):
-                    print(f"  {i}. {f.get('url', f)}")
-                print()
-    except Exception as e:
-        print(f"  {Y}Error: {e}{R}\n")
 
 
 def cmd_reports(rest: str) -> None:

@@ -70,43 +70,6 @@ async def handle_ask(update, context):
         await msg.edit_text(f"❌ {e}")
 
 
-async def handle_research(update, context):
-    if not _allowed(update): return await _deny(update)
-    msg = await update.message.reply_text("🔍 Collecting intel…")
-    try:
-        from majestic.tools.research.collect import collect_and_index
-        result, fresh = await _gates["research"].run(collect_and_index)
-        total = result.get("total_new", 0)
-        await msg.edit_text(f"✅ Done ({'fresh' if fresh else 'shared'}). New items: {total}")
-    except Exception as e:
-        await msg.edit_text(f"❌ {e}")
-
-
-async def handle_briefing(update, context):
-    if not _allowed(update): return await _deny(update)
-    try: days = int(context.args[0]) if context.args else 14
-    except ValueError: days = 14
-    msg = await update.message.reply_text(f"📰 Generating {days}d briefing…")
-    try:
-        from majestic.tools.research.briefing import generate_briefing
-        from majestic.gateway.formatter import render_telegram
-        result, _ = await _gates["briefing"].run(generate_briefing, days)
-        await _send(update, msg, render_telegram(result))
-    except Exception as e:
-        await msg.edit_text(f"❌ {e}")
-
-
-async def handle_market(update, context):
-    if not _allowed(update): return await _deny(update)
-    msg = await update.message.reply_text("📈 Fetching market data…")
-    try:
-        from majestic.tools.research.market_data import collect_market_pulse, format_pulse
-        from majestic.gateway.formatter import render_telegram
-        result, _ = await _gates["market"].run(collect_market_pulse)
-        await _send(update, msg, render_telegram(format_pulse(result)))
-    except Exception as e:
-        await msg.edit_text(f"❌ {e}")
-
 
 async def handle_news(update, context):
     if not _allowed(update): return await _deny(update)
@@ -117,7 +80,7 @@ async def handle_news(update, context):
         from majestic.db.state import StateDB
         rows = StateDB().search_news("*", k=limit)
         if not rows:
-            await msg.edit_text("No news found. Run /research first."); return
+            await msg.edit_text("No news indexed yet."); return
         lines = [f"<b>{i+1}.</b> [{r['source']}] {r['title']}" for i, r in enumerate(rows)]
         await _send(update, msg, "\n".join(lines))
     except Exception as e:

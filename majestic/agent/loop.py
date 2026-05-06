@@ -62,7 +62,7 @@ class AgentLoop:
         if session_id:
             _save_msg(session_id, "user", user_input)
 
-        sources: list[str] = []; tools_used: list[str] = []; iterations = 0
+        sources: list[str] = []; iterations = 0
 
         while iterations < self._max_iter:
             if self._stop.is_set():
@@ -90,18 +90,15 @@ class AgentLoop:
                     continue
                 if session_id:
                     _save_msg(session_id, "assistant", content, finish_reason=resp.finish_reason)
-                    _fire_background(session_id, content, list(tools_used))
                 return {"answer": content, "sources": sources}
 
             # Drop tool calls with names not in the offered schema (hallucinations / MCP browser)
-            resp = _filter_tool_calls(resp, tool_schemas, session_id, sources, tools_used)
+            resp = _filter_tool_calls(resp, tool_schemas, session_id, sources)
             if not resp.tool_calls:
-                if session_id: _save_msg(session_id, "assistant", resp.content or ""); _fire_background(session_id, resp.content or "", list(tools_used))
+                if session_id: _save_msg(session_id, "assistant", resp.content or "")
                 return {"answer": resp.content, "sources": sources}
 
             # ── Execute tool calls ────────────────────────────────────────────
-            for tc in resp.tool_calls:
-                tools_used.append(tc.name)
             if on_tool_call:
                 for tc in resp.tool_calls:
                     on_tool_call(tc.name, tc.arguments)
@@ -118,10 +115,7 @@ class AgentLoop:
 
             # Collect sources from knowledge/web tool results
             for tc in resp.tool_calls:
-                if tc.name in (
-                    "search_knowledge", "search_web", "get_market_data",
-                    "run_research", "get_news", "get_briefing", "get_report", "generate_ideas",
-                ):
+                if tc.name in ("search_knowledge", "search_web", "get_news"):
                     sources.append(tc.name)
 
             messages.append({
@@ -219,8 +213,7 @@ def _prune_old_tool_results(messages: list[dict]) -> list[dict]:
     return pruned
 
 
-_SMALL_TOOLS = {"get_briefing", "get_report", "generate_ideas", "run_research",
-                "get_news", "delegate_parallel", "delegate_task"}
+_SMALL_TOOLS = {"get_news", "delegate_parallel", "delegate_task"}
 
 
 def _cap_tool_result(name: str, text: str, is_local: bool = False) -> str:
@@ -253,24 +246,6 @@ def _parse_file_artifact(result: str) -> tuple[str, str] | None:
         return p.name, p.name
 
 
-def _fire_background(session_id: str, answer: str, tools_used: list[str]) -> None:
-    from majestic.agent.jobs import start_job
-    def _sig(job) -> None:
-        try:
-            from majestic.profile.signals import collect_signals; collect_signals(session_id)
-        except Exception:
-            pass
-    start_job("signal", f"signals:{session_id[:8]}", _sig)
-    try:
-        from majestic.config import get as _g
-        if _g("agent.reflect", True) and len(tools_used) >= int(_g("agent.reflect_min_tools", 3)):
-            def _ref(job) -> None:
-                from majestic.agent.reflection import reflect_session
-                reflect_session(session_id, answer, tools_used)
-            start_job("reflect", f"reflect:{session_id[:8]}", _ref)
-    except Exception:
-        pass
-
 
 def _track(resp) -> None:
     try:
@@ -286,7 +261,7 @@ def _track(resp) -> None:
     except Exception: pass
 
 
-def _filter_tool_calls(resp: "LLMResponse", tool_schemas, session_id, sources, tools_used) -> "LLMResponse":
+def _filter_tool_calls(resp: "LLMResponse", tool_schemas, session_id, sources) -> "LLMResponse":
     """Remove tool calls whose names are not in the offered schema (hallucinations / MCP browser)."""
     if not tool_schemas:
         return resp

@@ -128,33 +128,12 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/mcp/status":
             from majestic.api import mcp_api as mcp
             return self._json(mcp.handle_get_mcp_status())
-        if path == "/api/email/status":
-            from majestic.api import email_api as ea
-            return self._json(ea.handle_email_status())
         if path == "/api/scripts":
             from majestic.api import scripts_api as sa
             return self._json(sa.handle_list_scripts())
-        if path == "/api/jobs":
-            from majestic.api import jobs_api as ja
-            return self._json(ja.handle_list_jobs())
-        if path == "/api/jobs/stream":
-            return self._handle_jobs_stream()
         if path == "/api/schedules":
             from majestic.api import jobs_api as ja
             return self._json(ja.handle_list_schedules())
-        if path == "/api/reflections":
-            from majestic.api import jobs_api as ja
-            return self._json(ja.handle_list_reflections())
-        if path == "/api/script-stats":
-            from majestic.api import jobs_api as ja
-            return self._json(ja.handle_script_stats())
-        m_ref = _match(path, "/api/reflections/", "")
-        if m_ref:
-            from urllib.parse import unquote
-            from majestic.api import jobs_api as ja
-            return self._json(ja.handle_get_reflection(unquote(m_ref)))
-        if path in ("/agent", "/agent.html"):
-            return self._serve_static("/agent.html")
         # workspace
         if path == "/api/workspace/list":
             from majestic.api import workspace as ws
@@ -206,26 +185,9 @@ class _Handler(BaseHTTPRequestHandler):
             from urllib.parse import unquote
             from majestic.api import mcp_api as mcp
             return self._json(mcp.handle_mcp_toggle(unquote(mcp_toggle)))
-        if path == "/api/email/test":
-            from majestic.api import email_api as ea
-            return self._json(ea.handle_email_test(body))
-        if path == "/api/email/save":
-            from majestic.api import email_api as ea
-            return self._json(ea.handle_email_save(body))
-        if path == "/api/email/start":
-            from majestic.api import email_api as ea
-            return self._json(ea.handle_email_start(body))
-        if path == "/api/email/stop":
-            from majestic.api import email_api as ea
-            return self._json(ea.handle_email_stop())
         if path == "/api/scripts/run":
             from majestic.api import scripts_api as sa
             return self._json(sa.handle_run_script(body))
-        job_cancel = _match(path, "/api/jobs/", "/cancel")
-        if job_cancel:
-            from urllib.parse import unquote
-            from majestic.api import jobs_api as ja
-            return self._json(ja.handle_cancel_job(unquote(job_cancel)))
         if path.startswith("/api/llm/configs/") and path.endswith("/activate"):
             cfg_name = path[len("/api/llm/configs/"):-len("/activate")]
             if cfg_name:
@@ -387,16 +349,6 @@ class _Handler(BaseHTTPRequestHandler):
             self._sse_json({"type": "error", "data": str(e)})
 
         self._sse("[DONE]")
-
-    def _handle_jobs_stream(self) -> None:
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header("X-Accel-Buffering", "no")
-        self._cors()
-        self.end_headers()
-        from majestic.api import jobs_api as ja
-        ja.stream_jobs(self.wfile, self.wfile.flush)
 
     def _handle_run(self, body: dict) -> None:
         prompt = body.get("prompt", "").strip()

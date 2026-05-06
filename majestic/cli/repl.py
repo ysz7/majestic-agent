@@ -16,7 +16,7 @@ from majestic.cli.repl_helpers import (
 )
 from majestic.cli.repl_commands import (
     cmd_schedule, cmd_memory, cmd_forget, cmd_skills,
-    cmd_remind, cmd_rss, cmd_reports, cmd_set, cmd_history,
+    cmd_remind, cmd_reports, cmd_set, cmd_history,
     cmd_workspace,
 )
 from majestic.cli.repl_stats import cmd_usage, cmd_insights, cmd_exit
@@ -24,12 +24,8 @@ from majestic.cli.repl_stats import cmd_usage, cmd_insights, cmd_exit
 _HELP = f"""
 {B}Agent:{R}
   Type any question             → agent with tools
-  /research                     → collect intel from all sources
-  /briefing [days]              → market/tech briefing (default 14)
-  /market                       → crypto, stocks, forex snapshot
   /news [N]                     → latest news (default 10)
   /report <topic>               → deep report on a topic
-  /ideas                        → business ideas from recent trends
   Drag & drop or paste a path   → index .pdf .docx .csv .txt .md
 
 {B}Memory & skills:{R}
@@ -42,8 +38,6 @@ _HELP = f"""
 {B}Management:{R}
   /model                        → switch LLM provider/model
   /set [key] [value]            → configure agent role and tools
-  /set toolset <name>           → switch toolset (research/coding/market/full)
-  /toolsets                     → list available toolsets
   /usage [reset]                → token usage and cost
   /insights [days]              → usage analytics by day (default 7)
   /new                          → start fresh session (clear history)
@@ -51,7 +45,6 @@ _HELP = f"""
   /schedule [list|add|remove]   → manage cron schedules
   /remind <text>                → add reminder
   /reminders                    → list active reminders
-  /rss [list|add|remove]        → manage RSS feeds
   /reports [view|del] <N>       → manage saved reports
   /help                         → this help
   /exit                         → quit
@@ -139,10 +132,10 @@ def run() -> None:
         _PROMPT_MSG = FormattedText([("", "  "), ("fg:#D95767 bold", "▶ ")])
 
         _STATIC_CMDS = [
-            "/help", "/research", "/briefing", "/market", "/news", "/report",
-            "/ideas", "/memory", "/forget", "/skills", "/agent-skills", "/model", "/usage",
+            "/help", "/news", "/report",
+            "/memory", "/forget", "/skills", "/agent-skills", "/model", "/usage",
             "/insights", "/new", "/reset", "/schedule", "/remind", "/reminders",
-            "/rss", "/reports", "/history", "/set", "/workspace", "/stop", "/exit",
+            "/reports", "/history", "/set", "/workspace", "/stop", "/exit",
         ]
 
         class _SlashCompleter(Completer):
@@ -297,9 +290,6 @@ def run() -> None:
         elif user.lower().startswith("/remind"):
             cmd_remind(user[7:].strip())
 
-        elif user.lower().startswith("/rss"):
-            cmd_rss(user[4:].strip())
-
         elif user.lower().startswith("/reports"):
             cmd_reports(user[8:].strip())
 
@@ -308,13 +298,6 @@ def run() -> None:
 
         elif user.lower().startswith("/set"):
             cmd_set(user[4:].strip())
-
-        elif user.lower() == "/toolsets":
-            try:
-                from majestic.tools.configurator import print_toolsets
-                print_toolsets()
-            except Exception as e:
-                print(f"  {Y}Error: {e}{R}\n")
 
         elif user.lower().startswith("/workspace"):
             cmd_workspace(user[10:].strip())

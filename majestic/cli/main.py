@@ -32,7 +32,7 @@ Commands:
   mcp list              List configured MCP servers and their tools
   mcp add NAME CMD      Add MCP server (CMD is space-separated command)
   mcp install PRESET    Install preset: browser, github, postgres
-  gateway start [platform]   Start gateway (telegram|discord|email|all)
+  gateway start [platform]   Start gateway (telegram)
   gateway setup [platform]   Configure a specific platform (writes only to .env)
 
   --version        Show version
@@ -161,14 +161,8 @@ def _tools_cmd(args: list[str]) -> None:
         warn("No configuration found. Run `majestic setup` first.\n")
         sys.exit(1)
     cfg.sync_env_from_config()
-
-    sub = args[0] if args else ""
-    if sub == "list":
-        from majestic.tools.configurator import print_toolsets
-        print_toolsets()
-    else:
-        from majestic.tools.configurator import run_configurator
-        run_configurator()
+    from majestic.tools.configurator import run_configurator
+    run_configurator()
 
 
 def _mcp_cmd(args: list[str]) -> None:
@@ -334,16 +328,10 @@ def _gateway_start(target: str = "all") -> None:
 
     from majestic.gateway import Gateway
     from majestic.gateway.telegram import TelegramPlatform
-    from majestic.gateway.discord import DiscordPlatform
-    from majestic.gateway.email_gw import EmailPlatform
 
     gw = Gateway()
     if target in ("telegram", "all"):
         gw.add(TelegramPlatform())
-    if target in ("discord", "all"):
-        gw.add(DiscordPlatform())
-    if target in ("email", "all"):
-        gw.add(EmailPlatform())
 
     asyncio.run(gw.run())
 

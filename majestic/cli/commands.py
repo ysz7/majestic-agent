@@ -2,19 +2,14 @@
 Slash command registry.
 
 Maps command names to the underlying tool + description.
-Used by CLI and Telegram to dispatch /research, /briefing, etc.
 
   dispatch(cmd, args) → str   — execute a command, return raw text
   SHORTCUTS             dict  — {name: (tool_name, description)}
 """
 
 SHORTCUTS: dict[str, tuple[str, str]] = {
-    "research": ("run_research",    "Collect intel from all sources"),
-    "briefing": ("get_briefing",    "Full market/tech briefing"),
-    "market":   ("get_market_data", "Crypto, stocks, forex snapshot"),
-    "news":     ("get_news",        "Latest news sorted by CCW score"),
-    "report":   ("get_report",      "Deep report on a topic"),
-    "ideas":    ("generate_ideas",  "Business ideas from recent trends"),
+    "news":   ("get_news",   "Latest indexed news"),
+    "report": ("get_report", "Deep report on a topic"),
 }
 
 MANAGEMENT: dict[str, str] = {
@@ -26,7 +21,6 @@ MANAGEMENT: dict[str, str] = {
     "usage":     "Token usage and cost",
     "remind":    "Add a natural-language reminder",
     "reminders": "List active reminders",
-    "rss":       "Manage RSS feeds",
     "reports":   "List saved reports",
 }
 
