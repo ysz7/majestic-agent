@@ -6,7 +6,8 @@ _CACHE_TTL = 30  # seconds — safe since settings/memory rarely change within a
 
 
 def _cache_key(lang: str, memory: str) -> str:
-    return f"{lang}:{hash(memory)}"
+    import majestic.constants as _mc
+    return f"{lang}:{hash(memory)}:{_mc.DB_PATH}"
 
 _BASE = """\
 You are Majestic, a universal AI agent. You have access to tools to help answer questions and complete tasks.
