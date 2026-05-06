@@ -757,13 +757,53 @@ def get_price(ticker: str) -> str:
             </tbody>
           </table>
 
+          <h2 className="section-title" id="v-multi">Running multiple agents</h2>
+          <div className="prose">
+            <p>
+              Each named agent is a fully isolated instance with its own config, memory,
+              state, and port. Create as many as you need — one per vertical.
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`# Create a named agent
+majestic init finance_bot
+
+# Configure it (isolated from your default agent)
+majestic finance_bot setup
+
+# Launch its REPL
+majestic finance_bot
+
+# All commands work per-agent
+majestic finance_bot dashboard
+majestic finance_bot gateway start telegram
+majestic finance_bot config set agent.role "Financial analyst"
+
+# Overview of all agents
+majestic list    # ● running  ○ stopped
+majestic ps      # only running instances`}</CodeBlock>
+          <div className="prose">
+            <p>
+              Data layout — every agent gets its own subdirectory:
+            </p>
+          </div>
+          <CodeBlock lang="text">{`~/.majestic-agent/                  # default instance
+~/.majestic-agent/.registry.json    # agent registry
+~/.majestic-agent/finance_bot/      # isolated: config.yaml, state.db, memory/
+~/.majestic-agent/support_agent/    # isolated: config.yaml, state.db, memory/`}</CodeBlock>
+          <div className="prose">
+            <p>
+              Ports are assigned automatically starting at 8081 (default agent keeps 8080).
+              Override by setting <code>api.port</code> in the agent's <code>config.yaml</code>.
+            </p>
+          </div>
+
           <h2 className="section-title" id="v-checklist">Launch checklist</h2>
           <div className="prose">
             <ol>
               <li>Domain tools added to <code>majestic/tools/local/</code></li>
               <li><code>agent.role</code> set in <code>config.yaml</code></li>
               <li>API keys configured in <code>.env</code></li>
-              <li>Test with <code>majestic start</code> — verify tools appear in registry</li>
+              <li>Test with <code>majestic</code> — verify tools appear in registry</li>
               <li>Connect Telegram (optional): <code>majestic gateway start telegram</code></li>
               <li>Set up scheduling (optional): <code>/schedule add "every day at 9am ..."</code></li>
             </ol>
@@ -873,7 +913,11 @@ docker compose up -d`}</CodeBlock>
             <thead><tr><th>Command</th><th>Description</th></tr></thead>
             <tbody>
               {[
-                ["majestic", "Launch the interactive REPL"],
+                ["majestic", "Launch the interactive REPL (default agent)"],
+                ["majestic <name>", "Launch REPL for a named agent (e.g. majestic finance_bot)"],
+                ["majestic init <name>", "Create a new named agent with isolated data and port"],
+                ["majestic list", "List all agents with running status"],
+                ["majestic ps", "Show only running agents"],
                 ["majestic setup", "Interactive first-run wizard — API keys, model, language"],
                 ["majestic model", "Switch LLM provider or model interactively"],
                 ["majestic config", "Show current config values"],
@@ -2067,6 +2111,14 @@ def get_weather(city: str) -> str:
         { id: "how-it-works",  label: "How it works" },
         { id: "features",      label: "Key features" },
         { id: "architecture",  label: "Architecture" },
+      ],
+      "vertical": [
+        { id: "v-pattern",   label: "The pattern" },
+        { id: "v-tool",      label: "Writing a domain tool" },
+        { id: "v-role",      label: "Setting the role" },
+        { id: "v-examples",  label: "Vertical examples" },
+        { id: "v-multi",     label: "Running multiple agents" },
+        { id: "v-checklist", label: "Launch checklist" },
       ],
       "quickstart": [
         { id: "qs-requirements", label: "Requirements" },

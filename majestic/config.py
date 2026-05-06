@@ -18,6 +18,7 @@ _DEFAULTS: dict = {
         "role": "",
         "tools_enabled": [],
         "tools_disabled": [],
+        "delegates_to": [],
     },
     "api": {
         "port": 8080,

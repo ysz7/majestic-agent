@@ -46,6 +46,12 @@ def start(port: int = PORT) -> None:
     server = ThreadingHTTPServer(("0.0.0.0", port), _Handler)
     threading.Thread(target=server.serve_forever, daemon=True, name="api-server").start()
     print(f"  API server listening on http://0.0.0.0:{port}", flush=True)
+    try:
+        from majestic.config import get
+        from majestic.cli.agents import announce_agent
+        announce_agent(port, role=get("agent.role", "") or "")
+    except Exception:
+        pass
 
 
 def _api_key() -> str:

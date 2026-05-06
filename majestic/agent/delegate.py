@@ -45,27 +45,43 @@ def stop_all_children() -> None:
 @tool(
     name="delegate_task",
     description=(
-        "HEAVY: spawns a separate agent (uses extra LLM calls + tokens). "
-        "Use ONLY when a task is truly independent and too complex for a single tool call. "
-        "Do NOT use for simple lookups, DB checks, or single-tool operations — call the tool directly instead."
+        "Run a task in a sub-agent or delegate it to a named agent in the network. "
+        "Use 'to' to route to a specific agent (name from registry or http://... URL). "
+        "Without 'to', runs a local sub-agent (HEAVY — extra LLM calls). "
+        "Do NOT use for simple lookups or single-tool operations."
     ),
     input_schema={
         "type": "object",
         "properties": {
             "task": {
                 "type": "string",
-                "description": "The task description for the sub-agent",
+                "description": "The task description",
             },
             "context": {
                 "type": "string",
-                "description": "Optional context or data to pass to the sub-agent",
+                "description": "Optional context or data to pass to the agent",
+            },
+            "to": {
+                "type": "string",
+                "description": (
+                    "Target agent — registered name (e.g. 'finance_bot') or URL "
+                    "(e.g. 'http://10.0.0.2:8081'). Omit to run locally."
+                ),
             },
         },
         "required": ["task"],
     },
 )
-def delegate_task(task: str, context: str = "") -> str:
-    """Run a single task in an isolated sub-agent. Returns the answer."""
+def delegate_task(task: str, context: str = "", to: str = "") -> str:
+    """Route task to a named/remote agent, or run locally as a sub-agent."""
+    if to:
+        return _delegate_to_network(task, context, to)
+    # Auto-route if delegates_to configured and keyword matches
+    from majestic.cli.agents import pick_delegate
+    auto = pick_delegate(task)
+    if auto:
+        return _delegate_to_network(task, context, auto)
+    # Local sub-agent fallback
     stop_ev = threading.Event()
     _register_child(stop_ev)
     try:
@@ -131,7 +147,65 @@ def delegate_parallel(tasks: list[str]) -> str:
     return "\n\n---\n\n".join(parts)
 
 
-# ── Core execution ────────────────────────────────────────────────────────────
+# ── Network delegation ────────────────────────────────────────────────────────
+
+def _delegate_to_network(task: str, context: str, target: str) -> str:
+    """POST task to a named or remote agent's /api/chat endpoint."""
+    import json as _json
+    import urllib.request
+    import urllib.error
+    from majestic.cli.agents import find_agent_url
+
+    url = find_agent_url(target)
+    if not url:
+        return f"[delegate error] Agent '{target}' not found in registry or not reachable."
+
+    chat_url = url.rstrip("/") + "/api/chat"
+    message  = f"Context:\n{context}\n\nTask:\n{task}" if context.strip() else task
+    payload  = _json.dumps({"message": message}).encode()
+    req = urllib.request.Request(
+        chat_url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            body = resp.read().decode()
+            # SSE stream — collect last 'data:' line with answer
+            answer = _parse_sse_answer(body)
+            return f"[{target}] {answer}"
+    except urllib.error.URLError as e:
+        return f"[delegate error] Could not reach '{target}' at {chat_url}: {e.reason}"
+    except Exception as e:
+        return f"[delegate error] {e}"
+
+
+def _parse_sse_answer(body: str) -> str:
+    """Extract answer text from an SSE stream or plain JSON response."""
+    import json as _json
+    # Try plain JSON first
+    try:
+        data = _json.loads(body)
+        return data.get("answer") or data.get("content") or body[:500]
+    except Exception:
+        pass
+    # SSE: find last 'data: {...}' line with an 'answer' key
+    answer = ""
+    for line in body.splitlines():
+        if line.startswith("data:"):
+            try:
+                chunk = _json.loads(line[5:].strip())
+                if "answer" in chunk:
+                    answer = chunk["answer"]
+                elif chunk.get("type") == "text":
+                    answer += chunk.get("text", "")
+            except Exception:
+                pass
+    return answer or body[:500]
+
+
+# ── Local sub-agent execution ─────────────────────────────────────────────────
 
 def _run_subtask(
     task: str,

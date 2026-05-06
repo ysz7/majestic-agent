@@ -91,6 +91,75 @@ def ps_agents() -> None:
     print()
 
 
+# ── Network presence ─────────────────────────────────────────────────────────
+
+def announce_agent(port: int, role: str = "") -> None:
+    """Called when API server starts — write role+URL into registry entry."""
+    import atexit
+    reg = read_registry()
+    # Find which entry matches MAJESTIC_HOME (current agent)
+    import os
+    home_str = os.environ.get("MAJESTIC_HOME", str(_AGENTS_ROOT))
+    for name, info in reg.items():
+        if Path(info.get("home", "")).expanduser().resolve() == Path(home_str).expanduser().resolve():
+            info["role"] = role
+            info["url"]  = f"http://localhost:{port}"
+            _write_registry(reg)
+            atexit.register(deannounce_agent)
+            return
+    # Default agent not in registry — nothing to announce
+
+
+def deannounce_agent() -> None:
+    """Remove role/url from registry entry on shutdown."""
+    import os
+    reg = read_registry()
+    home_str = os.environ.get("MAJESTIC_HOME", str(_AGENTS_ROOT))
+    for info in reg.values():
+        if Path(info.get("home", "")).expanduser().resolve() == Path(home_str).expanduser().resolve():
+            info.pop("role", None)
+            info.pop("url", None)
+            _write_registry(reg)
+            return
+
+
+def find_agent_url(name_or_url: str) -> str | None:
+    """Resolve a name from registry or return the URL if it's already an HTTP URL."""
+    if name_or_url.startswith("http://") or name_or_url.startswith("https://"):
+        return name_or_url
+    reg = read_registry()
+    entry = reg.get(name_or_url)
+    if not entry:
+        return None
+    url = entry.get("url")
+    if not url:
+        port = entry.get("port")
+        url = f"http://localhost:{port}" if port else None
+    return url
+
+
+def pick_delegate(task: str) -> str | None:
+    """Keyword-match task against agent roles in delegates_to list. Returns name or URL."""
+    try:
+        from majestic.config import get
+        delegates: list = get("agent.delegates_to", []) or []
+    except Exception:
+        return None
+    if not delegates:
+        return None
+    reg = read_registry()
+    task_words = set(task.lower().split())
+    best_name, best_score = None, 0
+    for target in delegates:
+        if target.startswith("http"):
+            continue
+        role = (reg.get(target) or {}).get("role", "").lower()
+        score = sum(1 for w in task_words if w in role)
+        if score > best_score:
+            best_score, best_name = score, target
+    return best_name if best_score > 0 else None
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _next_free_port(reg: dict) -> int:
