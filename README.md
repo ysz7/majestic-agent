@@ -2,14 +2,14 @@
 
 <img src="docs/assets/majestic-cli-logo.png" alt="Majestic" width="480">
 
-**The agent that gets it done.**
+**Build Vertical AI Agents Without the Bloat.**
 
-Not a chatbot. Not a command menu. A universal agent-executor — runs on your laptop or VPS, executes any task in plain language, across every platform.
+Lean agent infrastructure — local or cloud LLMs, persistent memory, tool execution, multi-agent network. One command to install, one config to specialize.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.11+-red.svg)](https://python.org)
 [![Version](https://img.shields.io/badge/version-0.16.0-red.svg)](https://github.com/ysz7/majestic-agent)
-[![Tests](https://img.shields.io/badge/tests-110%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-148%20passed-brightgreen.svg)](tests/)
 [![Docs](https://img.shields.io/badge/docs-read-blue.svg)](https://ysz7.github.io/majestic-agent/docs)
 
 </div>
@@ -18,19 +18,17 @@ Not a chatbot. Not a command menu. A universal agent-executor — runs on your l
 
 ## ♛ What is Majestic?
 
-Majestic is a **universal agent-executor**. Give it a task in plain language — it picks the right tools and executes. Research, market data, file work, automations — all from one agent, on any platform.
+Majestic is a **lean AI agent core** designed to be specialized into vertical solutions. Take it, wire in your domain tools, set the role, ship.
 
 ```
-  majestic ▶ Research BTC market and send briefing to Telegram
+  majestic ▶ Analyze support tickets from last week and summarize top issues
 
- ┌ web_search
+ ┌ read_file("tickets.csv")
  ├ Working... ⠹
- ├ get_market_data
- ├ Working... ⠸
- ├ get_briefing
- └ Done · 3 tool calls · $0.004 · 8.2s
+ ├ run_python(analysis script)
+ └ Done · 2 tool calls · $0.003 · 4.1s
 
-  BTC is trading at $67,420 (+2.4%)...
+  Top issues: billing (38%), login (24%), performance (21%)...
 ```
 
 ---
@@ -45,7 +43,7 @@ After install:
 
 ```bash
 majestic setup    # interactive wizard — API keys, model, language
-majestic          # launch agent
+majestic          # launch agent REPL
 ```
 
 Restart your terminal (or `source ~/.bashrc`) after install so `majestic` is on PATH.
@@ -78,7 +76,7 @@ majestic setup
 
 ```bash
 cp .env.example .env
-# fill ANTHROPIC_API_KEY and TELEGRAM_BOT_TOKEN in .env
+# fill ANTHROPIC_API_KEY in .env
 docker compose up -d
 ```
 
@@ -90,37 +88,23 @@ Data persists in `~/.majestic-agent/` on the host. Health check at `http://local
 
 | Feature | Details |
 |---|---|
-| **Universal Execution** | Any task in plain language — agent picks the right tools |
-| **Persistent Memory** | Remembers preferences, context, and skills across sessions |
-| **Hybrid Search** | FTS5 + vector search across all data: news, docs, history, reports |
-| **Modular Tools** | Drop a file in `tools/` — registered automatically on next start |
-| **Automations** | Natural language scheduling delivered to any platform |
-| **4 LLM Providers** | Anthropic, OpenAI, OpenRouter, Ollama — switch with `majestic model` |
+| **Lean Core** | ~20 focused tools — web, files, code execution, memory, scheduling |
+| **Vertical-Ready** | Set `agent.role` + drop domain tools in `tools/` — registered automatically |
+| **Persistent Memory** | Remembers context and skills across sessions |
+| **Hybrid Search** | FTS5 + vector search across docs, history, and memory |
+| **4 LLM Providers** | Anthropic, OpenAI, OpenRouter, Ollama — switch anytime |
+| **Multi-Agent Network** | Named agents, delegation, auto-routing between specialized instances |
 | **REST API** | `POST /chat`, `GET /health`, `GET /sessions` — connect any UI or script |
 | **MCP Integration** | Any MCP server becomes agent tools instantly — no Python code |
-| **Discord Gateway** | Full Discord bot with slash commands, on par with Telegram |
-| **Agent Specialization** | Set `agent.role` + `tools_enabled` in config to fork for any domain |
-| **Conversation History** | `/history <query>` — search and summarize past conversations with LLM |
-| **Web Dashboard** | Browser UI — chat, memory editor, skill CRUD, tables, monitoring |
-| **Script Library** | Agent creates reusable Python scripts from experience, auto-discovered each session |
-| **Self-Improving** | Adaptive profile + skill self-improvement; grows more capable with use |
+| **Web Dashboard** | Browser UI — chat, memory editor, skill CRUD, file manager, settings |
+| **Telegram Gateway** | Full bot integration — same agent, any device |
+| **Script Library** | Agent creates reusable Python scripts, auto-discovered each session |
 | **Docker Ready** | One command deploy with persistent volume and health endpoint |
-| **Tested** | 110 unit tests across all critical paths, GitHub Actions CI |
+| **Tested** | 148 unit tests across all critical paths, GitHub Actions CI |
 
 ---
 
 ## Commands
-
-### Agent tools
-
-```
-/research              collect intel from all sources (HN, Reddit, GitHub, arXiv...)
-/briefing [days]       market + tech briefing (default 14 days)
-/market                crypto · stocks · forex snapshot
-/news [N]              latest N news items sorted by relevance
-/report <topic>        deep report on any topic
-/ideas                 business ideas generated from recent signals
-```
 
 ### Memory & skills
 
@@ -134,7 +118,6 @@ Data persists in `~/.majestic-agent/` on the host. Health check at `http://local
 
 ```
 /model                 switch LLM provider or model
-/set                   show or change agent.role, tools_enabled, tools_disabled
 /history <query>       search past conversations with LLM summarization
 /history last [N]      show last N sessions with one-line summaries
 /usage [reset]         token usage and cost stats
@@ -143,30 +126,64 @@ Data persists in `~/.majestic-agent/` on the host. Health check at `http://local
 /schedule remove <id>  remove a schedule
 /remind <text>         add a natural-language reminder
 /reminders             list active reminders
-/rss list              list RSS feeds
-/rss add <url>         add RSS feed
-/rss remove <id>       remove RSS feed
-/reports               list saved reports
-/reports view <N>      view a report
-/reports del <N>       delete a report
 /stop                  interrupt current task
 /exit                  save session memory and quit
 ```
 
 ---
 
-## Toolsets
+## Multi-Agent Setup
 
-Tools are grouped by domain. The agent selects automatically based on the task.
+Run multiple specialized agents and let them delegate to each other:
+
+```bash
+# Create named agents
+majestic init finance_bot
+majestic init support_agent
+
+# Launch each in its own terminal
+majestic finance_bot
+majestic support_agent
+
+# Manage all agents
+majestic list    # all agents + status (● running / ○ stopped)
+majestic ps      # running only
+```
+
+Each agent has isolated data: config, state.db, memory, skills — all under `~/.majestic-agent/<name>/`.
+
+Agents can delegate tasks to each other:
+
+```python
+# Inside finance_bot, the agent can call:
+delegate_task(task="summarize open tickets", to="support_agent")
+```
+
+Configure which agents an instance can route to:
+
+```yaml
+# ~/.majestic-agent/finance_bot/config.yaml
+agent:
+  name: finance_bot
+  role: "Financial analyst — handles portfolio queries and investment research."
+  delegates_to:
+    - support_agent          # local named agent
+    - http://10.0.0.2:8081   # remote agent URL
+```
+
+---
+
+## Tools
 
 ```
 tools/
-├── web/           web_search · web_extract
-├── research/      news · briefing · report · predict · flows · ideas
-├── files/         read_file · write_file · index (pdf, docx, csv, md)
-├── system/        terminal
-├── history_search search + LLM-summarize past conversations
-└── db_search      unified search across all indexed data  ← core
+├── web/        web_search · http_request · web_extract
+├── files/      read_file · write_file · copy_file · workspace_*
+├── system/     run_python · run_command
+├── memory/     remember · db_search · history_search
+├── scripts/    save_script · list_scripts · run_script
+├── agent/      delegate_task · delegate_parallel
+└── utils/      get_datetime · get_news
 ```
 
 MCP tools are registered automatically from any configured MCP server:
@@ -213,18 +230,29 @@ def my_tool(query: str) -> str:
 
 ---
 
-## Automations
+## Specialization
 
-Schedule any task in plain language:
+Fork for any domain without touching source code:
 
+```yaml
+# ~/.majestic-agent/config.yaml
+agent:
+  role: "You are a support specialist. Analyze tickets, identify patterns, draft responses."
 ```
-/schedule add "every Monday at 9am, send me a market briefing on Telegram"
-/schedule add "daily at 7am, research AI news and brief me"
-/schedule list
-/schedule remove 2
+
+Or from within the REPL:
+```
+/set role You are a DevOps specialist focused on infrastructure monitoring.
 ```
 
-The scheduler runs in the background and delivers to Telegram or CLI.
+MCP servers in config — any MCP-compatible source becomes agent tools:
+```yaml
+mcp_servers:
+  - name: github
+    command: ["npx", "-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+```
 
 ---
 
@@ -233,13 +261,12 @@ The scheduler runs in the background and delivers to Telegram or CLI.
 | Provider | Notes |
 |---|---|
 | **Anthropic** | `ANTHROPIC_API_KEY` — direct SDK, best tool use |
-| **OpenAI** | `OPENAI_API_KEY` — GPT-4o, o1, o3-mini |
-| **OpenRouter** | `OPENROUTER_API_KEY` — route to any model (Claude, GPT, Gemini, Llama) |
+| **OpenAI** | `OPENAI_API_KEY` — GPT-4o, o3-mini |
+| **OpenRouter** | `OPENROUTER_API_KEY` — route to any model (Claude, GPT, Gemini, Llama, free tier available) |
 | **Ollama** | local models — no API key, set `llm.provider: ollama` |
 
 ```bash
-majestic model    # interactive model selector
-/model            # same, from within the REPL
+majestic setup    # configure provider and model interactively
 ```
 
 ---
@@ -248,21 +275,16 @@ majestic model    # interactive model selector
 
 ```
 CLI (terminal)   ──┐
-Telegram bot     ──┤
-Discord bot      ──┤── majestic (local / VPS) ──→ LLM ──→ tools
+Telegram bot     ──┤── majestic (local / VPS) ──→ LLM ──→ tools
 REST API         ──┤
-Web Dashboard    ──┤
-Cron / schedule  ──┘
+Web Dashboard    ──┘
 ```
 
 ```bash
-majestic gateway start telegram   # Telegram only
-majestic gateway start discord    # Discord only
-majestic gateway start all        # Telegram + Discord simultaneously
+majestic gateway start telegram   # Telegram bot
 majestic api start                # REST API on port 8080
-majestic dashboard                # Web dashboard on port 5173 (dev) or built into API
-# or as a systemd service:
-./scripts/install.sh --service
+majestic dashboard                # Web dashboard
+./scripts/install.sh --service    # systemd auto-start
 ```
 
 ### REST API
@@ -287,53 +309,19 @@ Auth: set `api.key` in `config.yaml`, send as `X-API-Key` header.
 ```
 ~/.majestic-agent/
 ├── state.db               # SQLite — sessions, messages, news, vectors, schedules
-├── config.yaml            # settings: language, model, search_mode
+├── config.yaml            # settings: language, model, role
 ├── .env                   # API keys (never committed)
+├── .registry.json         # named agent registry (ports, roles, status)
 ├── memory/
 │   ├── memory.md          # agent memory
 │   └── user.md            # user profile
 ├── skills/                # user-defined skills (*.md)
-├── exports/               # generated briefings, reports, ideas
+├── exports/               # generated reports and outputs
 ├── workspace/             # indexed uploaded files
-└── backups/               # daily auto-backups (.zip)
-```
-
-Backup everything:
-```bash
-tar -czf majestic-backup.tar.gz ~/.majestic-agent/
-```
-
----
-
-## Specialization
-
-Fork for any domain without touching source code:
-
-```yaml
-# ~/.majestic-agent/config.yaml
-agent:
-  role: "You are a trading specialist. Focus on market analysis and signals."
-  tools_enabled:
-    - get_market_data
-    - web_search
-    - run_research
-```
-
-Or from within the REPL:
-```
-/set role You are a DevOps specialist focused on infrastructure.
-/set tools_enabled terminal,web_search,read_file
-```
-
-MCP servers in config — any MCP-compatible source becomes agent tools:
-```yaml
-mcp_servers:
-  - name: filesystem
-    command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/home/user"]
-  - name: github
-    command: ["npx", "-y", "@modelcontextprotocol/server-github"]
-    env:
-      GITHUB_TOKEN: "${GITHUB_TOKEN}"
+└── <agent_name>/          # isolated named agent instances
+    ├── config.yaml
+    ├── state.db
+    └── memory/
 ```
 
 ---
@@ -344,17 +332,17 @@ Max 300 lines per file, one responsibility per module:
 
 ```
 majestic/
-├── agent/        loop.py · prompt.py · delegate.py · runner.py
+├── agent/        loop.py · prompt.py · delegate.py
 ├── api/          server.py  ← REST API (stdlib, no FastAPI dep)
 ├── db/           state.py · embedder.py · parser.py
 ├── llm/          base.py · anthropic.py · openai.py · openrouter.py · ollama.py
-├── mcp/          client.py · bridge.py  ← MCP stdio JSON-RPC client
-├── memory/       store.py · nudge.py · session_summarizer.py
-├── tools/        registry.py · web/ · research/ · files/ · system/ · history_search.py
+├── mcp/          client.py · bridge.py
+├── memory/       store.py · session_summarizer.py
+├── tools/        registry.py · web/ · files/ · system/ · scripts/ · history_search.py
 ├── skills/       loader.py
-├── gateway/      base.py · telegram.py · discord.py · health.py · formatter.py
+├── gateway/      base.py · telegram.py · health.py · formatter.py
 ├── cron/         scheduler.py · jobs.py
-└── cli/          main.py · repl.py · repl_helpers.py · display.py · setup.py
+└── cli/          main.py · repl.py · repl_helpers.py · display.py · setup.py · agents.py
 ```
 
 ---
@@ -363,21 +351,8 @@ majestic/
 
 ```bash
 pytest tests/ -v
-# 110 passed in ~1.2s
+# 148 passed in ~1.2s
 ```
-
-| File | What's tested |
-|---|---|
-| `test_db.py` | Sessions, messages, FTS5 search, news, vector chunks |
-| `test_memory.py` | Load, append, dedup, forget, show |
-| `test_llm.py` | ToolCall, Usage, MockProvider, OpenAI/OpenRouter providers |
-| `test_tools.py` | Register, execute, schema, error handling |
-| `test_cron.py` | CRUD, get_due, mark_ran, nl_to_schedule |
-| `test_agent.py` | Single turn, history, tool calls, stop signal, iteration cap |
-| `test_api.py` | /health, /sessions, /chat, /run, auth, errors |
-| `test_history.py` | FTS5 search, grouped results, LLM summarization, /history command |
-| `test_mcp.py` | Client start/stop, tool listing, tool calls, bridge registration |
-| `test_discord.py` | render_discord, chunk_discord, DiscordPlatform interface |
 
 ---
 
@@ -385,7 +360,7 @@ pytest tests/ -v
 
 Full reference documentation: **[https://ysz7.github.io/majestic-agent/docs](https://ysz7.github.io/majestic-agent/docs)**
 
-Covers CLI commands, tools, memory, scheduling, configuration, LLM providers, REST API, gateways, MCP, and customization.
+Covers CLI commands, tools, memory, scheduling, configuration, LLM providers, REST API, gateways, MCP, multi-agent setup, and building vertical agents.
 
 ---
 
