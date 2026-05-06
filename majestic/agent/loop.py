@@ -93,8 +93,8 @@ class AgentLoop:
                     _fire_background(session_id, content, list(tools_used))
                 return {"answer": content, "sources": sources}
 
-            # Drop tool calls with names not in the registry (e.g. hallucinated browser API calls)
-            resp = _filter_tool_calls(resp, session_id, sources, tools_used)
+            # Drop tool calls with names not in the offered schema (hallucinations / MCP browser)
+            resp = _filter_tool_calls(resp, tool_schemas, session_id, sources, tools_used)
             if not resp.tool_calls:
                 if session_id: _save_msg(session_id, "assistant", resp.content or ""); _fire_background(session_id, resp.content or "", list(tools_used))
                 return {"answer": resp.content, "sources": sources}
@@ -286,11 +286,13 @@ def _track(resp) -> None:
     except Exception: pass
 
 
-def _filter_tool_calls(resp: "LLMResponse", session_id, sources, tools_used) -> "LLMResponse":
-    """Remove tool calls whose names are not in the registry (hallucinations / MCP browser calls)."""
-    from majestic.tools.registry import _registry as _reg
-    valid = [tc for tc in resp.tool_calls if tc.name in _reg]
-    invalid = [tc.name for tc in resp.tool_calls if tc.name not in _reg]
+def _filter_tool_calls(resp: "LLMResponse", tool_schemas, session_id, sources, tools_used) -> "LLMResponse":
+    """Remove tool calls whose names are not in the offered schema (hallucinations / MCP browser)."""
+    if not tool_schemas:
+        return resp
+    valid_names = {t.get("name") for t in tool_schemas}
+    valid = [tc for tc in resp.tool_calls if tc.name in valid_names]
+    invalid = [tc.name for tc in resp.tool_calls if tc.name not in valid_names]
     if not invalid:
         return resp
     note = f"\n(attempted unknown tools: {', '.join(invalid)})"

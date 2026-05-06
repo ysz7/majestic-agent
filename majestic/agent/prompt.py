@@ -119,8 +119,8 @@ def _user_tables_schema() -> str:
     """Return a compact schema listing for all user_ tables in state.db."""
     try:
         import sqlite3
-        from majestic.constants import DB_PATH
-        con = sqlite3.connect(DB_PATH)
+        import majestic.constants as _mc
+        con = sqlite3.connect(str(_mc.DB_PATH))
         rows = con.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'user_%'"
         ).fetchall()
