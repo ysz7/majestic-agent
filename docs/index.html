@@ -1030,7 +1030,7 @@
         <div class="cap-card">
           <span class="cap-num">03</span>
           <div class="cap-title">Universal Search</div>
-          <p class="cap-desc">One query across news, docs, market data, and all past conversations. Hybrid FTS5 + vector search.</p>
+          <p class="cap-desc">One query across indexed docs, news, and all past conversations. Hybrid FTS5 + vector search.</p>
           <div class="cap-tags"><span class="cap-tag">sqlite-vec</span><span class="cap-tag">fts5</span></div>
         </div>
         <div class="cap-card">
@@ -1042,7 +1042,7 @@
         <div class="cap-card">
           <span class="cap-num">05</span>
           <div class="cap-title">Cron Automations</div>
-          <p class="cap-desc">"Every Monday at 9am, send me a market briefing" — plain language scheduling, delivered to any platform.</p>
+          <p class="cap-desc">"Every Monday at 9am, brief me on AI news" — plain language scheduling, delivered to any platform.</p>
           <div class="cap-tags"><span class="cap-tag">apscheduler</span></div>
         </div>
         <div class="cap-card">
@@ -1207,11 +1207,10 @@
           </div>
         </div>
         <div class="storage-diagram">
-          <div class="diag-title">~/.majestic/state.db</div>
+          <div class="diag-title">~/.majestic-agent/state.db</div>
           <div class="diag-sources">
             <div class="diag-source"><span class="diag-src-dot" style="background:var(--blue)"></span>conversations</div>
-            <div class="diag-source"><span class="diag-src-dot" style="background:oklch(0.55 0.15 300)"></span>news · signals</div>
-            <div class="diag-source"><span class="diag-src-dot" style="background:oklch(0.60 0.15 85)"></span>market data</div>
+            <div class="diag-source"><span class="diag-src-dot" style="background:oklch(0.55 0.15 300)"></span>news · web</div>
             <div class="diag-source"><span class="diag-src-dot" style="background:var(--accent)"></span>documents</div>
             <div class="diag-source"><span class="diag-src-dot" style="background:oklch(0.50 0.10 220)"></span>reports</div>
             <div class="diag-source" style="border-style:dashed"><span class="diag-src-dot" style="background:var(--text3)"></span>indexed</div>
@@ -1222,8 +1221,7 @@
             <div class="diag-tables">
               <div class="diag-table"><span class="diag-table-name">sessions · messages</span><span class="diag-table-type">FTS5</span></div>
               <div class="diag-table"><span class="diag-table-name">messages_fts</span><span class="diag-table-type">BM25</span></div>
-              <div class="diag-table"><span class="diag-table-name">market_history</span><span class="diag-table-type">SQL</span></div>
-              <div class="diag-table"><span class="diag-table-name">vectors</span><span class="diag-table-type">sqlite-vec</span></div>
+                            <div class="diag-table"><span class="diag-table-name">vectors</span><span class="diag-table-type">sqlite-vec</span></div>
               <div class="diag-table"><span class="diag-table-name">schedules</span><span class="diag-table-type">cron</span></div>
             </div>
           </div>
@@ -1274,7 +1272,7 @@
       <div class="platform-diagram">
         <div class="pd-line"><span class="pd-source">Terminal → CLI</span><span class="pd-arrow">────────┐</span></div>
         <div class="pd-line"><span class="pd-source">Phone → Telegram</span><span class="pd-arrow">────────┤</span></div>
-        <div class="pd-line"><span class="pd-source">Server → Discord</span><span class="pd-arrow">────────┤──&nbsp;</span><span class="pd-core">majestic</span><span class="pd-arrow">&nbsp;→&nbsp;</span><span class="pd-llm">LLM</span></div>
+        <div class="pd-line"><span class="pd-source">Agent → Network</span><span class="pd-arrow">────────┤──&nbsp;</span><span class="pd-core">majestic</span><span class="pd-arrow">&nbsp;→&nbsp;</span><span class="pd-llm">LLM</span></div>
         <div class="pd-line"><span class="pd-source">Script → REST API</span><span class="pd-arrow">────────┤</span></div>
         <div class="pd-line"><span class="pd-source">Timer → Cron</span><span class="pd-arrow">────────┘</span></div>
       </div>

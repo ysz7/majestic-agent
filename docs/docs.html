@@ -717,10 +717,12 @@ majestic gateway start telegram  # Telegram bot`}</CodeBlock>
 )
 def get_price(ticker: str) -> str:
     import requests
-    # your data source here
     r = requests.get(f"https://api.example.com/price/{ticker}", timeout=5)
     data = r.json()
-    return f"{ticker}: ${data['price']:,.2f} ({data['change_24h']:+.1f}%)"
+    price  = data.get("price", 0)
+    change = data.get("change_24h", 0)
+    usd = "$"
+    return f"{ticker}: {usd}{price:,.2f} ({change:+.1f}%)"
 `}</CodeBlock>
 
           <Callout type="info">

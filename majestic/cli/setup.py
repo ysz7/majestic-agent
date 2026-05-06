@@ -27,22 +27,22 @@ _OPENAI_MODELS = [
 
 _OPENROUTER_MODELS = [
     "anthropic/claude-sonnet-4-6",
+    "anthropic/claude-opus-4-7",
     "openai/gpt-4o",
+    "openai/gpt-4o-mini",
+    "openai/o3-mini",
     "google/gemini-2.5-pro",
-    "meta-llama/llama-3.1-70b-instruct",
-]
-
-_MINIMAX_MODELS = [
-    "MiniMax-Text-01",
-    "abab6.5s-chat",
-    "abab6.5g-chat",
+    "google/gemini-2.5-flash",
+    "meta-llama/llama-3.3-70b-instruct",
+    "mistralai/mistral-large",
+    "deepseek/deepseek-r1",
+    "qwen/qwen-2.5-72b-instruct",
 ]
 
 _MODELS: dict[str, list[str]] = {
     "anthropic":  _ANTHROPIC_MODELS,
     "openai":     _OPENAI_MODELS,
     "openrouter": _OPENROUTER_MODELS,
-    "minimax":    _MINIMAX_MODELS,
 }
 
 
@@ -130,10 +130,13 @@ def run_setup() -> None:
     else:
         model_list = _MODELS.get(provider, [])
         current_model = data.get("llm", {}).get("model", model_list[0] if model_list else "")
-        midx = model_list.index(current_model) if current_model in model_list else 0
-        midx = choose("Model", model_list + ["Enter manually"], default=midx)
+        if current_model in model_list:
+            default_m = model_list.index(current_model)
+        else:
+            default_m = len(model_list)
+        midx = choose("Model", model_list + ["Enter manually"], default=default_m)
         if midx == len(model_list):
-            model = ask("Model name")
+            model = ask("Model name", current_model)
         else:
             model = model_list[midx]
 
@@ -190,7 +193,7 @@ def select_model() -> None:
 
     print(f"\n  {B}Current:{R} {provider} / {current}\n")
 
-    _providers = ["anthropic", "openai", "openrouter", "ollama", "minimax"]
+    _providers = ["anthropic", "openai", "openrouter", "ollama"]
     default_p = _providers.index(provider) if provider in _providers else 0
     pidx = choose("Provider", _providers, default=default_p)
     provider = _providers[pidx]
@@ -205,10 +208,14 @@ def select_model() -> None:
         model = model_list[midx]
     else:
         model_list = _MODELS.get(provider, [])
-        midx = model_list.index(current) if current in model_list else 0
-        midx = choose("Model", model_list + ["Enter manually"], default=midx)
+        # If current model is not in list, pre-select "Enter manually"
+        if current in model_list:
+            default_m = model_list.index(current)
+        else:
+            default_m = len(model_list)  # points to "Enter manually"
+        midx = choose("Model", model_list + ["Enter manually"], default=default_m)
         if midx == len(model_list):
-            model = ask("Model name")
+            model = ask("Model name", current)  # pre-fill with current custom value
         else:
             model = model_list[midx]
 

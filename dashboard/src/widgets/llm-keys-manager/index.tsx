@@ -29,15 +29,27 @@ import {
 } from '@/components/ui/dialog'
 import { Trash2, Plus, Check } from 'lucide-react'
 
-const PROVIDERS = ['anthropic', 'ollama', 'openrouter']
-const ANTHROPIC_MODELS = ['claude-sonnet-4-6', 'claude-opus-4-7', 'claude-haiku-4-5-20251001']
-const OPENROUTER_MODELS = [
-  'openai/gpt-4o',
-  'openai/gpt-4o-mini',
-  'google/gemini-2.0-flash',
-  'meta-llama/llama-3.3-70b-instruct',
-  'anthropic/claude-sonnet-4-6',
-]
+const PROVIDERS = ['anthropic', 'openai', 'openrouter', 'ollama']
+
+const MODEL_LISTS: Record<string, string[]> = {
+  anthropic: ['claude-sonnet-4-6', 'claude-opus-4-7', 'claude-haiku-4-5-20251001'],
+  openai: ['gpt-4o', 'gpt-4o-mini', 'o3-mini', 'o1'],
+  openrouter: [
+    'anthropic/claude-sonnet-4-6',
+    'anthropic/claude-opus-4-7',
+    'openai/gpt-4o',
+    'openai/gpt-4o-mini',
+    'openai/o3-mini',
+    'google/gemini-2.5-pro',
+    'google/gemini-2.5-flash',
+    'meta-llama/llama-3.3-70b-instruct',
+    'mistralai/mistral-large',
+    'deepseek/deepseek-r1',
+    'qwen/qwen-2.5-72b-instruct',
+  ],
+}
+
+const CUSTOM_SENTINEL = '__custom__'
 
 const EMPTY_FORM = { name: '', provider: 'anthropic', model: '', api_key: '', ollama_url: '' }
 
@@ -91,6 +103,7 @@ export function LlmKeysManager() {
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [customModel, setCustomModel] = useState(false)
 
   const { data: configs = [], isLoading } = useQuery({
     queryKey: ['llm-configs'],
@@ -115,6 +128,7 @@ export function LlmKeysManager() {
       invalidate()
       setOpen(false)
       setForm(EMPTY_FORM)
+      setCustomModel(false)
     },
   })
 
@@ -131,10 +145,36 @@ export function LlmKeysManager() {
   const setField = (key: keyof typeof EMPTY_FORM, val: string) =>
     setForm((f) => ({ ...f, [key]: val }))
 
+  const changeProvider = (v: string | null) => {
+    if (!v) return
+    setForm((f) => ({ ...f, provider: v, model: '' }))
+    setCustomModel(false)
+  }
+
+  const changeModel = (v: string | null) => {
+    if (!v) return
+    if (v === CUSTOM_SENTINEL) {
+      setCustomModel(true)
+      setField('model', '')
+    } else {
+      setCustomModel(false)
+      setField('model', v)
+    }
+  }
+
   const openAdd = () => {
     setForm(EMPTY_FORM)
+    setCustomModel(false)
     setOpen(true)
   }
+
+  const selectValue = customModel ? CUSTOM_SENTINEL : (form.model || undefined)
+  const customPlaceholder =
+    form.provider === 'openrouter'
+      ? 'e.g. mistralai/mixtral-8x22b-instruct'
+      : form.provider === 'openai'
+      ? 'e.g. gpt-4-turbo'
+      : 'e.g. claude-3-5-sonnet-20241022'
 
   return (
     <>
@@ -184,10 +224,7 @@ export function LlmKeysManager() {
 
             <div className="space-y-1.5">
               <Label>Provider</Label>
-              <Select
-                value={form.provider}
-                onValueChange={(v) => setForm((f) => ({ ...f, provider: v as string, model: '' }))}
-              >
+              <Select value={form.provider} onValueChange={changeProvider}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -203,54 +240,75 @@ export function LlmKeysManager() {
 
             <div className="space-y-1.5">
               <Label>Model</Label>
+
               {form.provider === 'anthropic' && (
-                <Select
-                  value={form.model || undefined}
-                  onValueChange={(v) => setField('model', v as string)}
-                >
+                <Select key="anthropic" value={selectValue} onValueChange={changeModel}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select model" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ANTHROPIC_MODELS.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
+                    {MODEL_LISTS.anthropic.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
                     ))}
+                    <SelectItem value={CUSTOM_SENTINEL}>
+                      <span className="text-muted-foreground">Custom model…</span>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               )}
+
+              {form.provider === 'openai' && (
+                <Select key="openai" value={selectValue} onValueChange={changeModel}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MODEL_LISTS.openai.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                    <SelectItem value={CUSTOM_SENTINEL}>
+                      <span className="text-muted-foreground">Custom model…</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
               {form.provider === 'openrouter' && (
-                <Select
-                  value={form.model || undefined}
-                  onValueChange={(v) => setField('model', v as string)}
-                >
+                <Select key="openrouter" value={selectValue} onValueChange={changeModel}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select model" />
                   </SelectTrigger>
                   <SelectContent>
-                    {OPENROUTER_MODELS.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
+                    {MODEL_LISTS.openrouter.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
                     ))}
+                    <SelectItem value={CUSTOM_SENTINEL}>
+                      <span className="text-muted-foreground">Custom model…</span>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               )}
+
+              {/* Custom model input — shown when "Custom model…" selected */}
+              {customModel && (
+                <Input
+                  autoFocus
+                  placeholder={customPlaceholder}
+                  value={form.model}
+                  onChange={(e) => setField('model', e.target.value)}
+                />
+              )}
+
+              {/* Ollama — list from server or free-form input */}
               {form.provider === 'ollama' &&
                 (ollamaModels.length > 0 ? (
-                  <Select
-                    value={form.model || undefined}
-                    onValueChange={(v) => setField('model', v as string)}
-                  >
+                  <Select key="ollama" value={form.model || undefined} onValueChange={(v) => setField('model', v ?? '')}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select installed model" />
                     </SelectTrigger>
                     <SelectContent>
                       {ollamaModels.map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m}
-                        </SelectItem>
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -293,7 +351,7 @@ export function LlmKeysManager() {
             </Button>
             <Button
               onClick={() => create.mutate()}
-              disabled={!form.name || !form.provider || create.isPending}
+              disabled={!form.name || !form.provider || !form.model || create.isPending}
             >
               {create.isPending ? 'Saving…' : 'Save'}
             </Button>
