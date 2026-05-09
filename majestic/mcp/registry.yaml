@@ -1,0 +1,13 @@
+servers:
+  git:
+    runtime: python
+    package: "mcp-server-git"
+    description: "git repository operations"
+  github:
+    runtime: node
+    package: "@modelcontextprotocol/server-github"
+    description: "GitHub API operations"
+  sqlite_mcp:
+    runtime: python
+    package: "mcp-server-sqlite"
+    description: "SQLite database operations"

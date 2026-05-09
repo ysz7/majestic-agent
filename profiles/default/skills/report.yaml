@@ -1,0 +1,8 @@
+name: "report"
+description: "Generate a structured report on a topic"
+triggers: ["write a report", "create report", "generate report", "make a report"]
+steps:
+  - "Gather relevant information"
+  - "Structure as: Executive Summary, Key Findings, Details, Conclusion"
+  - "Write in professional tone"
+  - "Keep concise — 300-500 words unless specified"

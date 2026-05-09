@@ -1,0 +1,8 @@
+name: "research"
+description: "Research a topic using web search and synthesis"
+triggers: ["research", "find information", "look up", "investigate"]
+steps:
+  - "Search the web for the topic"
+  - "Fetch top 2-3 results for details"
+  - "Synthesize findings into a clear summary"
+  - "Include source URLs"
