@@ -1,16 +1,14 @@
-name: "Assistant"
-role: "General purpose AI assistant"
-tone: "helpful, concise"
-language: "en"
-restrictions: []
-context: ""
-
-model_routing:
-  reason: "anthropic/claude-sonnet-4-5"
-  simple: "meta-llama/llama-3.1-8b-instruct:free"
-  code: "qwen/qwen-2.5-coder-32b-instruct"
-  reflection: "meta-llama/llama-3.1-8b-instruct:free"
-
+context: ''
+language: en
 limits:
+  max_cost_per_task: 0.0
   max_tokens_per_task: 0
-  max_cost_per_task: 0
+model_routing:
+  code: qwen/qwen-2.5-coder-32b-instruct
+  reason: anthropic/claude-sonnet-4-5
+  reflection: meta-llama/llama-3.1-8b-instruct:free
+  simple: meta-llama/llama-3.1-8b-instruct:free
+name: Assistant
+restrictions: []
+role: General purpose AI assistant
+tone: helpful, concise

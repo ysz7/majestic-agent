@@ -1,8 +1,9 @@
 class ReflectionEngine:
-    def __init__(self, llm_router, lessons_store, episodic_memory):
+    def __init__(self, llm_router, lessons_store, episodic_memory, self_evolution=None):
         self.llm = llm_router
         self.lessons = lessons_store
         self.episodic = episodic_memory
+        self.evolution = self_evolution  # SelfEvolution | None
 
     async def reflect(
         self,
@@ -12,13 +13,15 @@ class ReflectionEngine:
         tokens_used: int,
         cost: float,
         duration_s: float,
+        used_skill: str | None = None,
+        skill_quality_ok: bool = True,
     ) -> str:
         """
         1. Call LLM (simple model) with task + result + steps
         2. Ask: what went well, what failed, what principle to remember
         3. Extract lesson if one is found
-        4. Save to episodic memory
-        5. Save lesson to lessons DB
+        4. Save to episodic memory + lessons DB
+        5. Run SelfEvolution: skill generation, script promotion, parameterization
         Returns: reflection text
         """
         prompt = self._build_reflection_prompt(task, result, steps)
@@ -42,6 +45,19 @@ class ReflectionEngine:
             cost=cost,
             duration_s=duration_s,
         )
+
+        # Self-evolution: generate skills, promote scripts, fix failures
+        if self.evolution:
+            try:
+                await self.evolution.run(
+                    task=task,
+                    steps=steps,
+                    reflection=reflection_text,
+                    skill_quality_ok=skill_quality_ok,
+                    used_skill=used_skill,
+                )
+            except Exception:
+                pass  # evolution is non-fatal
 
         return reflection_text
 

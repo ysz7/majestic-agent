@@ -6,22 +6,26 @@ from .modules_manager import ModulesManager
 class NodeExecutor:
     TIMEOUT = 30
 
-    def __init__(self, workspace_dir: str):
+    def __init__(self, workspace_dir: str, script_tracker=None):
         self.workspace = Path(workspace_dir)
         self.modules = ModulesManager(workspace_dir)
+        self.tracker = script_tracker  # ScriptTracker | None
 
     async def run(self, code: str, install_packages: list[str] = None) -> str:
         """
         Write code to temp file, run with Node.js, return stdout+stderr.
-        Timeout: 30 seconds.
+        Timeout: 30 seconds. Records execution in ScriptTracker.
         """
         if install_packages:
             self.modules.npm_install(install_packages)
 
-        script_path = self.workspace / "workspace" / "tools" / "temp_script.js"
-        script_path.parent.mkdir(parents=True, exist_ok=True)
+        temp_dir = self.workspace / "workspace" / "temp"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        script_path = temp_dir / "temp_script.js"
         script_path.write_text(code)
 
+        success = False
+        output = ""
         try:
             proc = await asyncio.create_subprocess_exec(
                 "node",
@@ -36,12 +40,23 @@ class NodeExecutor:
             output = stdout.decode() + (
                 ("\nSTDERR:\n" + stderr.decode()) if stderr else ""
             )
+            success = proc.returncode == 0
             return output[:5000]
         except asyncio.TimeoutError:
             proc.kill()
-            return "Error: script timed out after 30 seconds"
+            output = "Error: script timed out after 30 seconds"
+            return output
         except FileNotFoundError:
-            return "Error: Node.js not found. Please install Node.js."
+            output = "Error: Node.js not found. Please install Node.js."
+            return output
+        finally:
+            if self.tracker:
+                self.tracker.record(
+                    lang="node",
+                    code=code,
+                    success=success,
+                    output=output,
+                )
 
     def tool_schema(self) -> dict:
         return {
