@@ -1,0 +1,18 @@
+name: repurpose_content
+description: Transform existing content into one or more different formats
+triggers:
+  - repurpose this
+  - turn this into
+  - convert this to
+  - repurpose content
+  - make a linkedin post from this
+  - make a thread from this
+steps:
+  - Read source content file
+  - Extract core argument, key points, examples, data
+  - Identify target format(s) requested
+  - For each target format: adapt structure, tone, length natively — no copy-paste
+  - Apply format-specific writing rules from write_[format].yaml skills
+  - Self-critique each repurposed piece
+  - Save each to appropriate output/ subdirectory
+  - Save metadata to content.db

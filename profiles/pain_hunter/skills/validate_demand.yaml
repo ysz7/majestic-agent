@@ -1,0 +1,15 @@
+name: validate_demand
+description: Validate demand for a pain cluster by searching for money signals
+triggers:
+  - validate demand
+  - check if people pay
+  - demand validation
+  - validate pain cluster
+steps:
+  - Search for existing paid tools solving this problem
+  - Search for freelance jobs doing this manually (manual work = automation opportunity)
+  - Search for elaborate workarounds — complex workarounds mean strong pain
+  - Estimate community size via subreddit subscribers, Quora followers, HN engagement
+  - Check AlternativeTo for how many people seek alternatives to existing tools
+  - Score validation 1-10: 1-3 unvalidated, 4-6 some signals, 7-8 strong signals, 9-10 people paying for bad solutions
+  - Save validation score and evidence to data/clusters.db

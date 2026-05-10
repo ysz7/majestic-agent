@@ -1,0 +1,17 @@
+name: write_twitter_thread
+description: Write a Twitter/X thread of 8-15 tweets, each standalone
+triggers:
+  - write a twitter thread
+  - twitter thread about
+  - x thread about
+  - write a thread
+  - tweet thread
+steps:
+  - Build brief (format=twitter_thread, topic, angle, audience)
+  - Research if no data provided
+  - Define angle — one bold claim to prove across the thread
+  - Write: Tweet 1 (hook/claim) → Tweets 2-4 (evidence) → Tweets 5-8 (how/why) → Tweets 9-13 (examples) → Tweet 14 (summary) → Tweet 15 (CTA)
+  - Number each tweet, ensure each is standalone and under 280 chars
+  - Self-critique — does tweet 1 hook? Does each tweet add value?
+  - Save to profiles/writer/workspace/output/social/twitter/[date]-[topic-slug].md
+  - Save metadata to content.db

@@ -1,0 +1,14 @@
+name: research_topic
+description: Research a topic via web search and fetch — used in Scenario 1 when no data is provided
+triggers:
+  - research this topic
+  - find information about
+  - look up background on
+  - gather data on
+steps:
+  - Run 3-5 targeted web_search queries for the topic
+  - Fetch top 2-3 URLs per query, focus on authoritative sources
+  - Extract key facts, statistics, quotes, examples
+  - Note source URLs for citation
+  - Structure findings as: key_points (list), statistics (list), examples (list), sources (list)
+  - Return structured research data to writing workflow

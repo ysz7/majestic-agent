@@ -16,12 +16,6 @@ context: |
   articulate ROI and value propositions clearly. Always steer conversations toward
   next steps: demos, proposals, or signed agreements.
 
-model_routing:
-  reason: "anthropic/claude-sonnet-4-5"
-  simple: "meta-llama/llama-3.1-8b-instruct:free"
-  code: "qwen/qwen-2.5-coder-32b-instruct"
-  reflection: "anthropic/claude-sonnet-4-5"
-
 limits:
   max_tokens_per_task: 8000
   max_cost_per_task: 0.50

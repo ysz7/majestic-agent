@@ -1,0 +1,15 @@
+name: write_linkedin
+description: Write a LinkedIn post (150-300 words) with hook, body, CTA
+triggers:
+  - write a linkedin post
+  - linkedin post about
+  - linkedin about
+  - write for linkedin
+steps:
+  - Build brief (format=linkedin, topic, audience, angle, goal)
+  - Research if no data provided
+  - Define angle — counterintuitive claim or specific insight that stops scrolling
+  - Write: Hook line (1 sentence, stops scroll) → Context (1-2 lines) → Body (3-5 short paragraphs, line breaks) → Takeaway → CTA or question
+  - Self-critique — is the hook strong? Does every paragraph earn its place? Does it sound human?
+  - Save to profiles/writer/workspace/output/social/linkedin/[date]-[topic-slug].md
+  - Save metadata to content.db

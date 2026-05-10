@@ -1,0 +1,16 @@
+name: write_email_sequence
+description: Write an email sequence of 3-7 emails with progressive narrative
+triggers:
+  - write an email sequence
+  - email sequence about
+  - email drip about
+  - nurture sequence
+  - sales email sequence
+steps:
+  - Build brief (format=email_sequence, product/topic, audience, goal=nurture|sales, num_emails=5)
+  - Research product/market if no data provided
+  - Define narrative arc: Email 1 (problem) → Email 2 (why solutions fail) → Email 3 (new approach) → Email 4 (proof) → Email 5 (offer/CTA)
+  - Write each email: subject line + preview text + body (100-200 words each)
+  - Self-critique — clear progression? Each email builds on previous? CTA timing right?
+  - Save each email to profiles/writer/workspace/output/email/[sequence-name]/email-[N].md
+  - Save metadata to content.db

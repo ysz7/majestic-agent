@@ -1,0 +1,15 @@
+name: extract_pain
+description: Extract structured pain points from raw scraped content using LLM analysis
+triggers:
+  - extract pain points
+  - analyze complaints
+  - find pain in content
+  - extract frustrations
+steps:
+  - Read raw content from the source file or input
+  - For each frustration, complaint, or workaround found, extract a structured pain object
+  - Pain fields: raw_quote, source_url, source_type, pain_summary, pain_type, intensity 1-10, social_proof count
+  - Pain types: time_waste | missing_tool | bad_ux | high_cost | manual_process
+  - Intensity scale: 1-3 minor, 4-6 frustrating, 7-8 nightmare, 9-10 losing money
+  - Save structured pain objects to data/pains.db via python_exec script db_pains.py
+  - Skip vague complaints — require specificity

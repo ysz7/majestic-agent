@@ -1,0 +1,18 @@
+name: write_script
+description: Write a video script (talking head or voiceover) or podcast script
+triggers:
+  - write a script
+  - video script about
+  - podcast script
+  - youtube script
+  - script for video
+steps:
+  - Build brief (format=script, type=video|podcast, topic, audience, duration_minutes, style=talking_head|voiceover|conversational)
+  - Research topic if no data provided
+  - Define hook for first 30 seconds — critical for retention
+  - Write with natural speech patterns: contractions, short sentences, pauses marked
+  - For video: [PAUSE], [TRANSITION], [B-ROLL: ...] cues
+  - For podcast: [HOST:], [GUEST:], [MUSIC:] cues, conversational transitions
+  - Self-critique — does it sound like natural speech when read aloud? Is pacing right?
+  - Save to profiles/writer/workspace/output/drafts/[date]-[title-slug].md
+  - Save metadata to content.db

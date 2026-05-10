@@ -1,0 +1,13 @@
+name: scan_indiehackers
+description: Scan Indie Hackers for pain points from bootstrapped founders
+triggers:
+  - scan indiehackers
+  - indie hackers pain points
+  - search indiehackers for problems
+steps:
+  - Run web_search with query: site:indiehackers.com "[niche]" problem OR frustration OR "wish there was"
+  - Run web_search with query: site:indiehackers.com "[niche]" "what was the problem you solved"
+  - Fetch top 5 results using web_fetch
+  - Look for interview sections describing the problem founders solved
+  - Save raw content to output/raw/[niche]/[date]/indiehackers.txt
+  - Call extract_pain skill on collected content

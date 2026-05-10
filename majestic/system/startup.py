@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import sqlite3
-import warnings
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -37,8 +36,9 @@ class StartupManager:
     # using a lightweight parse — no external dependency needed).
     _REQUIRED_PERSONA_KEYS = {"name", "role"}
 
-    # Required variable names that must appear in the .env file.
-    _REQUIRED_ENV_VARS = {"ANTHROPIC_API_KEY"}
+    # No specific env var is required — any provider is accepted.
+    # LLM key validation is done by Settings.validate() before startup runs.
+    _REQUIRED_ENV_VARS: set[str] = set()
 
     def __init__(self, settings) -> None:
         self.settings = settings
@@ -67,41 +67,22 @@ class StartupManager:
     # ------------------------------------------------------------------
 
     def _validate_settings(self) -> None:
-        """Validate that ``.env`` and ``persona.yaml`` exist and are valid.
+        """Validate that persona.yaml exists and has required keys.
 
-        Raises:
-            StartupError: on any missing file or invalid content.
+        Profile .env is optional — keys may come from the root .env.
+        LLM provider validation is handled by Settings.validate() before startup.
         """
-        env_path = Path(self._get("env_file", ".env"))
-        persona_path = Path(self._get("persona_file", "persona.yaml"))
+        # Resolve persona.yaml path: prefer settings.profile_dir, then fallback
+        profile_dir = getattr(self.settings, "profile_dir", None)
+        if profile_dir is not None:
+            persona_path = Path(profile_dir) / "persona.yaml"
+        else:
+            persona_path = Path(self._get("persona_file", "persona.yaml"))
 
-        # --- .env validation ---
-        if not env_path.exists():
-            raise StartupError(
-                f"Missing .env file at '{env_path}'. "
-                "Copy .env.example and fill in your API keys."
-            )
-
-        env_vars = self._parse_dotenv(env_path)
-        missing = self._REQUIRED_ENV_VARS - env_vars.keys()
-        if missing:
-            raise StartupError(
-                f".env is missing required variable(s): {', '.join(sorted(missing))}"
-            )
-
-        # Warn about empty values (but don't block startup).
-        empty = [k for k in self._REQUIRED_ENV_VARS if not env_vars.get(k, "").strip()]
-        for var in sorted(empty):
-            warnings.warn(
-                f"Environment variable '{var}' is set but has an empty value.",
-                stacklevel=2,
-            )
-
-        # --- persona.yaml validation ---
         if not persona_path.exists():
             raise StartupError(
-                f"Missing persona file at '{persona_path}'. "
-                "Create a persona.yaml describing your agent's identity."
+                f"Missing persona.yaml at '{persona_path}'. "
+                "Create it to define the agent's identity."
             )
 
         persona_keys = self._parse_yaml_keys(persona_path)
@@ -116,14 +97,23 @@ class StartupManager:
 
     def _ensure_dirs(self) -> None:
         """Create workspace and data directories if they do not exist."""
-        dirs = [
-            self._get("base_dir", "workspace"),
-            self._get("data_dir", "data"),
-            self._get("temp_dir", os.path.join("workspace", "temp")),
-            self._get("checkpoint_dir", os.path.join("data", "checkpoints")),
-        ]
-        for d in dirs:
-            path = Path(d)
+        # Prefer Settings properties (profile_dir-relative); fall back to dict keys.
+        profile_dir = getattr(self.settings, "profile_dir", None)
+        if profile_dir is not None:
+            dirs = [
+                Path(profile_dir) / "workspace",
+                Path(profile_dir) / "workspace" / "temp",
+                Path(profile_dir) / "data",
+                Path(profile_dir) / "data" / "checkpoints",
+            ]
+        else:
+            dirs = [
+                Path(self._get("base_dir", "workspace")),
+                Path(self._get("data_dir", "data")),
+                Path(self._get("temp_dir", os.path.join("workspace", "temp"))),
+                Path(self._get("checkpoint_dir", os.path.join("data", "checkpoints"))),
+            ]
+        for path in dirs:
             if not path.exists():
                 path.mkdir(parents=True, exist_ok=True)
                 logger.info("Created directory: %s", path)
@@ -138,20 +128,25 @@ class StartupManager:
         absolute).  An empty SQLite database file is created on first access
         simply by opening a connection and closing it immediately.
         """
-        databases: dict = self._get(
-            "databases",
-            {
-                "episodic": os.path.join("data", "episodic.db"),
-                "checkpoints": os.path.join("data", "checkpoints.db"),
-            },
-        )
+        profile_dir = getattr(self.settings, "profile_dir", None)
+        if profile_dir is not None:
+            data_dir = Path(profile_dir) / "data"
+            databases = {
+                "episodic": data_dir / "episodic.db",
+                "checkpoints": data_dir / "checkpoints.db",
+            }
+        else:
+            databases = {
+                k: Path(v) for k, v in self._get("databases", {
+                    "episodic": os.path.join("data", "episodic.db"),
+                    "checkpoints": os.path.join("data", "checkpoints.db"),
+                }).items()
+            }
 
         for name, db_path in databases.items():
             path = Path(db_path)
-            # Ensure parent directory exists.
             path.parent.mkdir(parents=True, exist_ok=True)
             if not path.exists():
-                # Opening a connection creates the file.
                 conn = sqlite3.connect(str(path))
                 conn.close()
                 logger.info("Initialized database '%s' at %s", name, path)
@@ -167,7 +162,11 @@ class StartupManager:
         each incomplete checkpoint so that the operator can decide what to
         do.
         """
-        checkpoint_dir = Path(self._get("checkpoint_dir", os.path.join("data", "checkpoints")))
+        profile_dir = getattr(self.settings, "profile_dir", None)
+        if profile_dir is not None:
+            checkpoint_dir = Path(profile_dir) / "data" / "checkpoints"
+        else:
+            checkpoint_dir = Path(self._get("checkpoint_dir", os.path.join("data", "checkpoints")))
         if not checkpoint_dir.exists():
             return
 

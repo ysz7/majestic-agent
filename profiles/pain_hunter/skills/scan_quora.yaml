@@ -1,0 +1,14 @@
+name: scan_quora
+description: Scan Quora for pain signals via question patterns and workaround descriptions
+triggers:
+  - scan quora
+  - quora pain points
+  - search quora for problems
+  - quora workarounds
+steps:
+  - Run web_search with query: site:quora.com "why is there no" "[niche]" tool OR software
+  - Run web_search with query: site:quora.com "[niche]" "best way to" (workarounds reveal pain)
+  - Run web_search with query: site:quora.com "Is there a tool that" "[niche]"
+  - Fetch top 5 results using web_fetch
+  - Save raw content to output/raw/[niche]/[date]/quora.txt
+  - Call extract_pain skill on collected content

@@ -1,105 +1,118 @@
-def run():
-    """Interactive setup wizard. Prompts for API keys and default profile settings."""
-    print("\nWelcome to Majestic! Let's get you set up.\n")
+"""
+majestic setup — first-run wizard.
 
-    # LLM Providers
-    print("── LLM Providers ───────────────────────────")
-    openrouter_key = input("? OpenRouter API key (primary): ").strip()
-    anthropic_key = input("? Anthropic API key (fallback 1, press Enter to skip): ").strip()
-    openai_key = input("? OpenAI API key (fallback 2, press Enter to skip): ").strip()
+Asks for ONE LLM provider key and creates the root .env + default profile.
+Everything else (model routing, extra providers) can be added later.
+"""
 
-    # Web Search
-    print("\n── Web Search ──────────────────────────────")
-    brave_key = input("? Brave Search API key (press Enter to use DuckDuckGo free fallback): ").strip()
+from __future__ import annotations
 
-    # Default Profile
-    print("\n── Default Profile Setup ───────────────────")
-    agent_name = input("? Agent name [Assistant]: ").strip() or "Assistant"
-    language = input("? Language [en]: ").strip() or "en"
+import sys
+from pathlib import Path
 
-    print("\n  Model suggestions:")
-    print("  Reasoning: anthropic/claude-sonnet-4-5")
-    print("  Simple:    meta-llama/llama-3.1-8b-instruct:free")
-    print("  Code:      qwen/qwen-2.5-coder-32b-instruct")
-    print("  Reflection: meta-llama/llama-3.1-8b-instruct:free")
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
-    reason_model = input("? Model for reasoning [anthropic/claude-sonnet-4-5]: ").strip() or "anthropic/claude-sonnet-4-5"
-    simple_model = input("? Model for simple tasks [meta-llama/llama-3.1-8b-instruct:free]: ").strip() or "meta-llama/llama-3.1-8b-instruct:free"
-    code_model = input("? Model for code [qwen/qwen-2.5-coder-32b-instruct]: ").strip() or "qwen/qwen-2.5-coder-32b-instruct"
-    reflection_model = input("? Model for reflection [meta-llama/llama-3.1-8b-instruct:free]: ").strip() or "meta-llama/llama-3.1-8b-instruct:free"
 
-    print("\n── Limits (optional) ───────────────────────")
-    max_tokens = input("? Max tokens per task (0 = unlimited) [0]: ").strip() or "0"
-    max_cost = input("? Max cost per task in USD (0 = unlimited) [0]: ").strip() or "0"
+def run() -> None:
+    print("\nWelcome to Majestic!\n")
+    print("You need ONE key to get started. Add more providers later if needed.")
+    print("─" * 52)
 
-    # Write files
-    _write_profile("default", {
-        "openrouter_key": openrouter_key,
-        "anthropic_key": anthropic_key,
-        "openai_key": openai_key,
-        "brave_key": brave_key,
-        "agent_name": agent_name,
-        "language": language,
-        "reason_model": reason_model,
-        "simple_model": simple_model,
-        "code_model": code_model,
-        "reflection_model": reflection_model,
-        "max_tokens": max_tokens,
-        "max_cost": max_cost,
-    })
+    # ── Step 1: pick a provider ──────────────────────────────────────────
+    print("\nPick your LLM provider:")
+    print("  1  OpenRouter  (recommended — 200+ models, one key)")
+    print("     Get key: https://openrouter.ai/keys")
+    print("  2  Anthropic   (Claude models directly)")
+    print("  3  OpenAI      (GPT models directly)")
+    print("  4  Ollama      (local models, no key needed)")
+    print()
 
-    print("\n── Done! ───────────────────────────────────")
-    print("✓ profiles/default/.env created")
-    print("✓ profiles/default/persona.yaml created")
-    print("✓ profiles/default/workspace/ initialized")
-    print("✓ profiles/default/data/ initialized")
+    while True:
+        choice = input("Choice [1]: ").strip() or "1"
+        if choice in ("1", "2", "3", "4"):
+            break
+        print("  Enter 1, 2, 3, or 4.")
 
-    start = input("\nStart the agent now? (y/n) [n]: ").strip().lower()
+    env_lines: list[str] = []
+
+    if choice == "1":
+        key = input("OpenRouter API key: ").strip()
+        if not key:
+            print("Error: key cannot be empty.")
+            sys.exit(1)
+        env_lines.append(f"OPENROUTER_API_KEY={key}")
+
+    elif choice == "2":
+        key = input("Anthropic API key: ").strip()
+        if not key:
+            print("Error: key cannot be empty.")
+            sys.exit(1)
+        env_lines.append(f"ANTHROPIC_API_KEY={key}")
+
+    elif choice == "3":
+        key = input("OpenAI API key: ").strip()
+        if not key:
+            print("Error: key cannot be empty.")
+            sys.exit(1)
+        env_lines.append(f"OPENAI_API_KEY={key}")
+
+    else:  # Ollama
+        url = input("Ollama base URL [http://localhost:11434]: ").strip() or "http://localhost:11434"
+        model = input("Default model [llama3.2]: ").strip() or "llama3.2"
+        env_lines.append(f"OLLAMA_BASE_URL={url}")
+        env_lines.append(f"OLLAMA_MODEL={model}")
+
+    # ── Step 2: optional web search ──────────────────────────────────────
+    print("\nWeb search key (optional — press Enter to use DuckDuckGo for free):")
+    brave = input("Brave Search API key: ").strip()
+    if brave:
+        env_lines.append(f"BRAVE_SEARCH_API_KEY={brave}")
+
+    # ── Step 3: agent name ───────────────────────────────────────────────
+    print()
+    name = input("Agent name [Assistant]: ").strip() or "Assistant"
+
+    # ── Write root .env ──────────────────────────────────────────────────
+    root_env = _PROJECT_ROOT / ".env"
+    root_env.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+
+    # ── Write default profile ────────────────────────────────────────────
+    _init_profile("default", agent_name=name)
+
+    print("\n" + "─" * 52)
+    print("✓  .env created")
+    print("✓  profiles/default/ ready")
+    print("\nStart the agent:")
+    print("  majestic             — interactive session")
+    print("  majestic run default — background daemon\n")
+
+    start = input("Start now? (y/n) [n]: ").strip().lower()
     if start == "y":
         from majestic.cli.foreground import run as fg_run
         fg_run("default")
 
 
-def _write_profile(profile_name: str, config: dict):
-    """Write .env and persona.yaml for a profile."""
+def _init_profile(profile_name: str, agent_name: str = "Assistant") -> None:
+    """Create the profile directory structure and minimal persona.yaml."""
     import yaml
-    from pathlib import Path
 
-    profile_dir = Path(f"profiles/{profile_name}")
-    profile_dir.mkdir(parents=True, exist_ok=True)
-    (profile_dir / "workspace/tools").mkdir(parents=True, exist_ok=True)
-    (profile_dir / "workspace/output").mkdir(parents=True, exist_ok=True)
-    (profile_dir / "workspace/temp").mkdir(parents=True, exist_ok=True)
-    (profile_dir / "data").mkdir(parents=True, exist_ok=True)
-    (profile_dir / "skills").mkdir(parents=True, exist_ok=True)
+    profile_dir = _PROJECT_ROOT / "profiles" / profile_name
+    for sub in ("workspace/tools", "workspace/output", "workspace/temp", "data", "skills"):
+        (profile_dir / sub).mkdir(parents=True, exist_ok=True)
 
-    env_lines = [f"OPENROUTER_API_KEY={config['openrouter_key']}"]
-    if config["anthropic_key"]:
-        env_lines.append(f"ANTHROPIC_API_KEY={config['anthropic_key']}")
-    if config["openai_key"]:
-        env_lines.append(f"OPENAI_API_KEY={config['openai_key']}")
-    if config["brave_key"]:
-        env_lines.append(f"BRAVE_SEARCH_API_KEY={config['brave_key']}")
-    env_lines.append("AGENT_PORT=8000")
-    (profile_dir / ".env").write_text("\n".join(env_lines))
-
-    persona = {
-        "name": config["agent_name"],
-        "role": "General purpose AI assistant",
-        "tone": "helpful, concise",
-        "language": config["language"],
-        "restrictions": [],
-        "context": "",
-        "model_routing": {
-            "reason": config["reason_model"],
-            "simple": config["simple_model"],
-            "code": config["code_model"],
-            "reflection": config["reflection_model"],
-        },
-        "limits": {
-            "max_tokens_per_task": int(config["max_tokens"]),
-            "max_cost_per_task": float(config["max_cost"]),
+    persona_file = profile_dir / "persona.yaml"
+    if not persona_file.exists():
+        persona = {
+            "name": agent_name,
+            "role": "General purpose AI assistant",
+            "tone": "helpful, concise",
+            "language": "en",
+            "restrictions": [],
+            "context": "",
+            "limits": {
+                "max_tokens_per_task": 0,
+                "max_cost_per_task": 0.0,
+            },
         }
-    }
-    with open(profile_dir / "persona.yaml", "w") as f:
-        yaml.dump(persona, f, default_flow_style=False, allow_unicode=True)
+        with persona_file.open("w", encoding="utf-8") as fh:
+            yaml.dump(persona, fh, default_flow_style=False, allow_unicode=True)

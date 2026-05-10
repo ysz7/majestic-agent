@@ -1,0 +1,15 @@
+name: write_landing_page
+description: Write landing page copy with headline, benefits, social proof, CTA
+triggers:
+  - write a landing page
+  - landing page for
+  - landing page copy
+  - write copy for landing
+steps:
+  - Build brief (format=landing_page, product, audience, main_benefit, price, CTA)
+  - Research product/competitors if no data provided
+  - Define core value proposition — one sentence that explains who it's for and why it matters
+  - Write sections: Hero headline + subheadline → Problem statement → Solution + key benefits (3) → How it works → Social proof / testimonials placeholder → FAQ → CTA block
+  - Self-critique — is headline specific and benefit-driven? Are benefits concrete? Does CTA feel right?
+  - Save to profiles/writer/workspace/output/landing/[product-slug].md
+  - Save metadata to content.db

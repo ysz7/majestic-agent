@@ -3,17 +3,25 @@ majestic.config.settings
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Profile-based configuration loader.
 
-Each profile lives under  profiles/<profile_name>/  and contains:
-  .env          — secrets and environment-level overrides
-  persona.yaml  — agent personality, model routing, and limits
+Priority order for any setting:
+  1. Profile .env   (profiles/<name>/.env)
+  2. Root .env      (.env at project root)
+  3. Process environment (os.environ)
+  4. Hardcoded defaults
 
-Usage::
+Model routing can be defined globally in the root .env so you don't have to
+repeat it in every profile:
 
-    from majestic.config.settings import Settings
+    MAJESTIC_MODEL_REASON=anthropic/claude-sonnet-4-5
+    MAJESTIC_MODEL_SIMPLE=meta-llama/llama-3.1-8b-instruct:free
+    MAJESTIC_MODEL_CODE=qwen/qwen-2.5-coder-32b-instruct
+    MAJESTIC_MODEL_REFLECTION=meta-llama/llama-3.1-8b-instruct:free
 
-    s = Settings("sales_agent")
-    s.validate()
-    model = s.get_model("reason")
+Per-profile persona.yaml `model_routing:` section overrides these globals.
+
+Ollama (local models):
+    OLLAMA_BASE_URL=http://localhost:11434   (default)
+    OLLAMA_MODEL=llama3.2                   (default fallback model)
 """
 
 from __future__ import annotations
@@ -39,6 +47,22 @@ def _profiles_root() -> Path:
     return _project_root() / "profiles"
 
 
+def _load_root_env() -> dict[str, str | None]:
+    """Load the project-root .env as a global baseline (lowest priority)."""
+    root_env = _project_root() / ".env"
+    if root_env.exists():
+        return dotenv_values(root_env)
+    return {}
+
+
+# Global defaults for model routing (used when no profile/env override exists)
+_DEFAULT_MODELS: dict[str, str] = {
+    "reason":     "anthropic/claude-sonnet-4-5",
+    "simple":     "meta-llama/llama-3.1-8b-instruct:free",
+    "code":       "qwen/qwen-2.5-coder-32b-instruct",
+    "reflection": "meta-llama/llama-3.1-8b-instruct:free",
+}
+
 # ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
@@ -52,11 +76,15 @@ class Settings:
 
         if not self._profile_dir.exists():
             raise FileNotFoundError(
-                f"Profile directory not found: {self._profile_dir}\n"
-                f"Run  majestic new {profile_name}  to create it."
+                f"Profile '{profile_name}' not found.\n"
+                f"Run  majestic new {profile_name}  to create it, "
+                "or  majestic setup  for first-time configuration."
             )
 
-        # Load .env (profile-level overrides take priority over the process env)
+        # Priority 1: root .env (global baseline)
+        self._root_env: dict[str, str | None] = _load_root_env()
+
+        # Priority 2: profile .env (overrides root)
         env_file = self._profile_dir / ".env"
         self._env: dict[str, str | None] = (
             dotenv_values(env_file) if env_file.exists() else {}
@@ -88,34 +116,42 @@ class Settings:
 
     @property
     def workspace_dir(self) -> Path:
-        """Sandboxed working directory for this agent's file operations."""
         d = self._profile_dir / "workspace"
         d.mkdir(parents=True, exist_ok=True)
         return d
 
     @property
     def data_dir(self) -> Path:
-        """Persistent data directory (vector DB, memory store, caches, …)."""
         d = self._profile_dir / "data"
         d.mkdir(parents=True, exist_ok=True)
         return d
 
     @property
     def skills_dir(self) -> Path:
-        """Directory for profile-specific skill/plugin scripts."""
         d = self._profile_dir / "skills"
         d.mkdir(parents=True, exist_ok=True)
         return d
 
     # ------------------------------------------------------------------
-    # API keys — prefer profile .env, fall back to process environment
+    # Env lookup: profile .env → root .env → os.environ → default
     # ------------------------------------------------------------------
 
     def _env_get(self, key: str, default: str | None = None) -> str | None:
-        value = self._env.get(key)
-        if value is None:
-            value = os.environ.get(key)
-        return value if value is not None else default
+        # Profile .env is highest priority
+        if key in self._env and self._env[key] is not None:
+            return self._env[key]
+        # Root .env next
+        if key in self._root_env and self._root_env[key] is not None:
+            return self._root_env[key]
+        # OS environment
+        val = os.environ.get(key)
+        if val is not None:
+            return val
+        return default
+
+    # ------------------------------------------------------------------
+    # API keys
+    # ------------------------------------------------------------------
 
     @property
     def openrouter_api_key(self) -> str | None:
@@ -132,6 +168,15 @@ class Settings:
     @property
     def brave_search_api_key(self) -> str | None:
         return self._env_get("BRAVE_SEARCH_API_KEY")
+
+    # Ollama — no key needed, just a base URL
+    @property
+    def ollama_base_url(self) -> str | None:
+        return self._env_get("OLLAMA_BASE_URL")
+
+    @property
+    def ollama_model(self) -> str | None:
+        return self._env_get("OLLAMA_MODEL")
 
     @property
     def agent_port(self) -> int:
@@ -174,10 +219,30 @@ class Settings:
 
     @property
     def model_routing(self) -> dict[str, str]:
-        raw = self._persona.get("model_routing", {})
-        if isinstance(raw, dict):
-            return {str(k): str(v) for k, v in raw.items()}
-        return {}
+        """
+        Model routing with 3-level fallback:
+          1. persona.yaml model_routing (per-profile override)
+          2. MAJESTIC_MODEL_* env vars in root .env or profile .env
+          3. Hardcoded defaults (_DEFAULT_MODELS)
+        """
+        # Start from hardcoded defaults
+        routing: dict[str, str] = dict(_DEFAULT_MODELS)
+
+        # Override from MAJESTIC_MODEL_* env vars (root or profile .env)
+        for step in ("reason", "simple", "code", "reflection"):
+            env_key = f"MAJESTIC_MODEL_{step.upper()}"
+            val = self._env_get(env_key)
+            if val:
+                routing[step] = val
+
+        # Override from persona.yaml model_routing section (highest priority)
+        yaml_routing = self._persona.get("model_routing", {})
+        if isinstance(yaml_routing, dict):
+            for k, v in yaml_routing.items():
+                if k and v:
+                    routing[str(k)] = str(v)
+
+        return routing
 
     @property
     def limits(self) -> dict[str, Any]:
@@ -191,39 +256,48 @@ class Settings:
     # ------------------------------------------------------------------
 
     def validate(self) -> None:
-        """Raise ValueError if no LLM API key is configured."""
-        keys = [
+        """Raise ValueError if no LLM provider is configured."""
+        has_cloud = any([
             self.openrouter_api_key,
             self.anthropic_api_key,
             self.openai_api_key,
-        ]
-        if not any(keys):
+        ])
+        has_local = bool(self.ollama_base_url)
+
+        if not has_cloud and not has_local:
             raise ValueError(
-                f"Profile '{self._profile_name}' has no LLM API key configured.\n"
-                "Set at least one of OPENROUTER_API_KEY, ANTHROPIC_API_KEY, or "
-                "OPENAI_API_KEY in your profile's .env file."
+                "No LLM provider configured for profile '{}'.\n\n"
+                "Option A — Cloud (add to .env):\n"
+                "  OPENROUTER_API_KEY=sk-or-...   (recommended, access to 200+ models)\n"
+                "  ANTHROPIC_API_KEY=sk-ant-...   (or Anthropic directly)\n"
+                "  OPENAI_API_KEY=sk-...          (or OpenAI directly)\n\n"
+                "Option B — Local Ollama (no API key needed):\n"
+                "  1. Install: https://ollama.com\n"
+                "  2. Run: ollama pull llama3.2 && ollama serve\n"
+                "  3. Add to .env: OLLAMA_BASE_URL=http://localhost:11434\n\n"
+                "Put keys in .env (project root) to share across all profiles.".format(
+                    self._profile_name
+                )
             )
 
     def get_model(self, step_type: str) -> str:
-        """Return the model name for the given step type.
+        """Return the model for the given step type.
 
-        Args:
-            step_type: One of 'reason', 'simple', 'code', 'reflection',
-                       or any key defined in model_routing.
-
-        Returns:
-            Model identifier string.  Falls back to the 'reason' model if the
-            requested step_type is not found, then to a hard-coded default.
+        When only Ollama is configured, always returns the Ollama model name —
+        cloud model IDs like 'anthropic/claude-sonnet-4-5' are not valid there.
         """
+        ollama_only = self.ollama_base_url and not any([
+            self.openrouter_api_key,
+            self.anthropic_api_key,
+            self.openai_api_key,
+        ])
+        if ollama_only:
+            return self.ollama_model or "llama3.2"
+
         routing = self.model_routing
         if step_type in routing:
             return routing[step_type]
-        # Fallback chain: reason → first available → hard-coded
-        if "reason" in routing:
-            return routing["reason"]
-        if routing:
-            return next(iter(routing.values()))
-        return "anthropic/claude-sonnet-4-5"
+        return routing.get("reason", _DEFAULT_MODELS["reason"])
 
     # ------------------------------------------------------------------
     # Class-level helpers
@@ -231,7 +305,6 @@ class Settings:
 
     @classmethod
     def list_profiles(cls) -> list[str]:
-        """Return a sorted list of profile names found in profiles/."""
         root = _profiles_root()
         if not root.exists():
             return []
@@ -243,12 +316,7 @@ class Settings:
 
     @classmethod
     def profile_exists(cls, name: str) -> bool:
-        """Return True if a profile directory named *name* exists."""
         return (_profiles_root() / name).is_dir()
-
-    # ------------------------------------------------------------------
-    # repr
-    # ------------------------------------------------------------------
 
     def __repr__(self) -> str:
         return (

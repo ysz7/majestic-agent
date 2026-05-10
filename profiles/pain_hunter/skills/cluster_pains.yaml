@@ -1,0 +1,15 @@
+name: cluster_pains
+description: Group similar pain points into clusters by semantic theme, minimum 3 mentions
+triggers:
+  - cluster pains
+  - group pain points
+  - find pain themes
+  - cluster complaints
+steps:
+  - Load all pain points for the niche from data/pains.db
+  - Group by semantic similarity — pains describing the same underlying problem
+  - Minimum 3 independent mentions required to form a cluster
+  - Calculate cluster metrics: avg_intensity, total_social_proof, source_diversity
+  - Name each cluster with a clear theme description
+  - Save clusters to data/clusters.db via db_clusters.py
+  - Discard singletons — one complaint is noise

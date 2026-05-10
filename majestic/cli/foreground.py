@@ -1,8 +1,10 @@
 import asyncio
 
+
 def run(profile_name: str = "default"):
     """Run agent in foreground interactive mode."""
     asyncio.run(_run_async(profile_name))
+
 
 async def _run_async(profile_name: str):
     from majestic.config.settings import Settings
@@ -16,11 +18,9 @@ async def _run_async(profile_name: str):
 
     print(f"\nLoading profile '{profile_name}'...", end="", flush=True)
 
-    try:
-        settings = Settings(profile_name)
-    except FileNotFoundError:
-        print(f"\nProfile '{profile_name}' not found. Run 'majestic setup' first.")
-        return
+    # Let FileNotFoundError / ValueError propagate to __main__ for clean output
+    settings = Settings(profile_name)
+    settings.validate()
 
     session_id = str(uuid.uuid4())[:8]
     working_memory = WorkingMemory()
@@ -38,7 +38,7 @@ async def _run_async(profile_name: str):
 
     name = settings.agent_name
     print(f"\r✓ Agent '{name}' ready. Type your message. Ctrl+C to exit.\n")
-    print(f"{'─' * 50}")
+    print("─" * 50)
 
     while True:
         try:
@@ -57,18 +57,19 @@ async def _run_async(profile_name: str):
         working_memory.add_message("user", text)
         print()
 
-        result = await runtime.run(
-            task=text,
-            system_prompt=system_prompt,
-        )
+        try:
+            result = await runtime.run(
+                task=text,
+                system_prompt=system_prompt,
+            )
+        except Exception as exc:
+            result = f"Error: {exc}"
 
         await channel.send(f"\n{result}\n")
         working_memory.add_message("assistant", result)
 
-def _register_tools(runtime, settings):
-    """Register all available tools with the runtime."""
-    import asyncio
 
+def _register_tools(runtime, settings):
     workspace = settings.workspace_dir
     brave_key = settings.brave_search_api_key
 

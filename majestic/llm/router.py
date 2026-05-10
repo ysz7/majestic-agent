@@ -1,7 +1,10 @@
 """
 LLM Router — provider fallback chain with per-step model routing.
 
-Priority order:  OpenRouter → Anthropic → OpenAI → raise LLMError
+Priority order:  OpenRouter → Anthropic → OpenAI → Ollama → raise LLMError
+
+Ollama (local) is included automatically when OLLAMA_BASE_URL is set.
+If no cloud keys are present and Ollama is configured, Ollama runs first.
 
 The router is initialised once per agent session (in the runtime or gateway)
 and reused for every LLM call.  It reads API keys from the profile's
@@ -32,6 +35,7 @@ from .base import BaseLLM, LLMError
 from .openrouter import OpenRouterLLM
 from .anthropic import AnthropicLLM
 from .openai import OpenAILLM
+from .ollama import OllamaLLM
 
 logger = logging.getLogger(__name__)
 
@@ -40,32 +44,29 @@ class LLMRouter:
     """
     Routes LLM calls to the best available provider with automatic fallback.
 
-    Provider priority:
+    Provider priority (cloud keys present):
         1. OpenRouter  — requires OPENROUTER_API_KEY
         2. Anthropic   — requires ANTHROPIC_API_KEY
         3. OpenAI      — requires OPENAI_API_KEY
+        4. Ollama      — OLLAMA_BASE_URL set (local, appended as last resort)
 
-    If a provider does not have a key configured it is skipped silently.
+    Local-only mode (no cloud keys):
+        If only OLLAMA_BASE_URL is set, Ollama runs first.
+
+    If a provider does not have a key/URL configured it is skipped silently.
     If all configured providers fail, ``LLMError`` is raised.
     """
 
     def __init__(self, settings: Any) -> None:
-        """
-        Parameters
-        ----------
-        settings:
-            A ``majestic.config.settings.Settings`` instance.  Used to read
-            API keys (via ``settings.openrouter_api_key`` etc.) and model
-            routing (via ``settings.get_model(step_type)``).
-        """
         self._settings = settings
         self._providers: list[BaseLLM] = self._build_provider_list(settings)
 
         if not self._providers:
             raise LLMError(
-                "No LLM providers are configured. "
-                "Set at least one of: OPENROUTER_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY "
-                f"in the '{settings.profile_name}' profile's .env file."
+                "No LLM providers are configured.\n"
+                "Add OPENROUTER_API_KEY / ANTHROPIC_API_KEY / OPENAI_API_KEY to .env, "
+                "or set OLLAMA_BASE_URL for local models.\n"
+                "Run  majestic setup  for guided configuration."
             )
 
         logger.info(
@@ -80,18 +81,28 @@ class LLMRouter:
     @staticmethod
     def _build_provider_list(settings: Any) -> list[BaseLLM]:
         """Return providers in priority order, skipping unconfigured ones."""
-        providers: list[BaseLLM] = []
+        cloud: list[BaseLLM] = []
+        local: list[BaseLLM] = []
 
         if settings.openrouter_api_key:
-            providers.append(OpenRouterLLM(api_key=settings.openrouter_api_key))
+            cloud.append(OpenRouterLLM(api_key=settings.openrouter_api_key))
 
         if settings.anthropic_api_key:
-            providers.append(AnthropicLLM(api_key=settings.anthropic_api_key))
+            cloud.append(AnthropicLLM(api_key=settings.anthropic_api_key))
 
         if settings.openai_api_key:
-            providers.append(OpenAILLM(api_key=settings.openai_api_key))
+            cloud.append(OpenAILLM(api_key=settings.openai_api_key))
 
-        return providers
+        if settings.ollama_base_url:
+            local.append(OllamaLLM(
+                base_url=settings.ollama_base_url,
+                default_model=settings.ollama_model,
+            ))
+
+        # If only Ollama is configured, put it first; otherwise append after cloud
+        if not cloud and local:
+            return local
+        return cloud + local
 
     # ------------------------------------------------------------------
     # Public interface

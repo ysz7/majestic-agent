@@ -1,0 +1,15 @@
+name: write_newsletter
+description: Write a newsletter issue (400-800 words) in narrative personal tone
+triggers:
+  - write a newsletter
+  - newsletter issue
+  - newsletter about
+  - write newsletter
+steps:
+  - Build brief (format=newsletter, topic, audience, tone=personal-narrative, key_points, sources)
+  - Research if no data provided
+  - Define angle and narrative thread connecting the issue
+  - Write in personal voice — story opener, insight, practical takeaway, closing note
+  - Self-critique — does it feel like a real person wrote it? Is there a clear insight?
+  - Save to profiles/writer/workspace/output/newsletter/[date]-[issue-title].md
+  - Save metadata to content.db

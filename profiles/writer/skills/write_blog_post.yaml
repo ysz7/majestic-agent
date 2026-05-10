@@ -1,0 +1,18 @@
+name: write_blog_post
+description: Write a long-form blog post (800-2500 words) with SEO-aware structure
+triggers:
+  - write a blog post
+  - blog post about
+  - write an article
+  - blog about
+  - long-form piece
+steps:
+  - Build brief (format=blog, topic, audience, angle, tone, goal, key_points, sources)
+  - Research topic if no data provided (web_search + web_fetch top 3 sources)
+  - Define angle — one specific arguable take, not a generic summary
+  - Define structure: Hook → Problem/context → Main argument (3 sections) → Evidence → Counterargument → Conclusion + takeaway
+  - Write draft following brief and structure
+  - Self-critique — check hook strength, paragraph necessity, specificity, human voice
+  - Rewrite weak sections
+  - Save to profiles/writer/workspace/output/blog/[date]-[slug].md
+  - Save metadata to content.db

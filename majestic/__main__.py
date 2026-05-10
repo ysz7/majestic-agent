@@ -3,10 +3,20 @@ majestic.__main__
 ~~~~~~~~~~~~~~~~~
 Entry point for the `majestic` CLI.  All sub-commands delegate to the
 corresponding module under majestic/cli/.
+
+Error handling:
+  - Known errors (config, profile not found, no API key) → clean message + hint
+  - Unexpected errors → short message + "run with --debug for details"
+  - --debug flag → full traceback always shown
 """
+
+from __future__ import annotations
 
 import argparse
 import sys
+import traceback
+
+_SUBCOMMANDS = {"setup", "new", "list", "rm", "run", "ps", "stop"}
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -28,60 +38,38 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    sub = parser.add_subparsers(dest="command", metavar="<command>")
-
-    # setup
-    sub.add_parser(
-        "setup",
-        help="Interactive first-run wizard: create directories, check dependencies.",
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Show full tracebacks on error.",
     )
 
-    # new <name>
+    sub = parser.add_subparsers(dest="command", metavar="<command>")
+
+    sub.add_parser("setup", help="Interactive first-run wizard.")
+
     p_new = sub.add_parser("new", help="Scaffold a new agent profile.")
     p_new.add_argument("name", help="Profile name (alphanumeric + underscores).")
 
-    # list
     sub.add_parser("list", help="List all available profiles.")
 
-    # rm <name>
     p_rm = sub.add_parser("rm", help="Delete an agent profile and all its data.")
     p_rm.add_argument("name", help="Profile name to remove.")
 
-    # run <name>
     p_run = sub.add_parser("run", help="Start an agent profile as a background daemon.")
     p_run.add_argument("name", help="Profile name to run.")
 
-    # ps
     sub.add_parser("ps", help="List currently running agent daemons.")
 
-    # stop <name>
     p_stop = sub.add_parser("stop", help="Stop a running agent daemon.")
     p_stop.add_argument("name", help="Profile name to stop.")
-
-    # positional profile (foreground, optional)
-    parser.add_argument(
-        "profile",
-        nargs="?",
-        default=None,
-        metavar="<profile>",
-        help=(
-            "Run this profile in the foreground (interactive session). "
-            'Defaults to "default" when omitted.'
-        ),
-    )
 
     return parser
 
 
-def main(argv: list[str] | None = None) -> None:
-    parser = _build_parser()
-    args = parser.parse_args(argv)
-
-    command = args.command
-
-    # ------------------------------------------------------------------ #
-    # Named sub-commands                                                   #
-    # ------------------------------------------------------------------ #
+def _dispatch(command: str | None, args: argparse.Namespace, profile: str) -> None:
+    """Route to the correct CLI module."""
     if command == "setup":
         from majestic.cli import setup as _setup
         _setup.run()
@@ -111,12 +99,76 @@ def main(argv: list[str] | None = None) -> None:
         _stop.run(args.name)
 
     else:
-        # No recognised sub-command — treat as foreground profile launch.
-        # If the user typed `majestic some_profile`, argparse stores it in
-        # args.profile; if they typed nothing it is None → "default".
-        profile_name = args.profile or "default"
         from majestic.cli import foreground as _fg
-        _fg.run(profile_name)
+        _fg.run(profile)
+
+
+def main(argv: list[str] | None = None) -> None:
+    raw = list(argv) if argv is not None else sys.argv[1:]
+
+    # Separate --debug from the rest before argparse, so it doesn't interfere
+    # with subcommand detection.
+    debug = "--debug" in raw
+    if debug:
+        raw = [a for a in raw if a != "--debug"]
+
+    # If the first non-flag token is not a known subcommand, treat the whole
+    # invocation as a foreground profile launch (e.g. `majestic pain_hunter`).
+    positional = [a for a in raw if not a.startswith("-")]
+    first = positional[0] if positional else None
+
+    if not raw:
+        # No arguments → launch default profile in foreground.
+        command = None
+        args = argparse.Namespace(command=None)
+        profile_name = "default"
+    elif raw in (["--help"], ["-h"]):
+        _build_parser().parse_args(raw)
+        return
+    elif first is not None and first not in _SUBCOMMANDS:
+        # First token is not a known subcommand → treat as profile name.
+        profile_name = first
+        command = None
+        args = argparse.Namespace(command=None)
+    else:
+        parser = _build_parser()
+        args = parser.parse_args(raw)
+        command = args.command
+        profile_name = "default"
+
+    try:
+        _dispatch(command, args, profile_name)
+
+    except KeyboardInterrupt:
+        print("\nInterrupted.")
+        sys.exit(0)
+
+    except FileNotFoundError as exc:
+        print(f"\nError: {exc}")
+        if debug:
+            traceback.print_exc()
+        sys.exit(1)
+
+    except ValueError as exc:
+        print(f"\nConfiguration error:\n{exc}")
+        if debug:
+            traceback.print_exc()
+        sys.exit(1)
+
+    except ImportError as exc:
+        print(f"\nMissing dependency: {exc}")
+        print("Try:  pip install -e .")
+        if debug:
+            traceback.print_exc()
+        sys.exit(1)
+
+    except Exception as exc:  # noqa: BLE001
+        print(f"\nUnexpected error: {exc}")
+        if debug:
+            traceback.print_exc()
+        else:
+            print("Run with  --debug  for the full traceback.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

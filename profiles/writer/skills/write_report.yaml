@@ -1,0 +1,15 @@
+name: write_report
+description: Write a structured analytical report with citations and data
+triggers:
+  - write a report
+  - research report about
+  - analysis report
+  - market report
+steps:
+  - Build brief (format=report, topic, audience, scope, key_questions)
+  - Research extensively — web_search + web_fetch multiple sources, collect data points
+  - Structure: Executive Summary → Background → Key Findings (3-5 sections) → Analysis → Implications → Recommendations → Sources
+  - Write with citations — every claim sourced
+  - Self-critique — is every section necessary? Are conclusions supported by data?
+  - Save to profiles/writer/workspace/output/reports/[date]-[title-slug].md
+  - Save metadata to content.db

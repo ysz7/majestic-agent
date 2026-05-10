@@ -1,0 +1,16 @@
+name: score_idea
+description: Score a business idea on four dimensions with composite score
+triggers:
+  - score idea
+  - evaluate idea
+  - rate business opportunity
+  - idea scoring
+steps:
+  - Load idea from data/ideas.db or output/ideas/
+  - Score Desirability: pain intensity + frequency + number of people affected (1-10)
+  - Score Viability: willingness to pay signals + market size + competition level (1-10)
+  - Score Feasibility: technical complexity + time to MVP estimate (1-10, 10=easiest)
+  - Score Timing: niche growth trajectory + enabling technology availability (1-10)
+  - Calculate composite score as weighted average
+  - Add score and explanation to the idea report
+  - Update data/ideas.db with scores

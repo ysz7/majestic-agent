@@ -1,0 +1,15 @@
+name: define_angle
+description: Define a specific, arguable angle before drafting — mandatory step before all content
+triggers:
+  - define the angle
+  - what angle should we take
+  - choose an angle
+  - what is the take
+steps:
+  - Review topic, audience, and research data
+  - Generate 3 possible angles — each must be specific and arguable, not generic
+  - Select strongest angle based on: originality, relevance to audience, evidence support
+  - State the angle as one clear sentence that could be a debate topic
+  - Identify 3 key supporting points for the angle
+  - Identify the strongest counterargument and how to address it
+  - Return: selected_angle, supporting_points, counterargument, rebuttal
