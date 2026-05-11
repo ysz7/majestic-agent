@@ -77,75 +77,87 @@ def _vis(s: str) -> int:
 def _gather_startup(profile: str = "default") -> dict:
     """Collect all data for the startup panel. Never raises."""
     out: dict = {
-        "profile":       profile,
-        "agent_name":    "Assistant",
-        "role":          "—",
-        "provider":      "openrouter",
-        "model_reason":  "—",
-        "model_simple":  "—",
-        "model_code":    "—",
-        "api_ok":        False,
-        "port":          "—",
-        "mode":          "foreground",
-        "skills":        [],
-        "skill_count":   0,
-        "mem_count":     0,
-        "lessons_count": 0,
+        "profile":        profile,
+        "agent_name":     "Assistant",
+        "role":           "—",
+        "model_reason":   "—",
+        "model_simple":   "—",
+        "model_code":     "—",
+        "api_ok":         False,
+        "port":           "—",
+        "mode":           "foreground",
+        "skills":         [],
+        "skill_count":    0,
+        "mem_count":      0,
+        "lessons_count":  0,
         "running_agents": [],
-        "has_brave":     False,
-        "limits":        {"max_tokens": 0, "max_cost": 0},
-        "recent":        [],
-        "workdir":       str(Path.cwd()),
+        "has_brave":      False,
+        "limits":         {"max_tokens": 0, "max_cost": 0},
+        "recent":         [],
+        "workdir":        str(Path.cwd()),
     }
 
+    settings = None
     try:
-        from majestic.config import settings
-        p = settings.persona
+        from majestic.config.settings import Settings
+        settings = Settings(profile)
 
-        out["agent_name"]   = p.get("name", "Assistant")
-        out["role"]         = p.get("role", "—")
-        mr = p.get("model_routing", {})
+        out["agent_name"]   = settings.agent_name
+        out["role"]         = settings.agent_role
+        mr = settings.model_routing
         out["model_reason"] = mr.get("reason", "—")
         out["model_simple"] = mr.get("simple", "—")
         out["model_code"]   = mr.get("code",   "—")
-        lim = p.get("limits", {})
-        out["limits"]       = {
+        lim = settings.limits
+        out["limits"] = {
             "max_tokens": lim.get("max_tokens_per_task", 0),
             "max_cost":   lim.get("max_cost_per_task",   0),
         }
-
-        out["port"]    = settings.env.get("AGENT_PORT", "8000")
-        out["api_ok"]  = bool(settings.env.get("OPENROUTER_API_KEY")
-                              or settings.env.get("ANTHROPIC_API_KEY")
-                              or settings.env.get("OPENAI_API_KEY"))
-        out["has_brave"] = bool(settings.env.get("BRAVE_SEARCH_API_KEY"))
+        out["port"] = str(settings.agent_port)
+        out["api_ok"] = bool(
+            settings._env_get("OPENROUTER_API_KEY")
+            or settings._env_get("ANTHROPIC_API_KEY")
+            or settings._env_get("OPENAI_API_KEY")
+            or settings._env_get("OLLAMA_BASE_URL")
+        )
+        out["has_brave"] = bool(settings._env_get("BRAVE_SEARCH_API_KEY"))
     except Exception:
         pass
 
-    try:
-        from majestic.memory.procedural import list_skills
-        out["skills"]      = list_skills() or []
-        out["skill_count"] = len(out["skills"])
-    except Exception:
-        pass
+    if settings is not None:
+        try:
+            from majestic.memory.procedural import ProceduralMemory
+            pm = ProceduralMemory(str(settings.skills_dir))
+            all_skills = pm.get_all()
+            out["skills"]      = all_skills
+            out["skill_count"] = len(all_skills)
+        except Exception:
+            pass
 
-    try:
-        from majestic.memory.episodic import count_entries
-        out["mem_count"] = count_entries()
-    except Exception:
-        pass
+        try:
+            from majestic.memory.episodic import EpisodicMemory
+            db_path = str(settings.data_dir / "episodic.db")
+            em = EpisodicMemory(db_path)
+            out["mem_count"] = em.count()
+            recent = em.get_recent(limit=3)
+            out["recent"] = [
+                {"started_at": r.get("timestamp", ""), "goal": r.get("task", "")}
+                for r in recent
+            ]
+            em.close()
+        except Exception:
+            pass
 
-    try:
-        from majestic.memory.lessons import count_lessons
-        out["lessons_count"] = count_lessons()
-    except Exception:
-        pass
-
-    try:
-        from majestic.memory.episodic import recent_tasks
-        out["recent"] = recent_tasks(limit=3)
-    except Exception:
-        pass
+        try:
+            import sqlite3 as _sqlite3
+            lessons_db = settings.data_dir / "lessons.db"
+            if lessons_db.exists():
+                conn = _sqlite3.connect(str(lessons_db))
+                row = conn.execute("SELECT COUNT(*) FROM lessons").fetchone()
+                conn.close()
+                out["lessons_count"] = row[0] if row else 0
+        except Exception:
+            pass
 
     try:
         import json
@@ -185,7 +197,7 @@ def print_startup(profile: str = "default", mode: str = "foreground") -> None:
 
     # ── Left column ───────────────────────────────────────────────────────
 
-    api_dot  = f"{G}●{R}" if d["api_ok"]   else f"{RED}●{R}"
+    api_dot   = f"{G}●{R}" if d["api_ok"]    else f"{RED}●{R}"
     brave_dot = f"{G}●{R}" if d["has_brave"] else f"{Y}●{R}"
 
     tok_lim  = str(d["limits"]["max_tokens"]) if d["limits"]["max_tokens"] else "unlimited"
@@ -196,15 +208,16 @@ def print_startup(profile: str = "default", mode: str = "foreground") -> None:
         wd = "…" + wd[-21:]
 
     left: list[str] = [
-        f"{C} * * * * *{R}",
+        f"{C} *   *   *   *   *{R}",
         f"{C} |\\ /|\\ /|\\ /|\\ /|{R}",
         f"{C} | X | X | X | X |{R}",
         f"{C} |/ \\|/ \\|/ \\|/ \\|{R}",
         f"{C} ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾{R}",
-        f"{C} M A J E S T I C{R}",
+        f"{C}  M A J E S T I C{R}",
         "",
         f"{DIM}profile  · {R}{C}{d['profile']}{R}",
-        f"{DIM}agent    · {R}{B}{d['agent_name']}{R}  {DIM}{d['role']}{R}",
+        f"{DIM}agent    · {R}{B}{d['agent_name']}{R}",
+        f"{DIM}role     · {R}{DIM}{(d['role'][:20] + '…') if len(d['role']) > 21 else d['role']}{R}",
         f"{DIM}mode     · {R}{'background' if mode == 'background' else 'foreground'}",
         f"{DIM}port     · {R}{d['port']}  {DIM}(bg only){R}",
         f"{DIM}api      · {R}{api_dot} ok" if d["api_ok"] else f"{DIM}api      · {R}{api_dot} missing key",

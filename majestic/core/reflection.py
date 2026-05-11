@@ -1,3 +1,6 @@
+from majestic import display
+
+
 class ReflectionEngine:
     def __init__(self, llm_router, lessons_store, episodic_memory, self_evolution=None):
         self.llm = llm_router
@@ -24,6 +27,8 @@ class ReflectionEngine:
         5. Run SelfEvolution: skill generation, script promotion, parameterization
         Returns: reflection text
         """
+        display.reflection_start()
+
         prompt = self._build_reflection_prompt(task, result, steps)
         response = await self.llm.chat(
             [{"role": "user", "content": prompt}],
@@ -35,6 +40,7 @@ class ReflectionEngine:
         lesson = self._extract_lesson(reflection_text)
         if lesson:
             self.lessons.save(task_type=self._classify_task(task), lesson=lesson)
+            display.lesson_saved(lesson)
 
         # Save to episodic
         self.episodic.save_task(

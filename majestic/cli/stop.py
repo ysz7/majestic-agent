@@ -14,9 +14,7 @@ import sys
 import time
 from pathlib import Path
 
-from rich.console import Console
-
-console = Console()
+from majestic import display
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _REGISTRY = _PROJECT_ROOT / "data" / "registry.json"
@@ -61,36 +59,29 @@ def _terminate_process(pid: int) -> bool:
     Returns True if the process is no longer alive after the attempt.
     """
     if sys.platform == "win32":
-        # Windows: taskkill first (graceful), then /F (forceful)
         import subprocess
-        subprocess.run(
-            ["taskkill", "/PID", str(pid)],
-            capture_output=True,
-        )
+        subprocess.run(["taskkill", "/PID", str(pid)], capture_output=True)
         deadline = time.monotonic() + _GRACEFUL_TIMEOUT_S
         while time.monotonic() < deadline:
             if not _is_process_alive(pid):
                 return True
             time.sleep(0.25)
-        # Forceful
         subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
     else:
         try:
             os.kill(pid, signal.SIGTERM)
         except ProcessLookupError:
-            return True  # already gone
+            return True
         deadline = time.monotonic() + _GRACEFUL_TIMEOUT_S
         while time.monotonic() < deadline:
             if not _is_process_alive(pid):
                 return True
             time.sleep(0.25)
-        # Escalate
         try:
             os.kill(pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
 
-    # Final check
     time.sleep(0.5)
     return not _is_process_alive(pid)
 
@@ -99,10 +90,9 @@ def run(name: str) -> None:
     registry = _load_registry()
 
     if name not in registry:
-        console.print(
-            f"[yellow]Warning:[/yellow] Profile '{name}' is not in the registry.\n"
-            "It may have been stopped already or was never started with "
-            "[bold]majestic run[/bold]."
+        display.warn(
+            f"Profile '{name}' is not in the registry. "
+            "It may have been stopped already or was never started with  majestic run."
         )
         sys.exit(0)
 
@@ -110,36 +100,31 @@ def run(name: str) -> None:
     pid = entry.get("pid")
 
     if not pid:
-        console.print(
-            f"[yellow]Warning:[/yellow] No PID recorded for '{name}'. "
-            "Removing stale registry entry."
-        )
+        display.warn(f"No PID recorded for '{name}'. Removing stale registry entry.")
         del registry[name]
         _save_registry(registry)
         sys.exit(0)
 
     if not _is_process_alive(pid):
-        console.print(
-            f"[yellow]Warning:[/yellow] Process {pid} for '{name}' is not running. "
-            "Cleaning up stale registry entry."
+        display.warn(
+            f"Process {pid} for '{name}' is not running. Cleaning up stale registry entry."
         )
         del registry[name]
         _save_registry(registry)
         sys.exit(0)
 
-    console.print(f"Stopping '{name}' (pid {pid}) …")
+    display.info(f"Stopping '{name}' (pid {pid})…")
 
     success = _terminate_process(pid)
 
-    # Remove from registry regardless (we don't want stale entries)
     del registry[name]
     _save_registry(registry)
 
     if success:
-        console.print(f"[green]✓[/green] Agent '{name}' stopped.")
+        display.ok(f"Agent '{name}' stopped.")
     else:
-        console.print(
-            f"[red]Warning:[/red] Could not confirm that process {pid} terminated.\n"
+        display.err(
+            f"Could not confirm that process {pid} terminated. "
             "You may need to kill it manually."
         )
         sys.exit(1)

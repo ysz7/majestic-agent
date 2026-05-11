@@ -109,6 +109,7 @@ profiles/*/workspace/node_modules/
 .vscode/
 *.swp
 
-# PrivateCLAUDE.md
+# Private
 PLAN.md
 DEPLOY.md
+CLAUDE.md

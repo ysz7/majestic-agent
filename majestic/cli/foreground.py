@@ -14,9 +14,8 @@ async def _run_async(profile_name: str):
     from majestic.core.runtime import AgentRuntime
     from majestic.llm.router import LLMRouter
     from majestic.system.startup import StartupManager
+    from majestic import display
     import uuid
-
-    print(f"\nLoading profile '{profile_name}'...", end="", flush=True)
 
     # Let FileNotFoundError / ValueError propagate to __main__ for clean output
     settings = Settings(profile_name)
@@ -28,17 +27,18 @@ async def _run_async(profile_name: str):
     llm_router = LLMRouter(settings)
 
     startup = StartupManager(settings)
-    await startup.run()
+    incomplete = await startup.run()
+
+    if incomplete:
+        display.warn(f"{len(incomplete)} incomplete task(s) found — will resume on next run.")
+
+    display.print_startup(profile_name, "foreground")
 
     gateway = Gateway(settings, working_memory, channel)
     system_prompt = gateway.build_system_prompt()
 
     runtime = AgentRuntime(settings, working_memory, llm_router)
     runtime = _register_tools(runtime, settings)
-
-    name = settings.agent_name
-    print(f"\r✓ Agent '{name}' ready. Type your message. Ctrl+C to exit.\n")
-    print("─" * 50)
 
     while True:
         try:
@@ -51,7 +51,7 @@ async def _run_async(profile_name: str):
         if not text:
             continue
         if text.lower() in ("/exit", "/quit", "exit", "quit"):
-            print("Goodbye!")
+            display.ok("Goodbye!")
             break
 
         working_memory.add_message("user", text)

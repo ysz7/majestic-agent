@@ -5,6 +5,8 @@ import time
 import uuid
 from typing import Any
 
+from majestic import display
+
 logger = logging.getLogger(__name__)
 
 
@@ -115,7 +117,8 @@ class AgentRuntime:
                     iteration += 1
 
                     # REASON
-                    response = await self._reason(messages, steps)
+                    with display.Spinner("Thinking..."):
+                        response = await self._reason(messages, steps)
                     self._track_usage(response)
                     self._check_budget()
 
@@ -152,7 +155,9 @@ class AgentRuntime:
                                     continue
 
                         # Execute tool
-                        result = await self._execute_tool(tool_name, tool_args)
+                        display.info(f"Using {tool_name}...")
+                        with display.Spinner(f"Running {tool_name}..."):
+                            result = await self._execute_tool(tool_name, tool_args)
 
                         messages.append({"role": "assistant", "content": content})
                         messages.append({
@@ -178,6 +183,7 @@ class AgentRuntime:
             final_result = f"Task stopped: {e}"
 
         duration = time.time() - start_time
+        display.task_report(len(steps), self._tokens_used, self._cost_used, duration)
 
         # ------------------------------------------------------------------
         # 5. Reflect and clean up checkpoint
@@ -232,17 +238,12 @@ class AgentRuntime:
     async def _ask_hitl(self, tool_name: str, tool_args: dict) -> bool:
         """Prompt the user for approval. Returns True = approved."""
         args_preview = json.dumps(tool_args, ensure_ascii=False)[:120]
-        prompt = (
-            f"\n[HITL] Potentially dangerous action detected:\n"
-            f"  Tool: {tool_name}\n"
-            f"  Args: {args_preview}\n"
-            f"Approve? [y/N]: "
-        )
+        display.warn(f"HITL — potentially dangerous action: {tool_name}")
+        display.info(f"  Args: {args_preview}")
         try:
-            answer = await asyncio.to_thread(input, prompt)
+            answer = await asyncio.to_thread(display.ask, "Approve?", "n")
             return answer.strip().lower() in ("y", "yes")
-        except (EOFError, OSError):
-            # Non-interactive environment — deny by default
+        except (EOFError, OSError, SystemExit):
             logger.warning("HITL: non-interactive environment, action denied.")
             return False
 
@@ -332,18 +333,20 @@ class AgentRuntime:
         if max_tokens > 0:
             pct = self._tokens_used / max_tokens
             if pct >= 1.0:
+                display.budget_exceeded("token", f"{self._tokens_used:,}", f"{max_tokens:,}")
                 raise BudgetExceeded(
                     f"Token limit reached: {self._tokens_used}/{max_tokens}"
                 )
             if pct >= 0.8:
-                print(f"Warning: {int(pct * 100)}% of token budget used")
+                display.budget_warn(int(pct * 100), "token", f"{self._tokens_used:,}", f"{max_tokens:,}")
 
         max_cost = limits.get("max_cost_per_task", 0)
         if max_cost > 0:
             pct = self._cost_used / max_cost
             if pct >= 1.0:
+                display.budget_exceeded("cost", f"${self._cost_used:.4f}", f"${max_cost}")
                 raise BudgetExceeded(
                     f"Cost limit reached: ${self._cost_used:.4f}/${max_cost}"
                 )
             if pct >= 0.8:
-                print(f"Warning: {int(pct * 100)}% of cost budget used")
+                display.budget_warn(int(pct * 100), "cost", f"${self._cost_used:.4f}", f"${max_cost}")

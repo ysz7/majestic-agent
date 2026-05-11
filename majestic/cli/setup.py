@@ -10,67 +10,68 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from majestic import display
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def run() -> None:
-    print("\nWelcome to Majestic!\n")
-    print("You need ONE key to get started. Add more providers later if needed.")
-    print("─" * 52)
-
-    # ── Step 1: pick a provider ──────────────────────────────────────────
-    print("\nPick your LLM provider:")
-    print("  1  OpenRouter  (recommended — 200+ models, one key)")
-    print("     Get key: https://openrouter.ai/keys")
-    print("  2  Anthropic   (Claude models directly)")
-    print("  3  OpenAI      (GPT models directly)")
-    print("  4  Ollama      (local models, no key needed)")
+    print()
+    display.ok("Welcome to Majestic!")
+    display.info("You need ONE key to get started. Add more providers later if needed.")
     print()
 
-    while True:
-        choice = input("Choice [1]: ").strip() or "1"
-        if choice in ("1", "2", "3", "4"):
-            break
-        print("  Enter 1, 2, 3, or 4.")
+    # ── Step 1: pick a provider ──────────────────────────────────────────
+    provider = display.choose(
+        "Pick your LLM provider:",
+        [
+            "OpenRouter  (recommended — 200+ models, one key)",
+            "Anthropic   (Claude models directly)",
+            "OpenAI      (GPT models directly)",
+            "Ollama      (local models, no key needed)",
+        ],
+        default=0,
+    )
 
     env_lines: list[str] = []
 
-    if choice == "1":
-        key = input("OpenRouter API key: ").strip()
+    if provider == 0:
+        key = display.ask("OpenRouter API key")
         if not key:
-            print("Error: key cannot be empty.")
+            display.err("Key cannot be empty.")
             sys.exit(1)
         env_lines.append(f"OPENROUTER_API_KEY={key}")
 
-    elif choice == "2":
-        key = input("Anthropic API key: ").strip()
+    elif provider == 1:
+        key = display.ask("Anthropic API key")
         if not key:
-            print("Error: key cannot be empty.")
+            display.err("Key cannot be empty.")
             sys.exit(1)
         env_lines.append(f"ANTHROPIC_API_KEY={key}")
 
-    elif choice == "3":
-        key = input("OpenAI API key: ").strip()
+    elif provider == 2:
+        key = display.ask("OpenAI API key")
         if not key:
-            print("Error: key cannot be empty.")
+            display.err("Key cannot be empty.")
             sys.exit(1)
         env_lines.append(f"OPENAI_API_KEY={key}")
 
     else:  # Ollama
-        url = input("Ollama base URL [http://localhost:11434]: ").strip() or "http://localhost:11434"
-        model = input("Default model [llama3.2]: ").strip() or "llama3.2"
+        url = display.ask("Ollama base URL", "http://localhost:11434")
+        model = display.ask("Default model", "llama3.2")
         env_lines.append(f"OLLAMA_BASE_URL={url}")
         env_lines.append(f"OLLAMA_MODEL={model}")
 
     # ── Step 2: optional web search ──────────────────────────────────────
-    print("\nWeb search key (optional — press Enter to use DuckDuckGo for free):")
-    brave = input("Brave Search API key: ").strip()
+    print()
+    display.info("Web search key (optional — press Enter to use DuckDuckGo for free):")
+    brave = display.ask("Brave Search API key", "")
     if brave:
         env_lines.append(f"BRAVE_SEARCH_API_KEY={brave}")
 
     # ── Step 3: agent name ───────────────────────────────────────────────
     print()
-    name = input("Agent name [Assistant]: ").strip() or "Assistant"
+    name = display.ask("Agent name", "Assistant")
 
     # ── Write root .env ──────────────────────────────────────────────────
     root_env = _PROJECT_ROOT / ".env"
@@ -79,15 +80,17 @@ def run() -> None:
     # ── Write default profile ────────────────────────────────────────────
     _init_profile("default", agent_name=name)
 
-    print("\n" + "─" * 52)
-    print("✓  .env created")
-    print("✓  profiles/default/ ready")
-    print("\nStart the agent:")
-    print("  majestic             — interactive session")
-    print("  majestic run default — background daemon\n")
+    print()
+    display.ok(".env created")
+    display.ok("profiles/default/ ready")
+    print()
+    display.info("Start the agent:")
+    display.info("  majestic             — interactive session")
+    display.info("  majestic run default — background daemon")
+    print()
 
-    start = input("Start now? (y/n) [n]: ").strip().lower()
-    if start == "y":
+    start = display.ask("Start now?", "n")
+    if start.lower() == "y":
         from majestic.cli.foreground import run as fg_run
         fg_run("default")
 
