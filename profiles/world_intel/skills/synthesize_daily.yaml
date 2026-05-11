@@ -1,0 +1,15 @@
+name: synthesize_daily
+description: Compile and save the full daily intelligence brief combining news and signal analysis
+triggers:
+  - daily brief
+  - daily report
+  - generate daily
+  - compile daily
+  - morning brief
+  - today's brief
+steps:
+  - Ensure news has been collected (check db_news.py list_recent --limit 1; if empty, collect first)
+  - Ensure signals have been extracted: python profiles/world_intel/workspace/tools/extract_signals.py today
+  - Ensure flows have been analyzed: python profiles/world_intel/workspace/tools/analyze_flows.py today
+  - Run: python profiles/world_intel/workspace/tools/synthesize_daily.py
+  - Report the report path and key highlights: top story, total funding, top sector, any policy alerts

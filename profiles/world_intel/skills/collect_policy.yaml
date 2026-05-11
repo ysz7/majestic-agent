@@ -1,0 +1,14 @@
+name: collect_policy
+description: Collect regulation and policy news affecting technology and capital flows
+triggers:
+  - policy news
+  - regulation news
+  - regulatory update
+  - AI regulation
+  - government policy
+  - legislative news
+steps:
+  - Run: python profiles/world_intel/workspace/tools/collect_news.py policy --limit 5
+  - Also run: python profiles/world_intel/workspace/tools/collect_news.py geopolitics --limit 3
+  - Report policy changes with their direction (enables/restricts/incentivizes) and affected sectors
+  - Flag any immediate-urgency policy changes

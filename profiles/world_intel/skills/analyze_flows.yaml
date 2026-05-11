@@ -1,0 +1,15 @@
+name: analyze_flows
+description: Aggregate funding signals into capital flow patterns by segment and track momentum
+triggers:
+  - analyze flows
+  - capital flows
+  - where is money going
+  - investment flows
+  - flow analysis
+  - segment analysis
+steps:
+  - Run: python profiles/world_intel/workspace/tools/analyze_flows.py today
+  - Report total capital deployed today by segment (sorted by amount)
+  - Show momentum for each segment (accelerating/stable/decelerating)
+  - Highlight any outlier deals that dominate the day's volume
+  - Compare to typical patterns and flag unusual concentration

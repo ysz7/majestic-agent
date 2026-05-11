@@ -1,0 +1,13 @@
+name: collect_macro
+description: Collect macro-economic and market news from Reuters, CNBC, Yahoo Finance
+triggers:
+  - macro news
+  - market news
+  - economic news
+  - what are markets doing
+  - interest rates
+  - economic update
+steps:
+  - Run: python profiles/world_intel/workspace/tools/collect_news.py macro --limit 5
+  - Report key macro events: rates, markets, economic indicators
+  - Highlight any market moves above 1% or major central bank decisions

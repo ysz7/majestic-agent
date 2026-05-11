@@ -1,0 +1,14 @@
+name: collect_news
+description: Collect raw news articles by category and save to news.db
+triggers:
+  - collect news
+  - get news
+  - fetch news
+  - what's happening
+  - news update
+  - collect today's news
+steps:
+  - Identify category: tech / funding / macro / policy / geopolitics (ask if unclear)
+  - Run: python profiles/world_intel/workspace/tools/collect_news.py <category> --limit 5
+  - Report how many articles collected, skipped duplicates, top stories found
+  - Suggest running extract_signals to analyze collected news

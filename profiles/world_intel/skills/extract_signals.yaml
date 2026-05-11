@@ -1,0 +1,15 @@
+name: extract_signals
+description: Extract structured investment, policy, and market signals from collected news
+triggers:
+  - extract signals
+  - analyze news
+  - what are the signals
+  - find investment signals
+  - signal extraction
+steps:
+  - Run: python profiles/world_intel/workspace/tools/extract_signals.py today
+  - Report: how many news items processed, signals found by type
+  - List all funding_round signals with company, amount, stage, sector
+  - List all policy_change signals with direction and affected niches
+  - List all market_move signals with asset and magnitude
+  - Flag any landmark or high significance signals

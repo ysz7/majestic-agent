@@ -1,0 +1,16 @@
+name: segment_analysis
+description: Deep analysis of a specific investment segment on request
+triggers:
+  - analyze segment
+  - deep dive
+  - tell me about
+  - what is happening in
+  - segment report
+  - sector analysis
+steps:
+  - Identify the segment the user wants analyzed (ask if unclear)
+  - Query news.db for recent articles in that segment: python profiles/world_intel/workspace/tools/db_news.py search <segment>
+  - Query signals.db for funding/policy signals related to segment: python profiles/world_intel/workspace/tools/db_signals.py get_by_type funding_round
+  - Query flows.db for segment history: python profiles/world_intel/workspace/tools/db_flows.py get_by_segment <segment>
+  - Synthesize analysis: recent events, capital deployed, momentum, key players, policy environment
+  - Report: segment summary, funding trend, top recent deals, policy signals, outlook

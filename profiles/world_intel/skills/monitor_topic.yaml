@@ -1,0 +1,15 @@
+name: monitor_topic
+description: Check and update a specific monitored topic or manage the topic watchlist
+triggers:
+  - monitor topic
+  - track topic
+  - watch
+  - add topic
+  - topic update
+  - what happened with
+steps:
+  - If user wants to ADD a topic: python profiles/world_intel/workspace/tools/monitor_topics.py add "<name>" --query "<search query>"
+  - If user wants to CHECK a topic: python profiles/world_intel/workspace/tools/monitor_topics.py --topic "<name>"
+  - If user wants to CHECK ALL: python profiles/world_intel/workspace/tools/monitor_topics.py
+  - Report what was found, highlight any alerts (landmark/high significance signals)
+  - Show the updated report path

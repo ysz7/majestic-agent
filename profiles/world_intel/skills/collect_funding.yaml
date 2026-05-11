@@ -1,0 +1,15 @@
+name: collect_funding
+description: Collect funding round announcements from TechCrunch, Crunchbase, VentureBeat
+triggers:
+  - collect funding news
+  - funding rounds
+  - who raised money
+  - investment news
+  - venture capital news
+  - startup funding
+steps:
+  - Run: python profiles/world_intel/workspace/tools/collect_news.py funding --limit 8
+  - Report all funding rounds found with company names and amounts
+  - Run: python profiles/world_intel/workspace/tools/extract_signals.py today
+  - Run: python profiles/world_intel/workspace/tools/analyze_flows.py today
+  - Report capital flow summary by segment

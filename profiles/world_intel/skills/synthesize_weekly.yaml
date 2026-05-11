@@ -1,0 +1,13 @@
+name: synthesize_weekly
+description: Compile and save the weekly deep intelligence report with thesis analysis
+triggers:
+  - weekly report
+  - weekly brief
+  - week in review
+  - generate weekly
+  - weekly analysis
+steps:
+  - Determine current week (ISO format YYYY-Www)
+  - Verify data exists for the week (news.db should have entries across multiple days)
+  - Run: python profiles/world_intel/workspace/tools/synthesize_weekly.py
+  - Report report path, key weekly themes, total capital deployed, top 3 segments, biggest thesis shift
