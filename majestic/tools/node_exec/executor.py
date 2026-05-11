@@ -1,6 +1,23 @@
 import asyncio
+import re
 from pathlib import Path
 from .modules_manager import ModulesManager
+
+_BLOCKED_PATTERNS = [
+    re.compile(r"\brequire\s*\(\s*['\"]child_process['\"]"),
+    re.compile(r"\bexec\s*\(\s*(?:userInput|req\.|data)\b"),
+    re.compile(r"\beval\s*\(\s*(?:userInput|req\.|data)\b"),
+    re.compile(r"\bspawnSync\b|\bexecSync\b"),
+    re.compile(r"\bprocess\.binding\b"),
+]
+
+
+def _check_code_safety(code: str) -> str | None:
+    """Return a description of the first blocked pattern found, or None if safe."""
+    for pat in _BLOCKED_PATTERNS:
+        if pat.search(code):
+            return pat.pattern
+    return None
 
 
 class NodeExecutor:
@@ -16,6 +33,10 @@ class NodeExecutor:
         Write code to temp file, run with Node.js, return stdout+stderr.
         Timeout: 30 seconds. Records execution in ScriptTracker.
         """
+        blocked = _check_code_safety(code)
+        if blocked:
+            return f"Error: code blocked by security policy (pattern: {blocked})"
+
         if install_packages:
             self.modules.npm_install(install_packages)
 

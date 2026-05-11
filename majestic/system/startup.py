@@ -47,8 +47,13 @@ class StartupManager:
     # Public interface
     # ------------------------------------------------------------------
 
-    async def run(self) -> None:
+    async def run(self) -> list[dict]:
         """Run all startup checks and initialization in order.
+
+        Returns:
+            List of incomplete checkpoint dicts (may be empty).  Each dict has
+            ``task_id``, ``started_at``, ``status``, and ``file`` keys so the
+            caller can offer the user a resume prompt.
 
         Raises:
             StartupError: if a fatal check fails (missing files, invalid
@@ -58,9 +63,10 @@ class StartupManager:
         self._validate_settings()
         self._ensure_dirs()
         self._init_databases()
-        await self._recover_checkpoints()
+        incomplete = await self._recover_checkpoints()
         self._schedule_janitor()
         logger.info("Startup complete.")
+        return incomplete
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -153,24 +159,27 @@ class StartupManager:
             else:
                 logger.debug("Database '%s' already exists at %s", name, path)
 
-    async def _recover_checkpoints(self) -> None:
-        """Detect incomplete checkpoints and notify the user.
+    async def _recover_checkpoints(self) -> list[dict]:
+        """Detect incomplete checkpoints and return them to the caller.
 
-        A checkpoint file is considered *incomplete* if it has a ``status``
-        field whose value is not ``"completed"`` or ``"failed"``.  The
-        method does not attempt automatic recovery — it logs a warning for
-        each incomplete checkpoint so that the operator can decide what to
-        do.
+        A checkpoint is *incomplete* if its ``status`` field is absent or not
+        ``"completed"`` / ``"failed"``.  The caller (main loop) decides whether
+        to offer the user a resume prompt.
+
+        Returns:
+            List of dicts with keys: task_id, started_at, status, file.
         """
         profile_dir = getattr(self.settings, "profile_dir", None)
         if profile_dir is not None:
             checkpoint_dir = Path(profile_dir) / "data" / "checkpoints"
         else:
-            checkpoint_dir = Path(self._get("checkpoint_dir", os.path.join("data", "checkpoints")))
+            checkpoint_dir = Path(
+                self._get("checkpoint_dir", os.path.join("data", "checkpoints"))
+            )
         if not checkpoint_dir.exists():
-            return
+            return []
 
-        incomplete: list[Path] = []
+        incomplete: list[dict] = []
         for cp_file in sorted(checkpoint_dir.glob("*.json")):
             try:
                 data = json.loads(cp_file.read_text(encoding="utf-8"))
@@ -180,33 +189,30 @@ class StartupManager:
 
             status = data.get("status", "unknown")
             if status not in ("completed", "failed"):
-                incomplete.append(cp_file)
+                entry = {
+                    "task_id": data.get("task_id", cp_file.stem),
+                    "started_at": data.get("started_at", "unknown"),
+                    "status": status,
+                    "file": str(cp_file),
+                }
+                incomplete.append(entry)
+                logger.warning(
+                    "Incomplete checkpoint: task_id=%s  started=%s  file=%s",
+                    entry["task_id"],
+                    entry["started_at"],
+                    cp_file.name,
+                )
 
         if incomplete:
             logger.warning(
-                "%d incomplete checkpoint(s) found. "
-                "These tasks did not finish cleanly:",
+                "%d incomplete task(s) found — pass task_id to AgentRuntime.run() "
+                "to resume from the last saved step.",
                 len(incomplete),
-            )
-            for cp in incomplete:
-                try:
-                    data = json.loads(cp.read_text(encoding="utf-8"))
-                except (json.JSONDecodeError, OSError):
-                    data = {}
-                task_id = data.get("task_id", cp.stem)
-                started = data.get("started_at", "unknown time")
-                logger.warning(
-                    "  - task_id=%s  started=%s  status=%s  file=%s",
-                    task_id,
-                    started,
-                    data.get("status", "unknown"),
-                    cp.name,
-                )
-            logger.warning(
-                "Run `majestic recover` to resume or discard these tasks."
             )
         else:
             logger.debug("No incomplete checkpoints found.")
+
+        return incomplete
 
     def _schedule_janitor(self) -> None:
         """Schedule the janitor if it has not run in the last 24 hours.

@@ -1,6 +1,26 @@
 import asyncio
+import re
 from pathlib import Path
 from .venv_manager import VenvManager
+
+# Patterns that indicate shell-escape or code-injection risk.
+# These are blocked regardless of source to prevent prompt-injection abuse.
+_BLOCKED_PATTERNS = [
+    re.compile(r"\bos\.system\s*\("),
+    re.compile(r"\bsubprocess\b.{0,60}\bshell\s*=\s*True"),
+    re.compile(r"\beval\s*\(\s*(?:input|request|user|data)\b"),
+    re.compile(r"\bexec\s*\(\s*(?:input|request|user|data)\b"),
+    re.compile(r"__import__\s*\(\s*['\"]os['\"]"),
+    re.compile(r"\bpty\b|\bpexpect\b"),
+]
+
+
+def _check_code_safety(code: str) -> str | None:
+    """Return a description of the first blocked pattern found, or None if safe."""
+    for pat in _BLOCKED_PATTERNS:
+        if pat.search(code):
+            return pat.pattern
+    return None
 
 
 class PythonExecutor:
@@ -16,6 +36,10 @@ class PythonExecutor:
         Write code to temp file, run in .venv, return stdout+stderr.
         Timeout: 30 seconds. Records execution in ScriptTracker.
         """
+        blocked = _check_code_safety(code)
+        if blocked:
+            return f"Error: code blocked by security policy (pattern: {blocked})"
+
         self.venv.ensure_venv()
         if install_packages:
             self.venv.pip_install(install_packages)
