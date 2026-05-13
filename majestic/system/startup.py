@@ -5,6 +5,7 @@ Validates configuration, ensures required directories and databases exist,
 recovers incomplete checkpoints, and schedules the janitor if overdue.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -63,6 +64,8 @@ class StartupManager:
         self._validate_settings()
         self._ensure_dirs()
         self._init_databases()
+        await self._ensure_ollama()
+        await self._ensure_ollama_model()
         incomplete = await self._recover_checkpoints()
         self._schedule_janitor()
         logger.info("Startup complete.")
@@ -213,6 +216,92 @@ class StartupManager:
             logger.debug("No incomplete checkpoints found.")
 
         return incomplete
+
+    async def _ensure_ollama(self) -> None:
+        """Auto-start Ollama if OLLAMA_BASE_URL is configured but the server is not running."""
+        import subprocess
+        import httpx
+
+        base_url = getattr(self.settings, "ollama_base_url", None)
+        if not base_url:
+            return
+
+        # Already running?
+        try:
+            httpx.get(f"{base_url}/api/tags", timeout=3)
+            return
+        except Exception:
+            pass
+
+        # Not running — try to start it
+        logger.info("Ollama not running at %s — attempting auto-start.", base_url)
+        try:
+            subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            raise StartupError(
+                "Ollama is not installed or not on PATH. "
+                "Install it from https://ollama.com then run `ollama serve`."
+            )
+
+        # Poll up to 10 seconds
+        for _ in range(10):
+            await asyncio.sleep(1)
+            try:
+                httpx.get(f"{base_url}/api/tags", timeout=2)
+                logger.info("Ollama started successfully.")
+                return
+            except Exception:
+                pass
+
+        raise StartupError(
+            f"Could not start Ollama at {base_url}. Run `ollama serve` manually."
+        )
+
+    async def _ensure_ollama_model(self) -> None:
+        """Check that the configured Ollama model is available locally; offer pull if not."""
+        import httpx
+
+        base_url = getattr(self.settings, "ollama_base_url", None)
+        model = getattr(self.settings, "ollama_model", None)
+        if not base_url or not model:
+            return
+
+        try:
+            resp = httpx.get(f"{base_url}/api/tags", timeout=3)
+            installed = [m["name"] for m in resp.json().get("models", [])]
+        except Exception:
+            return  # can't check — let the LLM router fail naturally
+
+        if model in installed:
+            return
+
+        from majestic import display
+        display.warn(f"Model `{model}` not found locally.")
+
+        pull = False
+        try:
+            import questionary
+            pull = questionary.confirm(
+                "Pull it now? This may take several minutes.",
+                default=False,
+            ).ask() or False
+        except ImportError:
+            ans = display.ask("Pull it now? This may take several minutes.", "n")
+            pull = ans.strip().lower() in ("y", "yes")
+
+        if pull:
+            import subprocess
+            display.info(f"Pulling {model} (this may take a while)…")
+            subprocess.run(["ollama", "pull", model], check=False)
+            display.ok(f"Model {model} ready.")
+        else:
+            raise StartupError(
+                f"Model `{model}` not available. Pull it with:  ollama pull {model}"
+            )
 
     def _schedule_janitor(self) -> None:
         """Schedule the janitor if it has not run in the last 24 hours.

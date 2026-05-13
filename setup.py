@@ -28,6 +28,7 @@ setup(
         "rich>=13.7.1",
         "click>=8.1.7",
         "aiohttp>=3.9.5",
+        "questionary>=2.0.1",
     ],
     entry_points={
         "console_scripts": [

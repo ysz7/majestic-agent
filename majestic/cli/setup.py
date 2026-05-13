@@ -1,8 +1,8 @@
 """
 majestic setup — first-run wizard.
 
-Asks for ONE LLM provider key and creates the root .env + default profile.
-Everything else (model routing, extra providers) can be added later.
+Arrow-key navigation via questionary (falls back to number input if not installed).
+Flow: provider → key → model → agent name → write root .env → init default profile.
 """
 
 from __future__ import annotations
@@ -10,10 +10,138 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import httpx
+
 from majestic import display
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
+# ── Curated model lists (shown when live fetch fails or not applicable) ────────
+
+MODELS_ANTHROPIC = [
+    "claude-opus-4-7",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5-20251001",
+    "Enter model ID manually",
+]
+
+MODELS_OPENAI = [
+    "gpt-4o",
+    "gpt-4o-mini",
+    "o1",
+    "o1-mini",
+    "Enter model ID manually",
+]
+
+MODELS_OPENROUTER_CURATED = [
+    "anthropic/claude-sonnet-4-6",
+    "anthropic/claude-opus-4-7",
+    "openai/gpt-4o",
+    "openai/gpt-4o-mini",
+    "google/gemini-flash-1.5",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "mistralai/mistral-7b-instruct:free",
+    "Enter model ID manually",
+]
+
+_MANUAL = "Enter model ID manually"
+
+
+# ── Live model fetchers ────────────────────────────────────────────────────────
+
+def _fetch_openrouter_models(api_key: str) -> list[str]:
+    """Fetch available OpenRouter models filtered to context_length >= 16000.
+
+    Returns curated list on any error (network, parse, timeout).
+    """
+    try:
+        resp = httpx.get(
+            "https://openrouter.ai/api/v1/models",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        models = [
+            m["id"] for m in data
+            if m.get("context_length", 0) >= 16000
+        ]
+        # Sort by prompt price ascending (cheapest first)
+        price_map = {m["id"]: float(m.get("pricing", {}).get("prompt", 999)) for m in data}
+        models.sort(key=lambda mid: price_map.get(mid, 999))
+        if not models:
+            return MODELS_OPENROUTER_CURATED
+        return models + [_MANUAL]
+    except Exception:
+        return MODELS_OPENROUTER_CURATED
+
+
+def _fetch_ollama_models(base_url: str) -> list[str]:
+    """Return list of locally installed Ollama model names.
+
+    Returns [] if Ollama is not reachable.
+    """
+    try:
+        resp = httpx.get(f"{base_url}/api/tags", timeout=3)
+        resp.raise_for_status()
+        return [m["name"] for m in resp.json().get("models", [])]
+    except Exception:
+        return []
+
+
+# ── questionary helpers (graceful fallback) ────────────────────────────────────
+
+def _q_select(prompt: str, choices: list[str], default: str | None = None) -> str:
+    """Arrow-key single choice. Falls back to numbered list."""
+    try:
+        import questionary
+        result = questionary.select(prompt, choices=choices, default=default or choices[0]).ask()
+        if result is None:
+            raise SystemExit(0)
+        return result
+    except ImportError:
+        idx = display.choose(prompt, choices, default=choices.index(default) if default and default in choices else 0)
+        return choices[idx]
+
+
+def _q_password(prompt: str) -> str:
+    """Masked password input. Falls back to plain ask."""
+    try:
+        import questionary
+        result = questionary.password(prompt).ask()
+        if result is None:
+            raise SystemExit(0)
+        return result
+    except ImportError:
+        return display.ask(prompt)
+
+
+def _q_text(prompt: str, default: str = "") -> str:
+    """Plain text input with optional default. Falls back to display.ask."""
+    try:
+        import questionary
+        result = questionary.text(prompt, default=default).ask()
+        if result is None:
+            raise SystemExit(0)
+        return result
+    except ImportError:
+        return display.ask(prompt, default)
+
+
+def _q_confirm(prompt: str, default: bool = False) -> bool:
+    """Yes/no confirm. Falls back to display.ask."""
+    try:
+        import questionary
+        result = questionary.confirm(prompt, default=default).ask()
+        if result is None:
+            raise SystemExit(0)
+        return result
+    except ImportError:
+        ans = display.ask(prompt, "y" if default else "n")
+        return ans.strip().lower() in ("y", "yes")
+
+
+# ── Wizard ─────────────────────────────────────────────────────────────────────
 
 def run() -> None:
     print()
@@ -21,82 +149,120 @@ def run() -> None:
     display.info("You need ONE key to get started. Add more providers later if needed.")
     print()
 
-    # ── Step 1: pick a provider ──────────────────────────────────────────
-    provider = display.choose(
-        "Pick your LLM provider:",
-        [
-            "OpenRouter  (recommended — 200+ models, one key)",
-            "Anthropic   (Claude models directly)",
-            "OpenAI      (GPT models directly)",
-            "Ollama      (local models, no key needed)",
-        ],
-        default=0,
-    )
-
     env_lines: list[str] = []
 
-    if provider == 0:
-        key = display.ask("OpenRouter API key")
+    # ── Step 1: provider ──────────────────────────────────────────────────
+    provider = _q_select(
+        "Choose your LLM provider:",
+        [
+            "OpenRouter  (recommended — 200+ models, one key)",
+            "Anthropic   (Claude family)",
+            "OpenAI      (GPT family)",
+            "Ollama      (local, no key needed)",
+        ],
+    )
+
+    chosen_model: str = ""
+
+    # ── Step 2: key / URL ────────────────────────────────────────────────
+    if provider.startswith("OpenRouter"):
+        key = _q_password("OpenRouter API key (will be hidden):")
         if not key:
             display.err("Key cannot be empty.")
             sys.exit(1)
         env_lines.append(f"OPENROUTER_API_KEY={key}")
 
-    elif provider == 1:
-        key = display.ask("Anthropic API key")
+        # ── Step 3: model ────────────────────────────────────────────────
+        display.info("Fetching available models…")
+        model_list = _fetch_openrouter_models(key)
+        if model_list == MODELS_OPENROUTER_CURATED:
+            display.warn("Could not reach OpenRouter — showing curated list.")
+        else:
+            display.ok(f"Found {len(model_list) - 1} models.")
+
+        chosen_model = _q_select("Choose your main model:", model_list, default=model_list[0])
+        if chosen_model == _MANUAL:
+            chosen_model = _q_text("Model ID:")
+
+    elif provider.startswith("Anthropic"):
+        key = _q_password("Anthropic API key (will be hidden):")
         if not key:
             display.err("Key cannot be empty.")
             sys.exit(1)
         env_lines.append(f"ANTHROPIC_API_KEY={key}")
 
-    elif provider == 2:
-        key = display.ask("OpenAI API key")
+        chosen_model = _q_select("Choose your main model:", MODELS_ANTHROPIC, default=MODELS_ANTHROPIC[1])
+        if chosen_model == _MANUAL:
+            chosen_model = _q_text("Model ID:")
+
+    elif provider.startswith("OpenAI"):
+        key = _q_password("OpenAI API key (will be hidden):")
         if not key:
             display.err("Key cannot be empty.")
             sys.exit(1)
         env_lines.append(f"OPENAI_API_KEY={key}")
 
-    else:  # Ollama
-        url = display.ask("Ollama base URL", "http://localhost:11434")
-        model = display.ask("Default model", "llama3.2")
-        env_lines.append(f"OLLAMA_BASE_URL={url}")
-        env_lines.append(f"OLLAMA_MODEL={model}")
+        chosen_model = _q_select("Choose your main model:", MODELS_OPENAI, default=MODELS_OPENAI[0])
+        if chosen_model == _MANUAL:
+            chosen_model = _q_text("Model ID:")
 
-    # ── Step 2: optional web search ──────────────────────────────────────
+    else:  # Ollama
+        base_url = _q_text("Ollama base URL:", default="http://localhost:11434")
+        env_lines.append(f"OLLAMA_BASE_URL={base_url}")
+
+        ollama_models = _fetch_ollama_models(base_url)
+        if not ollama_models:
+            display.warn(f"Ollama not reachable at {base_url}. Enter model name manually.")
+            chosen_model = _q_text("Model name (e.g. llama3.2):", default="llama3.2")
+        else:
+            choices = ollama_models + ["Enter manually"]
+            chosen_model = _q_select("Choose installed model:", choices, default=choices[0])
+            if chosen_model == "Enter manually":
+                chosen_model = _q_text("Model name:", default="llama3.2")
+
+        env_lines.append(f"OLLAMA_MODEL={chosen_model}")
+
+    if chosen_model and not provider.startswith("Ollama"):
+        env_lines.append(f"MAJESTIC_MODEL_REASON={chosen_model}")
+
+    # ── Step 3: optional Brave Search ────────────────────────────────────
     print()
-    display.info("Web search key (optional — press Enter to use DuckDuckGo for free):")
-    brave = display.ask("Brave Search API key", "")
+    display.info("Web search — Brave Search API (optional, press Enter to skip → DuckDuckGo free):")
+    brave = _q_text("Brave Search API key:", default="")
     if brave:
         env_lines.append(f"BRAVE_SEARCH_API_KEY={brave}")
 
-    # ── Step 3: agent name ───────────────────────────────────────────────
+    # ── Step 4: agent name ────────────────────────────────────────────────
     print()
-    name = display.ask("Agent name", "Assistant")
+    name = _q_text("Agent name:", default="Assistant")
+    if name:
+        env_lines.append(f"AGENT_NAME={name}")
 
-    # ── Write root .env ──────────────────────────────────────────────────
+    # ── Write root .env ───────────────────────────────────────────────────
     root_env = _PROJECT_ROOT / ".env"
     root_env.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
 
-    # ── Write default profile ────────────────────────────────────────────
-    _init_profile("default", agent_name=name)
+    # ── Init default profile ──────────────────────────────────────────────
+    _init_profile("default", agent_name=name or "Assistant")
 
     print()
     display.ok(".env created")
     display.ok("profiles/default/ ready")
+    if chosen_model and not provider.startswith("Ollama"):
+        display.ok(f"Main model: {chosen_model}")
     print()
     display.info("Start the agent:")
     display.info("  majestic             — interactive session")
     display.info("  majestic run default — background daemon")
     print()
 
-    start = display.ask("Start now?", "n")
-    if start.lower() == "y":
+    if _q_confirm("Start now?", default=False):
         from majestic.cli.foreground import run as fg_run
         fg_run("default")
 
 
 def _init_profile(profile_name: str, agent_name: str = "Assistant") -> None:
-    """Create the profile directory structure and minimal persona.yaml."""
+    """Create profile directory structure and minimal persona.yaml."""
     import yaml
 
     profile_dir = _PROJECT_ROOT / "profiles" / profile_name

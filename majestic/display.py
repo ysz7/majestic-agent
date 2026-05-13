@@ -388,16 +388,25 @@ def ask(prompt: str, default: str = "") -> str:
     return val or default
 
 def choose(prompt: str, options: list[str], default: int = 0) -> int:
-    print(f"\n  {B}{prompt}{R}")
-    for i, opt in enumerate(options, 1):
-        marker = f"{C}▶{R}" if i - 1 == default else " "
-        print(f"  {marker} {i}. {opt}")
-    raw = ask("Select", str(default + 1))
+    """Arrow-key selection via questionary when available; numbered list fallback."""
     try:
-        idx = int(raw) - 1
-        return idx if 0 <= idx < len(options) else default
-    except ValueError:
-        return default
+        import questionary
+        default_choice = options[default] if 0 <= default < len(options) else options[0]
+        result = questionary.select(prompt, choices=options, default=default_choice).ask()
+        if result is None:
+            raise SystemExit(0)
+        return options.index(result)
+    except ImportError:
+        print(f"\n  {B}{prompt}{R}")
+        for i, opt in enumerate(options, 1):
+            marker = f"{C}▶{R}" if i - 1 == default else " "
+            print(f"  {marker} {i}. {opt}")
+        raw = ask("Select", str(default + 1))
+        try:
+            idx = int(raw) - 1
+            return idx if 0 <= idx < len(options) else default
+        except ValueError:
+            return default
 
 def confirm_delete(profile_name: str) -> bool:
     """Used by majestic rm — requires typing the profile name."""
