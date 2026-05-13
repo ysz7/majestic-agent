@@ -54,7 +54,7 @@ MODELS_OPENROUTER_CURATED = [
     # Free models
     "meta-llama/llama-3.3-70b-instruct:free",
     "meta-llama/llama-3.1-8b-instruct:free",
-    "google/gemini-2.0-flash-exp:free",
+    "google/gemma-3-27b-it:free",
     "mistralai/mistral-7b-instruct:free",
     "qwen/qwen3-8b:free",
     "Enter model ID manually",
