@@ -961,12 +961,12 @@
             <span class="terminal-title">core — any task, any model</span>
           </div>
           <div class="terminal-body">
-            <span class="t-line"><span class="t-prompt">majestic ❯</span> <span class="t-cmd">Summarize the PDF and save to workspace</span></span>
-            <span class="t-line t-dim" style="margin-top:4px">◆ claude-sonnet-4 · tools ready</span>
+            <span class="t-line"><span class="t-prompt">majestic ❯</span> <span class="t-cmd">Parse the PDF and write a summary</span></span>
+            <span class="t-line t-dim" style="margin-top:4px">◆ claude-sonnet-4-6 · 8 tools ready</span>
             <span class="t-line">&nbsp;</span>
-            <span class="t-line"><span class="t-dim">┌</span> <span class="t-blue">read_file</span> <span class="t-dim">· report_q3.pdf · 42 pages</span></span>
-            <span class="t-line"><span class="t-dim">├</span> <span class="t-blue">run_python</span> <span class="t-dim">· extracting text...</span></span>
-            <span class="t-line"><span class="t-dim">└</span> <span class="t-blue">write_file</span> <span class="t-dim">· summary.md · 1,240 chars</span></span>
+            <span class="t-line"><span class="t-dim">┌</span> <span class="t-blue">file_parser</span> <span class="t-dim">· report_q3.pdf · 42 pages</span></span>
+            <span class="t-line"><span class="t-dim">├</span> <span class="t-blue">python_exec</span> <span class="t-dim">· extracting text...</span></span>
+            <span class="t-line"><span class="t-dim">└</span> <span class="t-blue">files</span> <span class="t-dim">· summary.md written · 1,240 chars</span></span>
             <span class="t-line">&nbsp;</span>
             <span class="t-line"><span class="t-success">✓ Done</span> <span class="t-dim">· 3 tool calls · $0.002 · 4.1s</span></span>
             <span class="t-line" style="margin-top:4px"><span class="t-prompt">majestic ❯</span> <span class="t-cursor"></span></span>
@@ -980,15 +980,15 @@
             <span class="terminal-title">vertical — finance_bot</span>
           </div>
           <div class="terminal-body">
-            <span class="t-line"><span class="t-prompt">finance_bot ❯</span> <span class="t-cmd">Check portfolio and alert if BTC drops 5%</span></span>
-            <span class="t-line t-dim" style="margin-top:4px">◆ Role: Financial analyst · domain tools active</span>
+            <span class="t-line"><span class="t-prompt">pain_hunter ❯</span> <span class="t-cmd">Scan HN for SaaS pain points this week</span></span>
+            <span class="t-line t-dim" style="margin-top:4px">◆ Role: Market Research Analyst · skills loaded</span>
             <span class="t-line">&nbsp;</span>
-            <span class="t-line"><span class="t-dim">┌</span> <span class="t-blue">get_portfolio</span> <span class="t-dim">· fetching positions...</span></span>
-            <span class="t-line"><span class="t-dim">├</span> <span class="t-blue">price_feed</span> <span class="t-dim">· BTC <span class="t-yellow">$67,420</span> · threshold: $64,049</span></span>
-            <span class="t-line"><span class="t-dim">└</span> <span class="t-blue">set_alert</span> <span class="t-dim">· registered · notify via Telegram</span></span>
+            <span class="t-line"><span class="t-dim">┌</span> <span class="t-blue">web_search</span> <span class="t-dim">· site:news.ycombinator.com pain 2026</span></span>
+            <span class="t-line"><span class="t-dim">├</span> <span class="t-blue">web_fetch</span> <span class="t-dim">· extracting <span class="t-yellow">14 pain signals</span>...</span></span>
+            <span class="t-line"><span class="t-dim">└</span> <span class="t-blue">python_exec</span> <span class="t-dim">· clustered into 3 themes</span></span>
             <span class="t-line">&nbsp;</span>
-            <span class="t-line"><span class="t-success">✓ Done</span> <span class="t-dim">· 3 tool calls · $0.001 · 2.8s</span></span>
-            <span class="t-line" style="margin-top:4px"><span class="t-prompt">finance_bot ❯</span> <span class="t-cursor"></span></span>
+            <span class="t-line"><span class="t-success">✓ Done</span> <span class="t-dim">· 4 tool calls · $0.003 · 5.2s</span></span>
+            <span class="t-line" style="margin-top:4px"><span class="t-prompt">pain_hunter ❯</span> <span class="t-cursor"></span></span>
           </div>
         </div>
       </div>
@@ -1001,9 +1001,9 @@
   <section id="features">
     <div class="container">
       <div class="feature-badges">
-        <div class="feature-badge"><span class="fb-dot"></span>Lean Core — ~20 tools</div>
+        <div class="feature-badge"><span class="fb-dot"></span>8 Built-in Tools + MCP</div>
         <div class="feature-badge"><span class="fb-dot"></span>Local-first — Ollama ready</div>
-        <div class="feature-badge"><span class="fb-dot"></span>Vertical-ready — fork &amp; specialize</div>
+        <div class="feature-badge"><span class="fb-dot"></span>Profile-based — isolated agents</div>
         <div class="feature-badge"><span class="fb-dot"></span>One-command install</div>
       </div>
       <div class="features-header">
@@ -1048,32 +1048,32 @@
         <div class="cap-card">
           <span class="cap-num">06</span>
           <div class="cap-title">REST API</div>
-          <p class="cap-desc">POST /chat, GET /health, GET /sessions — connect any frontend, script, or service. Optional API key auth.</p>
-          <div class="cap-tags"><span class="cap-tag">http</span><span class="cap-tag">no-dep</span></div>
+          <p class="cap-desc">POST /task, GET /status/{id}, POST /message/{id} — run agents in background, delegate between agents, connect any service.</p>
+          <div class="cap-tags"><span class="cap-tag">fastapi</span><span class="cap-tag">background-mode</span></div>
         </div>
         <div class="cap-card">
           <span class="cap-num">07</span>
           <div class="cap-title">4 LLM Providers</div>
-          <p class="cap-desc">Anthropic, OpenAI, OpenRouter, Ollama. Switch anytime with <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">majestic model</code> or <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">/model</code>.</p>
+          <p class="cap-desc">Anthropic, OpenAI, OpenRouter, Ollama. Per-step routing — reason model, code model, reflection model — configured in <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">persona.yaml</code>.</p>
           <div class="cap-tags"><span class="cap-tag">anthropic</span><span class="cap-tag">openai</span><span class="cap-tag">openrouter</span><span class="cap-tag">ollama</span></div>
         </div>
         <div class="cap-card">
           <span class="cap-num">08</span>
-          <div class="cap-title">Vertical-ready Core</div>
-          <p class="cap-desc">Set <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">agent.role</code>, add domain tools, ship. One repo — infinite verticals: finance bot, support agent, dev tool.</p>
-          <div class="cap-tags"><span class="cap-tag">agent.role</span><span class="cap-tag">tools/local/</span></div>
+          <div class="cap-title">Profile System</div>
+          <p class="cap-desc">Each agent is a profile — isolated <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">persona.yaml</code>, skills, workspace, and data. Create unlimited agents, each with their own identity and port.</p>
+          <div class="cap-tags"><span class="cap-tag">profiles/</span><span class="cap-tag">persona.yaml</span></div>
         </div>
         <div class="cap-card">
           <span class="cap-num">09</span>
-          <div class="cap-title">Plug-in Tools</div>
-          <p class="cap-desc">Drop a file in <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">tools/</code> and the agent picks it up. No wiring, no config changes needed.</p>
-          <div class="cap-tags"><span class="cap-tag">auto-registry</span></div>
+          <div class="cap-title">8 Built-in Tools</div>
+          <p class="cap-desc">web_search, web_fetch, http, files, python_exec, node_exec, file_parser, agent_client — plus any MCP server. Add domain tools with one file in <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">tools/</code>.</p>
+          <div class="cap-tags"><span class="cap-tag">built-in</span><span class="cap-tag">mcp</span></div>
         </div>
         <div class="cap-card">
           <span class="cap-num">10</span>
-          <div class="cap-title">Web Dashboard</div>
-          <p class="cap-desc">Browser UI with real-time chat, memory editor, skill CRUD, token monitoring and schedules.</p>
-          <div class="cap-tags"><span class="cap-tag">react</span><span class="cap-tag">shadcn</span><span class="cap-tag">sse</span></div>
+          <div class="cap-title">Setup &amp; Config CLI</div>
+          <p class="cap-desc"><code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">majestic setup</code> — arrow-key wizard with live model list. <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">majestic config &lt;name&gt;</code> — edit any agent interactively.</p>
+          <div class="cap-tags"><span class="cap-tag">questionary</span><span class="cap-tag">wizard</span></div>
         </div>
         <div class="cap-card">
           <span class="cap-num">11</span>
@@ -1098,63 +1098,68 @@
         <div>
           <div class="tools-header">
             <p class="section-label">Tools</p>
-            <h2 class="section-heading">~20 Tools.<br />One Registry.</h2>
-            <p class="section-sub" style="margin-top:14px">Lean core tools cover the essential 80%. Add your domain tools in <code style="font-family:var(--font-mono);font-size:12px">tools/local/</code> — auto-registered, zero config.</p>
+            <h2 class="section-heading">8 Built-in Tools.<br />Plus Any MCP.</h2>
+            <p class="section-sub" style="margin-top:14px">Core tools cover the essential 80%. Add MCP servers or drop a file in <code style="font-family:var(--font-mono);font-size:12px">tools/</code> — auto-registered, zero config.</p>
           </div>
           <div class="tools-list">
             <div class="tool-row">
-              <span class="tool-name">web_search · extract</span>
-              <span class="tool-desc">Web search and content extraction</span>
+              <span class="tool-name">web_search</span>
+              <span class="tool-desc">Search the web via OpenRouter / Tavily</span>
               <span class="tool-badge badge-web">web</span>
             </div>
             <div class="tool-row">
-              <span class="tool-name">get_news</span>
-              <span class="tool-desc">Latest indexed news from DB</span>
+              <span class="tool-name">web_fetch</span>
+              <span class="tool-desc">Fetch and extract content from any URL</span>
               <span class="tool-badge badge-web">web</span>
             </div>
             <div class="tool-row">
-              <span class="tool-name">read · write · index</span>
-              <span class="tool-desc">File system operations</span>
+              <span class="tool-name">http</span>
+              <span class="tool-desc">Generic HTTP requests to any REST API</span>
+              <span class="tool-badge badge-web">web</span>
+            </div>
+            <div class="tool-row">
+              <span class="tool-name">files</span>
+              <span class="tool-desc">Read, write, list workspace files</span>
               <span class="tool-badge badge-files">files</span>
             </div>
             <div class="tool-row">
-              <span class="tool-name">terminal</span>
-              <span class="tool-desc">Shell command execution</span>
-              <span class="tool-badge badge-system">system</span>
+              <span class="tool-name">python_exec</span>
+              <span class="tool-desc">Execute Python in isolated .venv sandbox</span>
+              <span class="tool-badge badge-system">exec</span>
             </div>
             <div class="tool-row">
-              <span class="tool-name">history_search</span>
-              <span class="tool-desc">Search past conversations</span>
-              <span class="tool-badge badge-memory">memory</span>
+              <span class="tool-name">node_exec</span>
+              <span class="tool-desc">Execute Node.js in isolated sandbox</span>
+              <span class="tool-badge badge-system">exec</span>
             </div>
             <div class="tool-row">
-              <span class="tool-name">db_search</span>
-              <span class="tool-desc">Unified cross-source search</span>
+              <span class="tool-name">file_parser</span>
+              <span class="tool-desc">Parse PDF, DOCX, CSV, XLSX, images</span>
+              <span class="tool-badge badge-files">files</span>
+            </div>
+            <div class="tool-row">
+              <span class="tool-name">agent_client</span>
+              <span class="tool-desc">Delegate tasks to other background agents</span>
               <span class="tool-badge badge-core">core</span>
             </div>
             <div class="tool-row">
               <span class="tool-name">mcp_{server}_{tool}</span>
-              <span class="tool-desc">Any MCP server, auto-wired</span>
+              <span class="tool-desc">Any MCP server, auto-wired via registry</span>
               <span class="tool-badge badge-mcp">mcp</span>
-            </div>
-            <div class="tool-row">
-              <span class="tool-name">your_integration/</span>
-              <span class="tool-desc">Drop in tools/ → auto-registered</span>
-              <span class="tool-badge badge-custom">+ add</span>
             </div>
           </div>
         </div>
 
         <div>
           <div class="tools-code">
-            <div class="code-bar">tools/my_integration.py</div>
+            <div class="code-bar">majestic/tools/my_tool.py</div>
             <div class="code-body">
-              <span class="t-line"><span class="c-comment"># drop any file in tools/</span></span>
+              <span class="t-line"><span class="c-comment"># drop any file in majestic/tools/</span></span>
               <span class="t-line">&nbsp;</span>
-              <span class="t-line"><span class="c-keyword">from</span> <span class="c-param">core.registry</span> <span class="c-keyword">import</span> <span class="c-fn">registry</span></span>
+              <span class="t-line"><span class="c-keyword">from</span> <span class="c-param">majestic.tools.registry</span> <span class="c-keyword">import</span> <span class="c-fn">tool</span></span>
               <span class="t-line">&nbsp;</span>
-              <span class="t-line"><span class="c-decorator">@registry.tool</span></span>
-              <span class="t-line"><span class="c-keyword">def</span> <span class="c-fn">my_integration</span>(<span class="c-param">query</span>: <span class="c-keyword">str</span>):</span>
+              <span class="t-line"><span class="c-decorator">@tool</span></span>
+              <span class="t-line"><span class="c-keyword">def</span> <span class="c-fn">my_tool</span>(<span class="c-param">query</span>: <span class="c-keyword">str</span>) -&gt; <span class="c-keyword">str</span>:</span>
               <span class="t-line t-indent"><span class="c-str">"""Your tool description."""</span></span>
               <span class="t-line t-indent"><span class="c-comment"># your logic here</span></span>
               <span class="t-line t-indent"><span class="c-keyword">return</span> <span class="c-param">result</span></span>
@@ -1185,44 +1190,44 @@
       <div class="storage-inner">
         <div>
           <p class="section-label">Storage</p>
-          <h2 class="section-heading">One File.<br />Everything Inside.</h2>
-          <p class="section-sub" style="margin-top:14px">No ChromaDB. No separate processes. All data in a single SQLite file — trivial to backup, trivial to move.</p>
+          <h2 class="section-heading">6-Layer Memory.<br />All SQLite.</h2>
+          <p class="section-sub" style="margin-top:14px">No ChromaDB. No separate processes. Six purpose-built SQLite databases per agent — trivial to backup, trivial to move.</p>
           <div class="storage-bullets">
             <div class="storage-bullet">
               <span class="bullet-dot" style="background:var(--accent)"></span>
-              <span style="color:var(--text2)">FTS5 full-text search across all conversations</span>
+              <span style="color:var(--text2)">Episodic — task history with FTS5 full-text search</span>
             </div>
             <div class="storage-bullet">
               <span class="bullet-dot" style="background:var(--blue)"></span>
-              <span style="color:var(--text2)">sqlite-vec for semantic vector similarity</span>
+              <span style="color:var(--text2)">Semantic — sqlite-vec vectors + FTS5 fallback RAG</span>
             </div>
             <div class="storage-bullet">
               <span class="bullet-dot" style="background:oklch(0.60 0.15 85)"></span>
-              <span style="color:var(--text2)">BM25 ranking for hybrid retrieval</span>
+              <span style="color:var(--text2)">Lessons — extracted principles, FTS5 ranked retrieval</span>
             </div>
             <div class="storage-bullet">
               <span class="bullet-dot" style="background:oklch(0.55 0.15 300)"></span>
-              <span style="color:var(--text2)">SQL-native market history and schedule storage</span>
+              <span style="color:var(--text2)">Checkpoints — step-by-step crash recovery per task</span>
             </div>
           </div>
         </div>
         <div class="storage-diagram">
-          <div class="diag-title">~/.majestic-agent/state.db</div>
+          <div class="diag-title">profiles/&lt;name&gt;/data/</div>
           <div class="diag-sources">
-            <div class="diag-source"><span class="diag-src-dot" style="background:var(--blue)"></span>conversations</div>
-            <div class="diag-source"><span class="diag-src-dot" style="background:oklch(0.55 0.15 300)"></span>news · web</div>
-            <div class="diag-source"><span class="diag-src-dot" style="background:var(--accent)"></span>documents</div>
-            <div class="diag-source"><span class="diag-src-dot" style="background:oklch(0.50 0.10 220)"></span>reports</div>
-            <div class="diag-source" style="border-style:dashed"><span class="diag-src-dot" style="background:var(--text3)"></span>indexed</div>
+            <div class="diag-source"><span class="diag-src-dot" style="background:var(--blue)"></span>episodic.db</div>
+            <div class="diag-source"><span class="diag-src-dot" style="background:oklch(0.55 0.15 300)"></span>semantic.db</div>
+            <div class="diag-source"><span class="diag-src-dot" style="background:var(--accent)"></span>lessons.db</div>
+            <div class="diag-source"><span class="diag-src-dot" style="background:oklch(0.50 0.10 220)"></span>user_profile.db</div>
+            <div class="diag-source" style="border-style:dashed"><span class="diag-src-dot" style="background:var(--text3)"></span>checkpoints.db</div>
           </div>
           <div class="diag-arrow">↓</div>
           <div class="diag-db">
-            <div class="diag-db-name">state.db</div>
+            <div class="diag-db-name">6 SQLite DBs</div>
             <div class="diag-tables">
-              <div class="diag-table"><span class="diag-table-name">sessions · messages</span><span class="diag-table-type">FTS5</span></div>
-              <div class="diag-table"><span class="diag-table-name">messages_fts</span><span class="diag-table-type">BM25</span></div>
-                            <div class="diag-table"><span class="diag-table-name">vectors</span><span class="diag-table-type">sqlite-vec</span></div>
-              <div class="diag-table"><span class="diag-table-name">schedules</span><span class="diag-table-type">cron</span></div>
+              <div class="diag-table"><span class="diag-table-name">episodic · lessons</span><span class="diag-table-type">FTS5</span></div>
+              <div class="diag-table"><span class="diag-table-name">semantic vectors</span><span class="diag-table-type">sqlite-vec</span></div>
+              <div class="diag-table"><span class="diag-table-name">user_profile</span><span class="diag-table-type">KV</span></div>
+              <div class="diag-table"><span class="diag-table-name">checkpoints</span><span class="diag-table-type">recovery</span></div>
             </div>
           </div>
         </div>
@@ -1237,44 +1242,37 @@
     <div class="container" style="padding-top:100px">
       <div class="platforms-header">
         <p class="section-label">Platforms</p>
-        <h2 class="section-heading">One Agent. Any Device.</h2>
-        <p class="section-sub" style="margin-top:14px">Run on your laptop, a $5 VPS, or any server. Talk from any device, anywhere.</p>
+        <h2 class="section-heading">Two Modes.<br />One Codebase.</h2>
+        <p class="section-sub" style="margin-top:14px">Run interactively in the terminal or as a background HTTP server — same agent, same memory, different channel.</p>
       </div>
 
       <div class="platforms-grid">
         <div class="platform-card">
           <div class="platform-icon">⌨</div>
-          <div class="platform-name">CLI</div>
-          <div class="platform-desc">Full terminal experience with rich output formatting</div>
+          <div class="platform-name">CLI Foreground</div>
+          <div class="platform-desc">Rich terminal UI, reads stdin, prints with live formatting</div>
         </div>
         <div class="platform-card">
-          <div class="platform-icon">✈</div>
-          <div class="platform-name">Telegram</div>
-          <div class="platform-desc">Chat from your phone, anywhere in the world</div>
-        </div>
-        <div class="platform-card">
-          <div class="platform-icon">#</div>
-          <div class="platform-name">Discord</div>
-          <div class="platform-desc">Integrate into your team's server</div>
+          <div class="platform-icon">⚙</div>
+          <div class="platform-name">Background Daemon</div>
+          <div class="platform-desc">Spawned subprocess, runs as an isolated agent process</div>
         </div>
         <div class="platform-card">
           <div class="platform-icon">⚡</div>
           <div class="platform-name">REST API</div>
-          <div class="platform-desc">Connect any frontend, script, or service</div>
+          <div class="platform-desc">POST /task · GET /status/{id} · POST /message/{id}</div>
         </div>
         <div class="platform-card">
-          <div class="platform-icon">⏱</div>
-          <div class="platform-name">Cron</div>
-          <div class="platform-desc">Schedule tasks in plain language, auto-delivered</div>
+          <div class="platform-icon">↔</div>
+          <div class="platform-name">Multi-Agent</div>
+          <div class="platform-desc">Agents delegate tasks to each other via agent_client</div>
         </div>
       </div>
 
       <div class="platform-diagram">
-        <div class="pd-line"><span class="pd-source">Terminal → CLI</span><span class="pd-arrow">────────┐</span></div>
-        <div class="pd-line"><span class="pd-source">Phone → Telegram</span><span class="pd-arrow">────────┤</span></div>
-        <div class="pd-line"><span class="pd-source">Agent → Network</span><span class="pd-arrow">────────┤──&nbsp;</span><span class="pd-core">majestic</span><span class="pd-arrow">&nbsp;→&nbsp;</span><span class="pd-llm">LLM</span></div>
-        <div class="pd-line"><span class="pd-source">Script → REST API</span><span class="pd-arrow">────────┤</span></div>
-        <div class="pd-line"><span class="pd-source">Timer → Cron</span><span class="pd-arrow">────────┘</span></div>
+        <div class="pd-line"><span class="pd-source">stdin → CLIChannel</span><span class="pd-arrow">────────┐</span></div>
+        <div class="pd-line"><span class="pd-source">POST /task → ServerChannel</span><span class="pd-arrow">─────┤──&nbsp;</span><span class="pd-core">majestic</span><span class="pd-arrow">&nbsp;→&nbsp;</span><span class="pd-llm">LLM</span></div>
+        <div class="pd-line"><span class="pd-source">agent_client → Agent</span><span class="pd-arrow">────────┘</span></div>
       </div>
     </div>
   </section>
@@ -1284,48 +1282,48 @@
   <!-- BUILT ON MAJESTIC -->
   <section class="built-on">
     <div class="container">
-      <p class="section-label">Verticals</p>
+      <p class="section-label">Profiles</p>
       <h2 class="section-heading">Built on Majestic.</h2>
-      <p class="section-sub" style="margin-top:14px;max-width:520px">Examples of what a focused vertical agent looks like. Fork the core, add 3–5 domain tools, set a role.</p>
+      <p class="section-sub" style="margin-top:14px;max-width:520px">Included example profiles. Each is a self-contained <code style="font-family:var(--font-mono);font-size:12px">persona.yaml</code> — swap role, tone, restrictions, and tools.</p>
       <div class="built-on-grid">
         <div class="built-on-card">
-          <div class="built-on-label">Finance</div>
-          <div class="built-on-name">finance_bot</div>
-          <p class="built-on-desc">Monitors portfolio, tracks prices, sets alerts, sends briefings to Telegram.</p>
-          <div class="built-on-tools">
-            <span class="built-on-tool">price_feed</span>
-            <span class="built-on-tool">portfolio_tracker</span>
-            <span class="built-on-tool">alert_sender</span>
-          </div>
-        </div>
-        <div class="built-on-card">
-          <div class="built-on-label">Support</div>
-          <div class="built-on-name">support_agent</div>
-          <p class="built-on-desc">Answers tickets from a knowledge base, escalates edge cases, logs resolutions.</p>
-          <div class="built-on-tools">
-            <span class="built-on-tool">ticket_api</span>
-            <span class="built-on-tool">kb_search</span>
-            <span class="built-on-tool">escalation</span>
-          </div>
-        </div>
-        <div class="built-on-card">
-          <div class="built-on-label">Dev</div>
-          <div class="built-on-name">dev_agent</div>
-          <p class="built-on-desc">Monitors CI, triggers deploys, creates GitHub issues from logs, reviews PRs.</p>
-          <div class="built-on-tools">
-            <span class="built-on-tool">github_api</span>
-            <span class="built-on-tool">ci_status</span>
-            <span class="built-on-tool">deploy_trigger</span>
-          </div>
-        </div>
-        <div class="built-on-card">
           <div class="built-on-label">Research</div>
-          <div class="built-on-name">research_agent</div>
-          <p class="built-on-desc">Monitors arXiv, Scholar, HN — indexes papers, generates daily digest.</p>
+          <div class="built-on-name">pain_hunter</div>
+          <p class="built-on-desc">Hunts market pain points. Searches the web, fetches pages, runs analysis scripts, produces structured reports.</p>
           <div class="built-on-tools">
-            <span class="built-on-tool">arxiv_fetcher</span>
-            <span class="built-on-tool">scholar_api</span>
-            <span class="built-on-tool">digest_mailer</span>
+            <span class="built-on-tool">web_search</span>
+            <span class="built-on-tool">web_fetch</span>
+            <span class="built-on-tool">python_exec</span>
+          </div>
+        </div>
+        <div class="built-on-card">
+          <div class="built-on-label">Content</div>
+          <div class="built-on-name">writer</div>
+          <p class="built-on-desc">Long-form content writer. Researches topics, drafts articles, saves structured output to the workspace.</p>
+          <div class="built-on-tools">
+            <span class="built-on-tool">web_search</span>
+            <span class="built-on-tool">files</span>
+            <span class="built-on-tool">file_parser</span>
+          </div>
+        </div>
+        <div class="built-on-card">
+          <div class="built-on-label">Intelligence</div>
+          <div class="built-on-name">world_intel</div>
+          <p class="built-on-desc">World intelligence monitor. Tracks geopolitics, economics, and tech — synthesises daily briefings from live sources.</p>
+          <div class="built-on-tools">
+            <span class="built-on-tool">web_search</span>
+            <span class="built-on-tool">web_fetch</span>
+            <span class="built-on-tool">http</span>
+          </div>
+        </div>
+        <div class="built-on-card">
+          <div class="built-on-label">Sales</div>
+          <div class="built-on-name">sales_agent</div>
+          <p class="built-on-desc">B2B sales manager "Alex". Qualifies leads, handles objections, steers prospects toward demos and proposals.</p>
+          <div class="built-on-tools">
+            <span class="built-on-tool">web_search</span>
+            <span class="built-on-tool">http</span>
+            <span class="built-on-tool">files</span>
           </div>
         </div>
       </div>

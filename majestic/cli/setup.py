@@ -34,13 +34,29 @@ MODELS_OPENAI = [
 ]
 
 MODELS_OPENROUTER_CURATED = [
+    # Anthropic (via OpenRouter)
     "anthropic/claude-sonnet-4-6",
     "anthropic/claude-opus-4-7",
+    "anthropic/claude-haiku-4-5",
+    # OpenAI
     "openai/gpt-4o",
     "openai/gpt-4o-mini",
-    "google/gemini-flash-1.5",
+    "openai/o3-mini",
+    # Google
+    "google/gemini-2.5-flash",
+    "google/gemini-2.5-pro",
+    # DeepSeek
+    "deepseek/deepseek-chat",
+    "deepseek/deepseek-r1",
+    # Mistral
+    "mistralai/mistral-large-2411",
+    "mistralai/mistral-small-3.1-24b-instruct",
+    # Free models
+    "meta-llama/llama-3.3-70b-instruct:free",
     "meta-llama/llama-3.1-8b-instruct:free",
+    "google/gemini-2.0-flash-exp:free",
     "mistralai/mistral-7b-instruct:free",
+    "qwen/qwen3-8b:free",
     "Enter model ID manually",
 ]
 
@@ -48,33 +64,6 @@ _MANUAL = "Enter model ID manually"
 
 
 # ── Live model fetchers ────────────────────────────────────────────────────────
-
-def _fetch_openrouter_models(api_key: str) -> list[str]:
-    """Fetch available OpenRouter models filtered to context_length >= 16000.
-
-    Returns curated list on any error (network, parse, timeout).
-    """
-    try:
-        resp = httpx.get(
-            "https://openrouter.ai/api/v1/models",
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=5,
-        )
-        resp.raise_for_status()
-        data = resp.json().get("data", [])
-        models = [
-            m["id"] for m in data
-            if m.get("context_length", 0) >= 16000
-        ]
-        # Sort by prompt price ascending (cheapest first)
-        price_map = {m["id"]: float(m.get("pricing", {}).get("prompt", 999)) for m in data}
-        models.sort(key=lambda mid: price_map.get(mid, 999))
-        if not models:
-            return MODELS_OPENROUTER_CURATED
-        return models + [_MANUAL]
-    except Exception:
-        return MODELS_OPENROUTER_CURATED
-
 
 def _fetch_ollama_models(base_url: str) -> list[str]:
     """Return list of locally installed Ollama model names.
@@ -173,14 +162,9 @@ def run() -> None:
         env_lines.append(f"OPENROUTER_API_KEY={key}")
 
         # ── Step 3: model ────────────────────────────────────────────────
-        display.info("Fetching available models…")
-        model_list = _fetch_openrouter_models(key)
-        if model_list == MODELS_OPENROUTER_CURATED:
-            display.warn("Could not reach OpenRouter — showing curated list.")
-        else:
-            display.ok(f"Found {len(model_list) - 1} models.")
-
-        chosen_model = _q_select("Choose your main model:", model_list, default=model_list[0])
+        chosen_model = _q_select(
+            "Choose your main model:", MODELS_OPENROUTER_CURATED, default=MODELS_OPENROUTER_CURATED[0]
+        )
         if chosen_model == _MANUAL:
             chosen_model = _q_text("Model ID:")
 

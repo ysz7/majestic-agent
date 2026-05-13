@@ -437,7 +437,7 @@
         group: "Getting Started",
         items: [
           { id: "introduction", label: "Introduction" },
-          { id: "vertical",     label: "Building a Vertical Agent" },
+          { id: "profiles",     label: "Profile System" },
           { id: "quickstart",   label: "Quick Start"  },
         ]
       },
@@ -445,25 +445,24 @@
         group: "Using Majestic",
         items: [
           { id: "cli-commands",  label: "CLI Commands"    },
-          { id: "tools",         label: "Tools & Toolsets" },
-          { id: "memory-skills", label: "Memory & Skills"  },
-          { id: "scheduling",    label: "Scheduling"       },
+          { id: "tools",         label: "Built-in Tools"  },
+          { id: "memory-skills", label: "Memory & Skills" },
+          { id: "scheduling",    label: "Scheduling"      },
         ]
       },
       {
         group: "Configuration",
         items: [
-          { id: "configuration", label: "config.yaml"   },
-          { id: "llm-providers", label: "LLM Providers" },
+          { id: "configuration", label: "persona.yaml"   },
+          { id: "llm-providers", label: "LLM Providers"  },
         ]
       },
       {
         group: "Integrations",
         items: [
-          { id: "rest-api",  label: "REST API"     },
-          { id: "dashboard", label: "Web Dashboard" },
-          { id: "gateways",  label: "Gateways"     },
-          { id: "mcp",       label: "MCP Servers"  },
+          { id: "rest-api",     label: "REST API"        },
+          { id: "multi-agent",  label: "Multi-Agent"     },
+          { id: "mcp",          label: "MCP Servers"     },
         ]
       },
       {
@@ -477,23 +476,22 @@
     ];
 
     const PAGE_ORDER = [
-      "introduction","vertical","quickstart","cli-commands","tools","memory-skills",
-      "scheduling","configuration","llm-providers","rest-api","dashboard","gateways",
+      "introduction","profiles","quickstart","cli-commands","tools","memory-skills",
+      "scheduling","configuration","llm-providers","rest-api","multi-agent",
       "mcp","specialization","local-tools","update"
     ];
     const PAGE_LABELS = {
       "introduction":  "Introduction",
-      "vertical":      "Building a Vertical Agent",
+      "profiles":      "Profile System",
       "quickstart":    "Quick Start",
       "cli-commands":  "CLI Commands",
       "tools":         "Built-in Tools",
       "memory-skills": "Memory & Skills",
       "scheduling":    "Scheduling",
-      "configuration": "Configuration",
+      "configuration": "persona.yaml",
       "llm-providers": "LLM Providers",
       "rest-api":      "REST API",
-      "dashboard":     "Web Dashboard",
-      "gateways":      "Gateways",
+      "multi-agent":   "Multi-Agent",
       "mcp":           "MCP Servers",
       "specialization":"Specialization",
       "local-tools":   "Local Tools",
@@ -548,58 +546,54 @@
           <div className="page-label">Overview</div>
           <h1 className="page-title">Introduction</h1>
           <p className="page-desc">
-            Majestic is a lean AI agent core — fork it, add domain tools, set a role, and ship a vertical agent.
+            Majestic is a universal AI agent framework — profile-based, multi-agent, with a 7-layer architecture and 6 SQLite memory systems.
           </p>
           <hr className="page-divider" />
 
           <h2 className="section-title" id="what-is">What is Majestic?</h2>
           <div className="prose">
             <p>
-              <strong>Majestic Core</strong> is a lean AI agent infrastructure (~20 tools) built to be specialized.
-              You fork the repo, add 3–5 domain tools, configure <code>agent.role</code>, and ship a
-              purpose-built vertical agent — a finance bot, support agent, dev tool, or anything else.
+              <strong>Majestic</strong> is a Python agent framework built around a <strong>profile system</strong>.
+              Each agent is an isolated profile directory with its own identity (<code>persona.yaml</code>),
+              memory databases, workspace, and port. You run multiple independent agents on the same machine —
+              a researcher, a writer, a sales agent — each with different tools, roles, and restrictions.
             </p>
             <p>
-              Out of the box the core agent handles everyday tasks: web search, file operations, code
-              execution, persistent memory, scheduling, and a REST API. This makes it immediately useful
-              — and a solid foundation when you're ready to specialize.
+              The core is a <strong>ReAct loop</strong> (up to 30 iterations, 300-second timeout) with
+              crash recovery via checkpoints, HITL gating, budget tracking, and post-task reflection that
+              auto-generates YAML skills when patterns repeat.
             </p>
             <p>
-              Everything runs on your own machine. Your API keys, your data, your models.
-              Works with Anthropic, OpenAI, OpenRouter, and Ollama (local, no API key needed).
+              Works with Anthropic, OpenAI, OpenRouter, and Ollama. Per-step model routing —
+              different models for reasoning, code, and reflection steps.
             </p>
           </div>
 
-          <CodeBlock lang="text">{`  # Core — everyday tasks out of the box
-  ▶ Summarize the PDF and save it to workspace
+          <CodeBlock lang="text">{`  majestic pain_hunter   # launch research agent in foreground
 
- ┌ read_file · report_q3.pdf · 42 pages
- ├ run_python · extracting text...
- └ write_file · summary.md written
+  ▶ Find market pain points in B2B project management tools
 
-  # Vertical — after forking and adding domain tools
-  ▶ Check portfolio and alert if BTC drops below threshold
+ ┌ web_search  · "B2B project management pain points 2026"
+ ├ web_fetch   · extracting g2.com/categories/project-management
+ ├ python_exec · analyzing sentiment across 47 reviews...
+ └ files       · saved report to workspace/pain_report.md
 
- ┌ get_portfolio · fetching positions...
- ├ price_feed · BTC $67,420 · threshold: $64,049
- └ set_alert · registered · notify via Telegram`}</CodeBlock>
+  Final answer: Top 3 pain points identified: (1) ...`}</CodeBlock>
 
           <h2 className="section-title" id="how-it-works">How it works</h2>
           <div className="prose">
             <p>
-              Each request enters an <strong>agent loop</strong> (up to 10 iterations):
+              Each task enters the <strong>ReAct loop</strong> (up to 30 iterations):
             </p>
             <ol>
-              <li>Your message is sent to the LLM with the full tool registry as context.</li>
-              <li>The LLM decides which tool to call and with what arguments.</li>
-              <li>Majestic executes the tool and feeds the result back to the LLM.</li>
-              <li>The loop continues until the LLM produces a final text answer.</li>
+              <li>Load top-3 lessons from LessonsStore (FTS5 search on task description).</li>
+              <li>Build messages: system prompt + lessons + task history.</li>
+              <li>If a checkpoint exists, reload last 10 messages + 5 steps (crash recovery).</li>
+              <li><strong>REASON</strong>: LLM call via LLMRouter. Parse <code>FINAL_ANSWER:</code> or <code>TOOL_CALL: {`{...}`}</code>.</li>
+              <li><strong>ACT</strong>: HITL check → execute tool → save checkpoint.</li>
+              <li><strong>OBSERVE</strong>: append result → check budget → next iteration.</li>
+              <li>After loop: <strong>REFLECT</strong> → extract lessons → trigger self-evolution if pattern detected.</li>
             </ol>
-            <p>
-              The agent maintains <strong>session history</strong> (last 10 turns) and loads
-              <strong> persistent memory</strong> on startup — so it knows preferences, past
-              decisions, and ongoing context.
-            </p>
           </div>
 
           <h2 className="section-title" id="features">Key features</h2>
@@ -607,48 +601,46 @@
             <thead><tr><th>Feature</th><th>Details</th></tr></thead>
             <tbody>
               {[
-                ["Lean core (~20 tools)", "Web search, files, code execution, memory, scheduling, REST API — everything essential, nothing extra"],
-                ["Vertical-ready", "Fork + domain tools + agent.role = a purpose-built vertical agent"],
-                ["Local-first", "Full support for Ollama — all core tools fit within the 15-tool safe window"],
-                ["4 LLM providers", "Anthropic, OpenAI, OpenRouter, Ollama — switch anytime"],
-                ["Persistent memory", "Remembers preferences, context, and learned behaviors across sessions"],
-                ["Script library", "Saved Python scripts auto-discovered each session — agent reuses past solutions"],
-                ["Hybrid search", "FTS5 + vector search across documents, memory, and history"],
-                ["Scheduling", "Natural-language cron jobs delivered to any platform"],
-                ["REST API", "POST /chat, GET /health, GET /sessions — connect any UI or script"],
-                ["Telegram gateway", "Most common deployment target — same agent, instant mobile access"],
-                ["MCP integration", "Any MCP server becomes agent tools instantly, no Python needed"],
-                ["Skills", "Reusable procedures stored as Markdown, invoked as /skill-name"],
-                ["Command approval", "Shell commands require explicit approval before execution"],
-                ["Docker ready", "Single-command deploy with persistent volume"],
+                ["Profile system",        "Each agent = isolated persona.yaml, skills, workspace, SQLite DBs, and port"],
+                ["8 built-in tools",      "web_search, web_fetch, http, files, python_exec, node_exec, file_parser, agent_client"],
+                ["6 memory systems",      "Working · Episodic+FTS5 · Semantic/sqlite-vec · Procedural/YAML · Lessons/FTS5 · UserProfile"],
+                ["ReAct loop",            "Up to 30 iterations, 300s timeout, crash recovery via CheckpointStore"],
+                ["Self-evolution",        "Reflection engine auto-generates YAML skills from repeated task patterns"],
+                ["Per-step LLM routing",  "Different models for reason / simple / code / reflection steps"],
+                ["4 LLM providers",       "Anthropic, OpenAI, OpenRouter, Ollama — automatic fallback chain"],
+                ["Dual-mode operation",   "CLI foreground (Rich) or background daemon + FastAPI server"],
+                ["REST API",              "POST /task · GET /status/{id} · POST /message/{id}"],
+                ["Multi-agent",           "Agents discover each other via registry.json and delegate via agent_client"],
+                ["MCP integration",       "Any MCP server wired via mcp/registry.yaml — auto-prefixed tools"],
+                ["Gateway layer",         "Normalizes input, detects prompt injection, injects RAG context"],
+                ["HITL gating",           "Planner asks for approval before sensitive tool calls"],
+                ["Token/cost budget",     "Per-task max_tokens and max_cost_usd enforced in real time"],
               ].map(([f, d]) => (
                 <tr key={f}><td><strong>{f}</strong></td><td>{d}</td></tr>
               ))}
             </tbody>
           </table>
 
-          <h2 className="section-title" id="architecture">Architecture</h2>
-          <div className="prose">
-            <p>
-              One Python package, no framework overhead. Every file is kept under 300 lines.
-            </p>
-          </div>
-          <CodeBlock lang="text">{`majestic/
-├── agent/        loop.py · prompt.py · delegate.py
-├── api/          server.py            REST API
-├── cli/          main.py · repl.py · setup.py
-├── cron/         scheduler.py · jobs.py
-├── db/           state.py · embedder.py · parser.py
-├── gateway/      telegram/  ← main gateway
-├── llm/          anthropic.py · openai.py · openrouter.py · ollama.py
-├── mcp/          client.py · bridge.py
-├── memory/       store.py · nudge.py
-├── skills/       loader.py · creator.py
-└── tools/        registry.py · web/ · files/ · system/ · scripts/
-                  local/   ← drop your domain tools here`}</CodeBlock>
+          <h2 className="section-title" id="architecture">7-Layer Architecture</h2>
+          <CodeBlock lang="text">{`Layer 7  CLI           majestic/__main__.py → cli/ subcommands
+Layer 6  Channels      CLIChannel (foreground/Rich) · ServerChannel (background/queue)
+Layer 5  Gateway       normalize input, inject context, detect prompt injection
+Layer 4  Planner       classify task, decompose, HITL gating, agent delegation
+Layer 3  Agent Runtime ReAct loop (max 30 iter, 300s timeout), tools, budget
+Layer 2  Tools + MCP   web_search · web_fetch · http · files · python_exec
+                       node_exec · file_parser · agent_client · mcp_{server}_{tool}
+Layer 1  Memory + LLM  6 SQLite memory systems · LLM Router`}</CodeBlock>
+
+          <CodeBlock lang="text">{`profiles/<name>/
+├── persona.yaml    # identity: name, role, tone, port, restrictions, limits
+├── .env            # API keys for this agent
+├── skills/         # hot-reloaded YAML skills (auto-generated)
+├── workspace/      # sandbox (.venv, node_modules, output/)
+└── data/           # episodic.db · semantic.db · lessons.db
+                    # user_profile.db · checkpoints.db`}</CodeBlock>
 
           <Callout type="info">
-            <p>All runtime data lives under <code>~/.majestic-agent/</code> — config, keys, memory, skills, workspace.</p>
+            <p>All agent data lives under <code>profiles/&lt;name&gt;/</code> — persona.yaml, .env, skills/, workspace/, and 5 SQLite databases.</p>
           </Callout>
 
           <NavButtons current="introduction" navigate={navigate} />
@@ -657,161 +649,125 @@
     }
 
 
-    /* ── Building a Vertical Agent ──────────────────────────────────────────── */
-    function SectionVertical({ navigate }) {
+    /* ── Profile System ──────────────────────────────────────────────────────── */
+    function SectionProfiles({ navigate }) {
       return (
         <div>
           <div className="page-label">Getting Started</div>
-          <h1 className="page-title">Building a Vertical Agent</h1>
+          <h1 className="page-title">Profile System</h1>
           <p className="page-desc">
-            Fork the core, add domain tools, set a role — ship a purpose-built agent in days.
+            Each Majestic agent is a self-contained profile — isolated identity, memory, workspace, and port.
           </p>
           <hr className="page-divider" />
 
-          <h2 className="section-title" id="v-pattern">The pattern</h2>
+          <h2 className="section-title" id="v-what">What is a profile?</h2>
           <div className="prose">
             <p>
-              A vertical agent = Majestic Core + domain tools + <code>agent.role</code>.
-              The core handles the loop, memory, scheduling, and API. You add what makes the agent
-              specialized.
+              A <strong>profile</strong> is a directory under <code>profiles/&lt;name&gt;/</code> that contains
+              everything an agent needs: its identity, API keys, learned skills, a sandbox workspace, and
+              five SQLite databases. Profiles are fully isolated — different ports, different memory, different restrictions.
             </p>
           </div>
-          <CodeBlock lang="bash">{`# 1. Fork and install
-git clone https://github.com/ysz7/majestic-agent finance_bot
-cd finance_bot
-pip install -r requirements.txt
-majestic setup
+          <CodeBlock lang="text">{`profiles/
+├── default/           # port 8000
+│   ├── persona.yaml   # identity: name, role, tone, language, port, restrictions, limits
+│   ├── .env           # ANTHROPIC_API_KEY and other keys for this agent
+│   ├── skills/        # YAML skill files (hot-reloaded, auto-generated by self-evolution)
+│   ├── workspace/     # agent's sandbox (.venv, node_modules, output/)
+│   └── data/          # SQLite: episodic · semantic · lessons · user_profile · checkpoints
+├── pain_hunter/       # port 8001
+├── writer/            # port 8002
+├── world_intel/       # port 8003
+└── sales_agent/       # port 8004`}</CodeBlock>
 
-# 2. Add domain tools (auto-registered on startup)
-# Drop a file in majestic/tools/local/
-# Example: majestic/tools/local/price_feed.py
+          <h2 className="section-title" id="v-create">Creating a new profile</h2>
+          <CodeBlock lang="bash">{`# Scaffold a new profile (creates the directory structure + default persona.yaml)
+majestic new my_agent
 
-# 3. Set the role in config.yaml
-# agent:
-#   role: "Financial analyst. Monitors portfolio, tracks prices, sends alerts."
+# Edit persona.yaml interactively
+majestic config my_agent
 
-# 4. Start
-majestic start   # CLI
-majestic dashboard  # Web UI
-majestic gateway start telegram  # Telegram bot`}</CodeBlock>
+# Run it in the foreground
+majestic my_agent
 
-          <h2 className="section-title" id="v-tool">Writing a domain tool</h2>
+# Or start as a background HTTP server
+majestic run my_agent`}</CodeBlock>
+
+          <h2 className="section-title" id="v-persona">persona.yaml</h2>
           <div className="prose">
             <p>
-              Drop a <code>.py</code> file in <code>majestic/tools/local/</code>.
-              Use the <code>@tool</code> decorator — the agent picks it up automatically on next start.
+              The agent's identity is defined in <code>persona.yaml</code>. Every field shapes
+              the system prompt injected before each ReAct loop.
             </p>
           </div>
-          <CodeBlock lang="python" filename="majestic/tools/local/price_feed.py">{`from majestic.tools.registry import tool
+          <CodeBlock lang="yaml" filename="profiles/my_agent/persona.yaml">{`name: "Alex"
+role: "Sales Manager specializing in B2B SaaS"
+tone: "confident, persuasive, warm"
+language: "en"
+port: 8005
 
-@tool(
-    name="get_price",
-    description="Get current price for a crypto or stock ticker.",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "ticker": {"type": "string", "description": "e.g. BTC, ETH, AAPL"},
-        },
-        "required": ["ticker"],
-    },
-)
-def get_price(ticker: str) -> str:
-    import requests
-    r = requests.get(f"https://api.example.com/price/{ticker}", timeout=5)
-    data = r.json()
-    price  = data.get("price", 0)
-    change = data.get("change_24h", 0)
-    usd = "$"
-    return f"{ticker}: {usd}{price:,.2f} ({change:+.1f}%)"
-`}</CodeBlock>
+restrictions:
+  - "Never mention competitor pricing."
+  - "Do not offer discounts above 15% without manager approval."
 
-          <Callout type="info">
-            <p>The <code>@tool</code> decorator registers the function in the global registry.
-            The agent sees it in the tool list on the next request — no other changes needed.</p>
-          </Callout>
+context: |
+  You are Alex, a seasoned Sales Manager with 10+ years of B2B experience.
+  Steer conversations toward demos, proposals, or signed agreements.
 
-          <h2 className="section-title" id="v-role">Setting the role</h2>
-          <div className="prose">
-            <p>
-              The role is injected into the system prompt. It tells the LLM what kind of agent
-              this is and how to prioritize tools and responses.
-            </p>
-          </div>
-          <CodeBlock lang="yaml" filename="~/.majestic-agent/config.yaml">{`agent:
-  role: >
-    Financial analyst. You monitor portfolio positions, track crypto and stock
-    prices, set price alerts, and deliver briefings via Telegram. Always
-    include price change percentages and portfolio impact in your answers.
-    Use get_price and set_alert tools proactively.`}</CodeBlock>
+limits:
+  max_tokens_per_task: 8000
+  max_cost_per_task: 0.50
 
-          <h2 className="section-title" id="v-examples">Vertical examples</h2>
+model_routing:
+  reason:     "anthropic/claude-sonnet-4-6"
+  code:       "openai/gpt-4o"
+  reflection: "anthropic/claude-opus-4-7"`}</CodeBlock>
+
+          <h2 className="section-title" id="v-examples">Included profiles</h2>
           <table className="api-table">
-            <thead><tr><th>Vertical</th><th>Domain tools to add</th><th>Role hint</th></tr></thead>
+            <thead><tr><th>Profile</th><th>Role</th><th>Key tools</th></tr></thead>
             <tbody>
               {[
-                ["Finance bot",     "price_feed, portfolio_tracker, alert_sender",  "Financial analyst — monitors markets and portfolio"],
-                ["Support agent",   "ticket_api, kb_search, escalation",            "Support specialist — answers from knowledge base"],
-                ["Dev agent",       "github_api, ci_status, deploy_trigger",        "DevOps engineer — monitors CI and manages deploys"],
-                ["Research agent",  "arxiv_fetcher, scholar_api, digest_mailer",    "Research assistant — monitors papers, sends digests"],
-              ].map(([v, t, r]) => (
-                <tr key={v}><td><strong>{v}</strong></td><td><code style={{fontFamily:"var(--font-mono)",fontSize:"11px"}}>{t}</code></td><td>{r}</td></tr>
+                ["pain_hunter",   "Market researcher — hunts B2B pain points",           "web_search, web_fetch, python_exec"],
+                ["writer",        "Long-form content writer with deep research",           "web_search, files, file_parser"],
+                ["world_intel",   "World intelligence — geopolitics, economics, tech",    "web_search, web_fetch, http"],
+                ["sales_agent",   "B2B sales manager 'Alex' — qualification to close",   "web_search, http, files"],
+              ].map(([p, r, t]) => (
+                <tr key={p}>
+                  <td><code>{p}</code></td>
+                  <td>{r}</td>
+                  <td><code style={{fontSize:11}}>{t}</code></td>
+                </tr>
               ))}
             </tbody>
           </table>
 
-          <h2 className="section-title" id="v-multi">Running multiple agents</h2>
+          <h2 className="section-title" id="v-multi">Managing profiles</h2>
+          <CodeBlock lang="bash">{`majestic list          # list all profiles
+majestic ps            # show running background agents
+majestic run writer    # start writer as background daemon
+majestic stop writer   # stop it
+majestic rm old_bot    # delete profile and all its data`}</CodeBlock>
           <div className="prose">
             <p>
-              Each named agent is a fully isolated instance with its own config, memory,
-              state, and port. Create as many as you need — one per vertical.
-            </p>
-          </div>
-          <CodeBlock lang="bash">{`# Create a named agent
-majestic init finance_bot
-
-# Configure it (isolated from your default agent)
-majestic finance_bot setup
-
-# Launch its REPL
-majestic finance_bot
-
-# All commands work per-agent
-majestic finance_bot dashboard
-majestic finance_bot gateway start telegram
-majestic finance_bot config set agent.role "Financial analyst"
-
-# Overview of all agents
-majestic list    # ● running  ○ stopped
-majestic ps      # only running instances`}</CodeBlock>
-          <div className="prose">
-            <p>
-              Data layout — every agent gets its own subdirectory:
-            </p>
-          </div>
-          <CodeBlock lang="text">{`~/.majestic-agent/                  # default instance
-~/.majestic-agent/.registry.json    # agent registry
-~/.majestic-agent/finance_bot/      # isolated: config.yaml, state.db, memory/
-~/.majestic-agent/support_agent/    # isolated: config.yaml, state.db, memory/`}</CodeBlock>
-          <div className="prose">
-            <p>
-              Ports are assigned automatically starting at 8081 (default agent keeps 8080).
-              Override by setting <code>api.port</code> in the agent's <code>config.yaml</code>.
+              Each background agent registers itself in <code>data/registry.json</code>.
+              The <code>agent_client</code> tool uses this registry to discover agents by name
+              and delegate tasks via HTTP.
             </p>
           </div>
 
-          <h2 className="section-title" id="v-checklist">Launch checklist</h2>
+          <h2 className="section-title" id="v-checklist">New profile checklist</h2>
           <div className="prose">
             <ol>
-              <li>Domain tools added to <code>majestic/tools/local/</code></li>
-              <li><code>agent.role</code> set in <code>config.yaml</code></li>
-              <li>API keys configured in <code>.env</code></li>
-              <li>Test with <code>majestic</code> — verify tools appear in registry</li>
-              <li>Connect Telegram (optional): <code>majestic gateway start telegram</code></li>
-              <li>Set up scheduling (optional): <code>/schedule add "every day at 9am ..."</code></li>
+              <li>Run <code>majestic new my_agent</code> — scaffolds the directory</li>
+              <li>Run <code>majestic config my_agent</code> — set name, role, tone, port, restrictions</li>
+              <li>Add API keys to <code>profiles/my_agent/.env</code></li>
+              <li>Test with <code>majestic my_agent</code> — interactive foreground session</li>
+              <li>Run as daemon (optional): <code>majestic run my_agent</code></li>
             </ol>
           </div>
 
-          <NavButtons current="vertical" navigate={navigate} />
+          <NavButtons current="profiles" navigate={navigate} />
         </div>
       );
     }
@@ -830,7 +786,7 @@ majestic ps      # only running instances`}</CodeBlock>
             <ul>
               <li><strong>Python 3.11+</strong></li>
               <li><strong>Git</strong></li>
-              <li><strong>macOS or Linux</strong> (Windows via WSL)</li>
+              <li><strong>macOS, Linux, or Windows</strong></li>
               <li>At least one LLM API key (Anthropic recommended)</li>
             </ul>
           </div>
@@ -840,57 +796,53 @@ majestic ps      # only running instances`}</CodeBlock>
             <div className="step">
               <div className="step-num">1</div>
               <div className="step-body">
-                <div className="step-title">Run the installer</div>
-                <div className="step-desc">One command clones the repo, creates a virtualenv, and puts <code>majestic</code> on your PATH.</div>
-                <CodeBlock lang="bash">{`curl -fsSL https://raw.githubusercontent.com/ysz7/majestic-agent/main/scripts/install.sh | bash`}</CodeBlock>
-                <div className="step-desc">Restart your terminal (or <code>source ~/.bashrc</code>) after install.</div>
+                <div className="step-title">Clone and install</div>
+                <CodeBlock lang="bash">{`git clone https://github.com/ysz7/majestic-agent
+cd majestic-agent
+pip install -e .`}</CodeBlock>
               </div>
             </div>
             <div className="step">
               <div className="step-num">2</div>
               <div className="step-body">
                 <div className="step-title">Run the setup wizard</div>
-                <div className="step-desc">Walks you through choosing an LLM provider, entering your API key, and setting preferences.</div>
+                <div className="step-desc">Walks you through choosing an LLM provider, entering your API key, and verifying the connection.</div>
                 <CodeBlock lang="bash">{`majestic setup`}</CodeBlock>
               </div>
             </div>
             <div className="step">
               <div className="step-num">3</div>
               <div className="step-body">
-                <div className="step-title">Launch the agent</div>
+                <div className="step-title">Launch the default agent</div>
                 <CodeBlock lang="bash">{`majestic`}</CodeBlock>
-                <div className="step-desc">You'll see the prompt <code>▶</code>. Type any question or command to begin.</div>
+                <div className="step-desc">Starts the default profile in the foreground. Type any task to begin.</div>
+              </div>
+            </div>
+            <div className="step">
+              <div className="step-num">4</div>
+              <div className="step-body">
+                <div className="step-title">Create additional profiles (optional)</div>
+                <CodeBlock lang="bash">{`majestic new researcher
+majestic config researcher   # set role, tone, port...
+majestic researcher          # launch it`}</CodeBlock>
               </div>
             </div>
           </div>
 
-          <h2 className="section-title" id="qs-manual">Manual install</h2>
-          <CodeBlock lang="bash">{`git clone https://github.com/ysz7/majestic-agent
-cd majestic-agent
-./scripts/install.sh
+          <h2 className="section-title" id="qs-background">Running in background</h2>
+          <CodeBlock lang="bash">{`# Start agent as background HTTP server
+majestic run researcher
 
-# Or set up venv manually:
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
-majestic setup`}</CodeBlock>
+# Check running agents
+majestic ps
 
-          <h2 className="section-title" id="qs-service">Auto-start as a service</h2>
-          <div className="prose">
-            <p>To start the Telegram gateway automatically on system boot:</p>
-          </div>
-          <CodeBlock lang="bash">{`./scripts/install.sh --service`}</CodeBlock>
+# Send a task via REST API
+curl -X POST http://localhost:8001/task \
+  -H "Content-Type: application/json" \
+  -d '{"task": "Search for latest AI research papers on agents"}'
 
-          <h2 className="section-title" id="qs-docker">Docker</h2>
-          <CodeBlock lang="bash">{`cp .env.example .env
-# Fill ANTHROPIC_API_KEY and TELEGRAM_BOT_TOKEN in .env
-docker compose up -d`}</CodeBlock>
-          <div className="prose">
-            <p>Data persists in <code>~/.majestic-agent/</code> on the host. Health endpoint: <code>http://localhost:8080/health</code>.</p>
-          </div>
-
-          <Callout type="tip">
-            <p>Run <code>majestic doctor</code> at any time to diagnose configuration problems.</p>
-          </Callout>
+# Stop the agent
+majestic stop researcher`}</CodeBlock>
 
           <NavButtons current="quickstart" navigate={navigate} />
         </div>
@@ -910,105 +862,61 @@ docker compose up -d`}</CodeBlock>
           <hr className="page-divider" />
 
           <h2 className="section-title" id="cli-top">Shell commands</h2>
-          <div className="prose"><p>Run from any terminal. These manage the agent itself.</p></div>
+          <div className="prose"><p>Run from any terminal. These manage profiles and agent lifecycle.</p></div>
           <table className="api-table">
             <thead><tr><th>Command</th><th>Description</th></tr></thead>
             <tbody>
               {[
-                ["majestic", "Launch the interactive REPL (default agent)"],
-                ["majestic <name>", "Launch REPL for a named agent (e.g. majestic finance_bot)"],
-                ["majestic init <name>", "Create a new named agent with isolated data and port"],
-                ["majestic list", "List all agents with running status"],
-                ["majestic ps", "Show only running agents"],
-                ["majestic setup", "Interactive first-run wizard — API keys, model, language"],
-                ["majestic model", "Switch LLM provider or model interactively"],
-                ["majestic config", "Show current config values"],
-                ["majestic config get KEY", "Get a single config value (e.g. config get llm.provider)"],
-                ["majestic config set KEY VAL", "Set a config value (e.g. config set language RU)"],
-                ["majestic doctor", "Diagnose configuration problems and security warnings"],
-                ["majestic update", "Pull latest changes from GitHub, preserve local customizations"],
-                ["majestic tools", "Interactive checklist to enable/disable individual tools"],
-                ["majestic api start", "Start the REST API server (default port 8080)"],
-                ["majestic mcp list", "List configured MCP servers and their tools"],
-                ["majestic mcp add NAME CMD", "Add an MCP server"],
-                ["majestic mcp remove NAME", "Remove an MCP server"],
-                ["majestic gateway start telegram", "Start Telegram bot"],
-                ["majestic gateway setup telegram", "Configure Telegram token only (does not touch other settings)"],
-                ["majestic gateway setup", "Configure Telegram interactively"],
+                ["majestic",              "Launch default profile in foreground (CLIChannel)"],
+                ["majestic <name>",       "Launch named profile in foreground (e.g. majestic pain_hunter)"],
+                ["majestic setup",        "Interactive first-run wizard — API keys, model, preferences"],
+                ["majestic new <name>",   "Scaffold a new agent profile directory"],
+                ["majestic config [name]","Edit profile persona.yaml interactively (default: default)"],
+                ["majestic list",         "List all profiles"],
+                ["majestic run <name>",   "Start profile as a background daemon + FastAPI server"],
+                ["majestic ps",           "Show running background agents"],
+                ["majestic stop <name>",  "Stop a running background agent"],
+                ["majestic rm <name>",    "Delete a profile and all its data"],
               ].map(([cmd, desc]) => (
                 <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
               ))}
             </tbody>
           </table>
 
-          <h2 className="section-title" id="cli-agent">Agent shortcuts (REPL)</h2>
-          <div className="prose"><p>Quick commands that trigger the agent with a pre-set prompt.</p></div>
+          <h2 className="section-title" id="cli-flags">Global flags</h2>
           <table className="api-table">
-            <thead><tr><th>Command</th><th>Description</th></tr></thead>
+            <thead><tr><th>Flag</th><th>Description</th></tr></thead>
             <tbody>
               {[
-                ["/news [N]", "Latest N news items sorted by relevance (default 10)"],
-                ["/report <topic>", "Deep research report on any topic, saved to workspace"],
+                ["--debug", "Show full Python tracebacks on error"],
+              ].map(([f, d]) => (
+                <tr key={f}><td><code>{f}</code></td><td>{d}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h2 className="section-title" id="cli-management">Config wizard fields</h2>
+          <div className="prose"><p>Fields available in <code>majestic config &lt;name&gt;</code> (interactive wizard):</p></div>
+          <table className="api-table">
+            <thead><tr><th>Field</th><th>Description</th></tr></thead>
+            <tbody>
+              {[
+                ["① Name",        "Agent display name"],
+                ["② Role",        "Role / persona description (injected into system prompt)"],
+                ["③ Tone",        "Tone descriptor (e.g. confident, helpful, concise)"],
+                ["④ Language",    "Response language: en, de, fr, es, ru, pt, zh, ja, other"],
+                ["⑤ Port",        "HTTP port for background mode (1024–65535)"],
+                ["⑥ Restrictions","Behavioral restrictions — add / remove / view list"],
+                ["⑦ Limits",      "max_tokens_per_task and max_cost_per_task (0 = unlimited)"],
+                ["⑧ Context",     "Free-form system context block (opens $EDITOR if set)"],
               ].map(([cmd, desc]) => (
                 <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
               ))}
             </tbody>
           </table>
 
-          <h2 className="section-title" id="cli-memory">Memory & workspace (REPL)</h2>
-          <table className="api-table">
-            <thead><tr><th>Command</th><th>Description</th></tr></thead>
-            <tbody>
-              {[
-                ["/memory", "View persistent agent memory"],
-                ["/forget <topic>", "Remove memory entries mentioning a keyword"],
-                ["/skills", "List user-defined skills"],
-                ["/agent-skills", "List skills auto-created by the agent"],
-                ["/history <query>", "Search past conversations with LLM summarization"],
-                ["/history last [N]", "Show last N sessions with one-line summaries (default 10)"],
-                ["/workspace", "Show workspace file tree"],
-                ["/workspace view <path>", "View a file or folder in workspace"],
-                ["/workspace search <query>", "Full-text search across workspace files"],
-                ["/workspace del <path>", "Delete a workspace file (prompts for confirmation)"],
-                ["/workspace move <src> <dst>", "Move or rename a workspace file"],
-                ["/workspace mkdir <folder>", "Create a folder in workspace"],
-              ].map(([cmd, desc]) => (
-                <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
-              ))}
-            </tbody>
-          </table>
-
-          <h2 className="section-title" id="cli-management">Management (REPL)</h2>
-          <table className="api-table">
-            <thead><tr><th>Command</th><th>Description</th></tr></thead>
-            <tbody>
-              {[
-                ["/model", "Switch LLM provider or model"],
-                ["/set", "Show current agent.role, tools_enabled, tools_disabled"],
-                ["/set agent.role <text>", "Set agent persona/role"],
-                ["/set agent.tools_enabled <list>", "Comma-separated whitelist of tool names"],
-                ["/set agent.tools_disabled <list>", "Comma-separated blacklist of tool names"],
-                ["/usage [reset]", "Token usage and cost stats for the current session"],
-                ["/insights [days]", "Usage analytics by day (default 7)"],
-                ["/schedule list", "List active cron schedules"],
-                ["/schedule add <text>", "Add schedule described in plain language"],
-                ["/schedule remove <id>", "Remove a schedule by ID"],
-                ["/remind <text>", "Add a natural-language reminder"],
-                ["/reminders", "List active reminders"],
-                ["/reports", "List saved reports"],
-                ["/reports view <N>", "View report number N"],
-                ["/reports del <N>", "Delete report number N"],
-                ["/new", "Start a fresh session (clears history)"],
-                ["/stop", "Interrupt the current running task"],
-                ["/exit", "Save session summary to memory and quit"],
-              ].map(([cmd, desc]) => (
-                <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
-              ))}
-            </tbody>
-          </table>
-
-          <Callout type="tip">
-            <p>Type <code>/help</code> inside the REPL for a condensed reference. Press <strong>Tab</strong> to autocomplete slash commands.</p>
+          <Callout type="info">
+            <p>Use <code>majestic --debug &lt;subcommand&gt;</code> to get full Python tracebacks when diagnosing issues.</p>
           </Callout>
 
           <NavButtons current="cli-commands" navigate={navigate} />
@@ -1033,61 +941,42 @@ docker compose up -d`}</CodeBlock>
             <thead><tr><th>Tool</th><th>Module</th><th>Description</th></tr></thead>
             <tbody>
               {[
-                ["web_search",       "tools/web/websearch.py",        "Web search via DuckDuckGo (free) or Tavily (if key set)"],
-                ["web_extract",      "tools/web/websearch.py",        "Extract readable text from a URL"],
-                ["http_request",     "tools/web/http_request.py",     "Make HTTP GET/POST/PUT/DELETE calls to any external API"],
-                ["read_file",        "tools/files/workspace.py",      "Read a file from workspace"],
-                ["write_file",       "tools/files/workspace.py",      "Write a file to workspace"],
-                ["copy_file",        "tools/files/workspace.py",      "Copy a file to a new location within workspace"],
-                ["index_document",   "tools/files/workspace.py",      "Index PDF, DOCX, CSV, TXT, MD for RAG search"],
-                ["db_search",        "tools/db_search.py",            "Unified FTS5 + vector search across all indexed data"],
-                ["history_search",   "tools/history_search.py",       "Search and LLM-summarize past conversations"],
-                ["run_command",      "tools/system/terminal.py",      "Execute a shell command (requires user approval)"],
-                ["run_python",       "tools/code/python_runner.py",   "Execute Python code in a subprocess (cwd = workspace)"],
-                ["get_datetime",     "tools/system/datetime_tool.py", "Current date/time in any timezone (iso, human, unix)"],
-                ["remember",         "tools/memory_tool.py",          "Save a fact or preference to persistent memory.md / user.md"],
-                ["save_script",      "tools/scripts/script_tools.py", "Save a reusable Python script to workspace/scripts/"],
-                ["list_scripts",     "tools/scripts/script_tools.py", "List the agent's saved script library"],
-                ["run_script",       "tools/scripts/script_tools.py", "Run a saved script with parameters injected as env vars"],
-                ["save_memory",      "memory/store.py",               "(legacy) Save a fact or preference to persistent memory"],
+                ["web_search",   "majestic/tools/web_search.py",   "Web search via OpenRouter / Tavily API"],
+                ["web_fetch",    "majestic/tools/web_fetch.py",    "Fetch and extract readable text from a URL"],
+                ["http",         "majestic/tools/http.py",         "Generic HTTP GET/POST/PUT/DELETE to any REST API"],
+                ["files",        "majestic/tools/files.py",        "Read, write, and list files in the agent's workspace"],
+                ["python_exec",  "majestic/tools/python_exec.py",  "Execute Python code in an isolated .venv sandbox"],
+                ["node_exec",    "majestic/tools/node_exec.py",    "Execute Node.js code in an isolated node_modules sandbox"],
+                ["file_parser",  "majestic/tools/file_parser.py",  "Parse PDF, DOCX, CSV, XLSX, and image files"],
+                ["agent_client", "majestic/tools/agent_client.py", "Discover and delegate tasks to background agents via HTTP"],
               ].map(([t, m, d]) => (
                 <tr key={t}><td><code>{t}</code></td><td><code style={{fontSize:11}}>{m}</code></td><td>{d}</td></tr>
               ))}
             </tbody>
           </table>
 
-          <h2 className="section-title" id="tools-disable">Enabling / disabling tools</h2>
-          <CodeBlock lang="bash">{`# Interactive checklist (shell):
-majestic tools
-
-# Or via config:
-agent:
-  tools_disabled: [run_command, run_python]   # blacklist
-  tools_enabled:  []                           # whitelist (empty = all active)`}</CodeBlock>
-
-          <h2 className="section-title" id="tools-approval">Command approval</h2>
+          <h2 className="section-title" id="tools-security">Code execution security</h2>
           <div className="prose">
             <p>
-              Before executing any shell command, Majestic asks for approval in interactive sessions.
-              This prevents the agent from accidentally running destructive operations.
+              <code>python_exec</code> and <code>node_exec</code> run a regex blacklist check
+              (<code>_check_code_safety()</code>) before executing any code. Blocked patterns include:
             </p>
-          </div>
-          <CodeBlock lang="text">{`  [approve] 'ls -la'
-  Allow? [y / N / always]`}</CodeBlock>
-          <div className="prose">
             <ul>
-              <li><strong>y</strong> — allow this one time</li>
-              <li><strong>N</strong> (default) — deny and return an error to the agent</li>
-              <li><strong>always</strong> — permanently add this command to <code>agent.allowed_commands</code> in config (never asked again)</li>
+              <li><code>os.system(</code>, <code>subprocess</code> with <code>shell=True</code></li>
+              <li><code>eval</code>/<code>exec</code> on user input, <code>__import__('os')</code></li>
+              <li><code>spawnSync</code>, <code>execSync</code>, <code>process.binding</code> (Node)</li>
             </ul>
+            <p>Scripts run inside isolated sandboxes — <code>.venv</code> and <code>node_modules</code> under <code>workspace/</code>.</p>
+          </div>
+
+          <h2 className="section-title" id="tools-mcp">MCP tools</h2>
+          <div className="prose">
             <p>
-              In non-interactive mode (gateway, cron), commands are blocked by default unless
-              <code> agent.allow_commands: true</code> is set in config.
+              Any MCP server registered in <code>mcp/registry.yaml</code> is auto-wrapped as agent tools.
+              Tool names are prefixed: a tool <code>read_file</code> from server <code>filesystem</code>
+              becomes <code>mcp_filesystem_read_file</code>.
             </p>
           </div>
-          <Callout type="warning">
-            <p>Setting <code>agent.allow_commands: true</code> with a gateway enabled means remote users can run any shell command. <code>majestic doctor</code> will warn you.</p>
-          </Callout>
 
           <NavButtons current="tools" navigate={navigate} />
         </div>
@@ -1101,164 +990,99 @@ agent:
           <div className="page-label">Reference</div>
           <h1 className="page-title">Memory & Skills</h1>
           <p className="page-desc">
-            Memory persists facts and preferences across sessions.
-            Skills are reusable procedures stored as Markdown and invoked as slash commands.
+            Majestic uses 6 purpose-built SQLite memory systems per agent. Skills are hot-reloaded YAML files auto-generated by the reflection engine.
           </p>
           <hr className="page-divider" />
 
-          <h2 className="section-title" id="memory-how">How memory works</h2>
-          <div className="prose">
-            <p>
-              Memory is stored as two plain Markdown files under <code>~/.majestic-agent/memory/</code>.
-              The agent loads both on startup and appends to them during the session.
-              On <code>/exit</code>, the agent summarizes the session and performs a dedup pass
-              to merge contradicting entries.
-            </p>
-          </div>
-          <CodeBlock lang="text">{`~/.majestic-agent/memory/
-├── memory.md   # Agent facts: knowledge, decisions, learned behaviors
-└── user.md     # User profile: preferences, habits, background`}</CodeBlock>
-          <div className="prose">
-            <p>
-              You can edit these files directly in any text editor — they are plain Markdown,
-              no special format required.
-            </p>
-          </div>
-
-          <h2 className="section-title" id="memory-commands">Memory commands</h2>
-          <CodeBlock lang="bash">{`/memory          # view everything in memory.md + user.md
-/forget bitcoin  # remove all entries mentioning "bitcoin"`}</CodeBlock>
-
-          <h2 className="section-title" id="skills-how">How skills work</h2>
-          <div className="prose">
-            <p>
-              A skill is a Markdown file with a YAML frontmatter header. It describes a reusable
-              multi-step procedure. When you invoke <code>/skill-name</code>, Majestic sends the
-              skill body as a system instruction to the agent, which then executes it.
-            </p>
-          </div>
-          <CodeBlock lang="yaml" filename="~/.majestic-agent/skills/my-skill.md">{`---
-name: my-skill
-description: Analyze a GitHub repo and summarize its architecture
-source: user
----
-
-## Goal
-Analyze the given GitHub repository and produce a concise architecture summary.
-
-## Steps
-1. Use web_extract to fetch the repo README
-2. List the top-level directory structure
-3. Identify the main entry points and key modules
-4. Write a 200-word architecture summary
-
-## Examples
-- /my-skill https://github.com/owner/repo`}</CodeBlock>
-
-          <h2 className="section-title" id="skills-user">User skills</h2>
-          <div className="prose">
-            <p>
-              User skills are created manually (or copied from builtins). They appear in
-              tab-completion and can be invoked as <code>/skill-name [args]</code>.
-            </p>
-          </div>
-          <CodeBlock lang="bash">{`/skills          # list all user skills with usage counts
-/my-skill        # invoke a skill
-/my-skill topic  # invoke with extra user input`}</CodeBlock>
-
-          <h2 className="section-title" id="skills-agent">Agent-created skills</h2>
-          <div className="prose">
-            <p>
-              After complex multi-tool interactions, the agent automatically suggests saving the
-              pattern as a reusable skill. These are stored with <code>source: agent</code> in
-              frontmatter and are <em>not</em> shown in tab-completion — they are internal hints
-              the agent uses to approach similar tasks more efficiently.
-            </p>
-            <p>
-              Every third invocation, the agent silently proposes an improved skill body and
-              asks for your confirmation before applying it.
-            </p>
-          </div>
-          <CodeBlock lang="bash">{`/agent-skills    # list skills auto-created by the agent`}</CodeBlock>
-
-          <h2 className="section-title" id="scripts-library">Script library</h2>
-          <div className="prose">
-            <p>
-              The agent maintains its own Python script library in <code>~/.majestic-agent/workspace/scripts/</code>.
-              When it solves a task with reusable logic (parametric API calls, recurring data fetches, system checks),
-              it autonomously calls <code>save_script</code> to store the solution. On every new session, the agent
-              sees the library in its system prompt and reuses scripts via <code>run_script</code> instead of
-              writing the same code again.
-            </p>
-            <p>This is how Majestic <strong>self-improves</strong> over time — your agent grows a personalised toolkit shaped by the work you actually do.</p>
-          </div>
-
-          <h3 className="subsection-title">Script tools</h3>
+          <h2 className="section-title" id="memory-how">Memory systems</h2>
           <table className="api-table">
-            <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+            <thead><tr><th>System</th><th>File</th><th>Purpose</th></tr></thead>
             <tbody>
               {[
-                ["save_script",         "Save a reusable Python script with description, params, and tags"],
-                ["list_scripts",        "List the agent's saved script library"],
-                ["run_script",          "Run a saved script synchronously — params injected as env vars"],
-              ].map(([t, d]) => (
-                <tr key={t}><td><code>{t}</code></td><td>{d}</td></tr>
+                ["WorkingMemory",    "in-memory",         "Current session KV state (cleared on restart)"],
+                ["EpisodicMemory",   "episodic.db",       "Task history with FTS5 full-text search"],
+                ["SemanticMemory",   "semantic.db",       "sqlite-vec vectors + FTS5 fallback for RAG"],
+                ["ProceduralMemory", "skills/ directory", "Hot-loaded YAML skill definitions"],
+                ["LessonsStore",     "lessons.db",        "Extracted principles from reflection (FTS5)"],
+                ["UserProfile",      "user_profile.db",   "Interaction patterns and preferences"],
+                ["CheckpointStore",  "checkpoints.db",    "Step-by-step execution state for crash recovery"],
+              ].map(([sys, file, purpose]) => (
+                <tr key={sys}><td><strong>{sys}</strong></td><td><code style={{fontSize:11}}>{file}</code></td><td>{purpose}</td></tr>
               ))}
             </tbody>
           </table>
 
-          <h3 className="subsection-title">Advanced features</h3>
-          <div className="prose">
-            <p><strong>Self-healing.</strong> When <code>run_script</code> exits with a non-zero code, the agent automatically analyses stderr, patches the script, and retries — up to 3 times. Add <code># auto_heal: false</code> to a script's frontmatter to opt out.</p>
-            <p><strong>Dependency management.</strong> Declare pip dependencies with <code># requires: requests, pandas</code> in the frontmatter. Majestic checks availability and installs missing packages automatically (<code>agent.auto_install_deps: true</code> by default).</p>
-
-          </div>
-
-          <h3 className="subsection-title">Script format</h3>
-          <CodeBlock lang="python" filename="workspace/scripts/currency_rate.py">{`# description: Convert between currencies via exchange rate API
-# params: from_currency, to_currency, amount
-# tags: finance, api
-# created: 2026-05-03
-
-import os, urllib.request, json
-
-FROM   = os.environ.get("from_currency", "USD")
-TO     = os.environ.get("to_currency",   "EUR")
-AMOUNT = float(os.environ.get("amount", "1"))
-
-url  = f"https://api.exchangerate.host/latest?base={FROM}&symbols={TO}"
-data = json.loads(urllib.request.urlopen(url).read())
-rate = data["rates"][TO]
-print(f"{AMOUNT} {FROM} = {AMOUNT * rate:.2f} {TO} (rate: {rate})")`}</CodeBlock>
-
-          <div className="prose">
-            <p>Frontmatter is parsed automatically — <code>description</code> appears in the agent's system prompt under <code>[Script library]</code>; <code>params</code> are presented as input fields when running from the dashboard.</p>
-          </div>
-
-          <h3 className="subsection-title">Managing scripts from the dashboard</h3>
+          <h2 className="section-title" id="memory-gateway">How memory is injected</h2>
           <div className="prose">
             <p>
-              Open the <strong>Files</strong> page in the dashboard and switch to the <strong>Scripts</strong> tab.
-              Each script appears as a card with Run / Edit / Delete buttons. Run opens a dialog with input fields
-              for declared params and shows stdout, stderr, and exit code inline.
+              The <strong>Gateway</strong> (Layer 5) enriches every task before it reaches the ReAct loop:
+            </p>
+            <ul>
+              <li>Last 5 episodic tasks → <code>[PAST TASKS]</code> block in the prompt</li>
+              <li>User language + top topics → <code>[USER PROFILE]</code> block</li>
+              <li>Semantic RAG results (top-3 chunks) → injected as context</li>
+              <li>Top-3 lessons from LessonsStore (FTS5 search on the task) → prepended to messages</li>
+            </ul>
+          </div>
+
+          <h2 className="section-title" id="skills-how">How skills work</h2>
+          <div className="prose">
+            <p>
+              A skill is a YAML file in <code>profiles/&lt;name&gt;/skills/</code>. The agent's
+              ProceduralMemory hot-reloads skills on every task — no restart needed. The self-evolution
+              engine writes new skills automatically after detecting repeated patterns.
+            </p>
+          </div>
+          <CodeBlock lang="yaml" filename="profiles/pain_hunter/skills/market_research.yaml">{`name: market_research
+description: Search and analyze market pain points for a B2B category
+steps:
+  - tool: web_search
+    args:
+      query: "{category} pain points site:g2.com OR site:reddit.com"
+  - tool: web_fetch
+    args:
+      url: "{first_result_url}"
+  - tool: python_exec
+    args:
+      code: "# analyze and summarize extracted content"
+created_by: self_evolution
+usage_count: 3`}</CodeBlock>
+
+          <h2 className="section-title" id="skills-evolution">Self-evolution</h2>
+          <div className="prose">
+            <p>
+              After each task, <code>ReflectionEngine.reflect()</code> extracts lessons and stores them
+              in <code>lessons.db</code>. When a pattern (same tool sequence) appears ≥ 3 times,
+              <code>SelfEvolution</code> generates a YAML skill definition and writes it to
+              <code> profiles/&lt;name&gt;/skills/</code>. ProceduralMemory picks it up immediately.
+            </p>
+            <p>
+              <code>ScriptTracker</code> separately monitors Python/Node script success rates and
+              promotes reliable scripts to reusable skills.
             </p>
           </div>
 
-          <h3 className="subsection-title">Enabling / disabling</h3>
+          <Callout type="info">
+            <p>Skills generated by self-evolution are tagged <code>created_by: self_evolution</code> in their YAML. You can view, edit, or delete them directly in <code>profiles/&lt;name&gt;/skills/</code>.</p>
+          </Callout>
+
+          <h2 className="section-title" id="skills-checkpoint">Checkpoint recovery</h2>
           <div className="prose">
-            <p>Scripts are enabled by default. To disable execution entirely:</p>
+            <p>Every step of the ReAct loop is saved to <code>checkpoints.db</code>. If the agent crashes mid-task, the next run of the same task automatically reloads the last 10 messages and 5 steps and continues from where it stopped.</p>
+            <p>Call <code>CheckpointStore.complete_task(task_id)</code> to mark a task done and clear its checkpoint.</p>
           </div>
-          <CodeBlock lang="bash">{`# In CLI
-/set agent.allow_scripts false
 
-# Or in config.yaml
-agent:
-  allow_scripts: false
+          <h3 className="subsection-title">Disabling auto-skills</h3>
+          <div className="prose">
+            <p>Self-evolution runs by default. To inspect what the reflection engine would generate without writing files:</p>
+          </div>
+          <CodeBlock lang="python">{`# In persona.yaml — set limits to 0 to disable budgeting (not evolution)
+limits:
+  max_tokens_per_task: 0
+  max_cost_per_task: 0.0`}</CodeBlock>
 
-# Or in dashboard: Settings → Agent → Allow scripts toggle`}</CodeBlock>
-
-          <Callout type="warning">
-            <p>Scripts run in a subprocess with full Python stdlib access. They are sandboxed to <code>workspace/</code> as the working directory, with a 30-second default timeout (max 120s). Treat them like any other code on your machine.</p>
+          <Callout type="info">
+            <p>Self-evolution only writes to <code>profiles/&lt;name&gt;/skills/</code>. It never modifies source code. Delete any unwanted YAML file from that directory to remove a skill.</p>
           </Callout>
 
           <NavButtons current="memory-skills" navigate={navigate} />
@@ -1273,16 +1097,15 @@ agent:
           <div className="page-label">Reference</div>
           <h1 className="page-title">Scheduling</h1>
           <p className="page-desc">
-            Run any agent task on a schedule, described in plain language.
-            Results are delivered to CLI or Telegram.
+            Run any agent task on a cron schedule — background agents accept scheduled tasks via REST API.
           </p>
           <hr className="page-divider" />
 
           <h2 className="section-title" id="sched-basics">Managing schedules</h2>
-          <CodeBlock lang="bash">{`/schedule list                          # list active schedules
-/schedule add "every Monday at 9am, send me the top AI news on Telegram"
+          <CodeBlock lang="bash">{`/schedule list                               # list active schedules
+/schedule add "every Monday at 9am, summarize AI news and save to workspace"
 /schedule add "daily at 7am, check GitHub trending and brief me"
-/schedule remove 2                      # remove schedule by ID`}</CodeBlock>
+/schedule remove 2                           # remove schedule by ID`}</CodeBlock>
 
           <div className="prose">
             <p>
@@ -1297,10 +1120,10 @@ agent:
             <thead><tr><th>Plain language</th><th>Interpreted as</th></tr></thead>
             <tbody>
               {[
-                ["every Monday at 9am, send me the top AI news on Telegram", "0 9 * * 1 → get_news + summarize, deliver via Telegram"],
-                ["daily at 7am, search web for AI news and brief me", "0 7 * * * → web_search + summarize, deliver to CLI"],
-                ["every weekday at 8am, check project status via GitHub API", "0 8 * * 1-5 → http_request, deliver to CLI"],
-                ["every hour, pull latest RSS items", "0 * * * * → web_search, deliver to CLI"],
+                ["every Monday at 9am, summarize AI news and save to workspace", "0 9 * * 1 → web_search + summarize → files"],
+                ["daily at 7am, search web for AI news and brief me",            "0 7 * * * → web_search + summarize → CLI"],
+                ["every weekday at 8am, check project status via GitHub API",     "0 8 * * 1-5 → http → CLI"],
+                ["every hour, fetch latest RSS items",                            "0 * * * * → web_fetch → files"],
               ].map(([nl, interp]) => (
                 <tr key={nl}><td>{nl}</td><td style={{fontSize:12}}>{interp}</td></tr>
               ))}
@@ -1345,51 +1168,51 @@ agent:
       return (
         <div>
           <div className="page-label">Reference</div>
-          <h1 className="page-title">Configuration</h1>
+          <h1 className="page-title">persona.yaml</h1>
           <p className="page-desc">
-            All settings live in <code>~/.majestic-agent/config.yaml</code>.
-            API keys go in <code>~/.majestic-agent/.env</code> (never committed).
+            Each agent's identity and behavior is defined in <code>profiles/&lt;name&gt;/persona.yaml</code>.
+            API keys go in <code>profiles/&lt;name&gt;/.env</code> (never committed).
           </p>
           <hr className="page-divider" />
 
-          <h2 className="section-title" id="config-full">Full example</h2>
-          <CodeBlock lang="yaml" filename="~/.majestic-agent/config.yaml">{`language: EN
-currency: USD
-search_mode: all          # all | docs
+          <h2 className="section-title" id="config-full">Full persona.yaml</h2>
+          <CodeBlock lang="yaml" filename="profiles/<name>/persona.yaml">{`name: "Assistant"
+role: "General purpose AI assistant"
+tone: "helpful, concise"
+language: "en"        # en | de | fr | es | ru | pt | zh | ja | other
+port: 8000            # HTTP port when running as background daemon
 
-llm:
-  provider: anthropic     # anthropic | openai | openrouter | ollama
-  model: claude-sonnet-4-5
+restrictions:
+  - "Never disclose API keys or credentials."
+  - "Do not execute destructive file operations without confirmation."
 
-agent:
-  role: ""                # extra system prompt block (optional)
-  tools_enabled: []       # whitelist (empty = all active)
-  tools_disabled: []      # blacklist
-  allowed_commands: []    # shell commands approved with "always"
-  allow_commands: false   # true = skip approval entirely (use carefully)
+context: |
+  Optional free-form system prompt block. Describe the agent's domain
+  knowledge, persona background, or special behaviors here.
 
-telegram:
-  token: ""
-  allowed_user_ids: []    # leave empty to allow anyone
-  voice_transcription: false
+limits:
+  max_tokens_per_task: 0      # 0 = unlimited
+  max_cost_per_task: 0.0      # 0.0 = unlimited (USD)
 
-api:
-  port: 8080
-  key: ""                 # set to require X-API-Key header
+model_routing:
+  reason:     "openrouter/anthropic/claude-sonnet-4-6"
+  simple:     "openrouter/anthropic/claude-haiku-4-5"
+  code:       "openrouter/openai/gpt-4o"
+  reflection: "openrouter/anthropic/claude-opus-4-7"`}</CodeBlock>
 
-mcp_servers:
-  - name: filesystem
-    command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/home/user"]
-  - name: github
-    command: ["npx", "-y", "@modelcontextprotocol/server-github"]
-    env:
-      GITHUB_TOKEN: "\${GITHUB_TOKEN}"`}</CodeBlock>
-
-          <h2 className="section-title" id="config-llm">LLM section</h2>
+          <h2 className="section-title" id="config-fields">Field reference</h2>
           <div className="config-grid">
             {[
-              { key: "llm.provider", type: "string", desc: "LLM backend to use.", def: "anthropic" },
-              { key: "llm.model",    type: "string", desc: "Model name. Must match the provider's model IDs.", def: "claude-sonnet-4-5" },
+              { key: "name",         type: "string",   desc: "Agent display name — shown in the CLI header.", def: "Assistant" },
+              { key: "role",         type: "string",   desc: "Persona / role description injected as the system prompt.", def: "General purpose AI assistant" },
+              { key: "tone",         type: "string",   desc: "Tone descriptor injected after role.", def: "helpful, concise" },
+              { key: "language",     type: "string",   desc: "Preferred response language code.", def: "en" },
+              { key: "port",         type: "integer",  desc: "TCP port for background HTTP server (1024–65535).", def: "8000" },
+              { key: "restrictions", type: "string[]", desc: "Behavioral restrictions the agent must follow.", def: "[]" },
+              { key: "context",      type: "string",   desc: "Free-form system context block (multiline).", def: '""' },
+              { key: "limits.max_tokens_per_task", type: "integer", desc: "Token budget per task (0 = unlimited).", def: "0" },
+              { key: "limits.max_cost_per_task",   type: "float",   desc: "Cost budget per task in USD (0.0 = unlimited).", def: "0.0" },
+              { key: "model_routing",type: "object",   desc: "Per-step model overrides. Keys: reason, simple, code, reflection.", def: "(provider defaults)" },
             ].map(c => (
               <div className="config-card" key={c.key}>
                 <div className="config-key">{c.key}</div>
@@ -1400,42 +1223,24 @@ mcp_servers:
             ))}
           </div>
 
-          <h2 className="section-title" id="config-agent">Agent section</h2>
-          <div className="config-grid">
-            {[
-              { key: "agent.role",             type: "string",   desc: "Extra system prompt injected at the top of every request. Use to specialize the agent for a domain.", def: '""' },
-              { key: "agent.tools_enabled",    type: "string[]", desc: "Whitelist of tool names. If non-empty, only these tools are active.", def: "[]" },
-              { key: "agent.tools_disabled",   type: "string[]", desc: "Blacklist of tool names to exclude.", def: "[]" },
-              { key: "agent.allowed_commands", type: "string[]", desc: "Shell command names approved permanently via 'always' prompt.", def: "[]" },
-              { key: "agent.allow_commands",   type: "boolean",  desc: "Skip approval entirely. Use only in fully trusted environments.", def: "false" },
-            ].map(c => (
-              <div className="config-card" key={c.key}>
-                <div className="config-key">{c.key}</div>
-                <div className="config-type">{c.type}</div>
-                <div className="config-desc">{c.desc}</div>
-                {c.def && <div className="config-default">default: {c.def}</div>}
-              </div>
-            ))}
+          <h2 className="section-title" id="config-env">Settings priority</h2>
+          <div className="prose">
+            <p>
+              Settings are resolved in this order (highest priority first):
+            </p>
+            <ol>
+              <li><code>profiles/&lt;name&gt;/.env</code> — profile-specific API keys and overrides</li>
+              <li>Root <code>.env</code> — shared API keys (ANTHROPIC_API_KEY, etc.)</li>
+              <li>System environment variables</li>
+              <li>Defaults in <code>majestic/config/settings.py</code></li>
+            </ol>
           </div>
-
-          <h2 className="section-title" id="config-search">Search mode</h2>
-          <table className="api-table">
-            <thead><tr><th>Value</th><th>Searches</th></tr></thead>
-            <tbody>
-              {[
-                ["all",   "Vector chunks + news FTS5 — broadest context"],
-                ["docs",  "Locally indexed documents only (uploaded files)"],
-
-              ].map(([v, d]) => <tr key={v}><td><code>{v}</code></td><td>{d}</td></tr>)}
-            </tbody>
-          </table>
-
-          <h2 className="section-title" id="config-keys">API keys (.env)</h2>
-          <CodeBlock lang="bash" filename="~/.majestic-agent/.env">{`ANTHROPIC_API_KEY=sk-ant-...
+          <CodeBlock lang="bash" filename="profiles/<name>/.env">{`ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 OPENROUTER_API_KEY=sk-or-...
-TELEGRAM_BOT_TOKEN=123456:...
-TAVILY_API_KEY=...`}</CodeBlock>
+TAVILY_API_KEY=tvly-...`}</CodeBlock>
+          <CodeBlock lang="bash" filename=".env  (root — shared across all profiles)">{`ANTHROPIC_API_KEY=sk-ant-...
+OPENROUTER_API_KEY=sk-or-...`}</CodeBlock>
 
           <NavButtons current="configuration" navigate={navigate} />
         </div>
@@ -1472,62 +1277,67 @@ TAVILY_API_KEY=...`}</CodeBlock>
             </tbody>
           </table>
 
+          <h2 className="section-title" id="llm-routing">Per-step routing</h2>
+          <div className="prose">
+            <p>
+              Each ReAct loop step is categorized and routed to a different model.
+              Configure per-profile in <code>persona.yaml</code> under <code>model_routing:</code>.
+            </p>
+          </div>
+          <table className="api-table">
+            <thead><tr><th>Step type</th><th>When used</th><th>Default model</th></tr></thead>
+            <tbody>
+              {[
+                ["reason",     "Main reasoning / tool selection step",  "claude-sonnet-4-6"],
+                ["simple",     "Short, factual or classification calls", "claude-haiku-4-5"],
+                ["code",       "Code generation and debugging steps",   "gpt-4o (via OpenRouter)"],
+                ["reflection", "Post-task lesson extraction",           "claude-opus-4-7"],
+              ].map(([s, w, m]) => (
+                <tr key={s}><td><code>{s}</code></td><td>{w}</td><td><code style={{fontSize:11}}>{m}</code></td></tr>
+              ))}
+            </tbody>
+          </table>
+
           <h2 className="section-title" id="llm-switch">Switching providers</h2>
-          <CodeBlock lang="bash">{`# Interactive selector (from shell):
-majestic model
-
-# Interactive selector (from REPL):
-/model
-
-# Direct config edit:
-majestic config set llm.provider openai
-majestic config set llm.model gpt-4o`}</CodeBlock>
+          <div className="prose">
+            <p>
+              Change models in <code>persona.yaml</code> under <code>model_routing</code>, or run
+              <code> majestic setup</code> which walks through provider/key configuration.
+            </p>
+          </div>
+          <CodeBlock lang="yaml" filename="profiles/<name>/persona.yaml">{`model_routing:
+  reason: "anthropic/claude-sonnet-4-6"   # or openai/gpt-4o, etc.
+  simple: "anthropic/claude-haiku-4-5"
+  code:   "openai/gpt-4o"
+  reflection: "anthropic/claude-opus-4-7"`}</CodeBlock>
 
           <h2 className="section-title" id="llm-anthropic">Anthropic</h2>
-          <div className="prose">
-            <p>Uses the Anthropic Python SDK with native tool-use support. Recommended for the best agent performance.</p>
-          </div>
-          <CodeBlock lang="yaml">{`llm:
-  provider: anthropic
-  model: claude-sonnet-4-5    # or claude-opus-4-5, claude-haiku-4-5`}</CodeBlock>
+          <CodeBlock lang="yaml">{`model_routing:
+  reason: "anthropic/claude-sonnet-4-6"
+  # claude-opus-4-7  (most capable)
+  # claude-haiku-4-5 (fastest)`}</CodeBlock>
 
           <h2 className="section-title" id="llm-openai">OpenAI</h2>
-          <div className="prose">
-            <p>OpenAI-compatible endpoint. Tool use is mapped automatically from Anthropic schema to OpenAI function-calling format.</p>
-          </div>
-          <CodeBlock lang="yaml">{`llm:
-  provider: openai
-  model: gpt-4o               # or o1, o3-mini, gpt-4-turbo`}</CodeBlock>
+          <CodeBlock lang="yaml">{`model_routing:
+  code: "openai/gpt-4o"
+  # or o3, o1-mini, gpt-4-turbo`}</CodeBlock>
 
           <h2 className="section-title" id="llm-openrouter">OpenRouter</h2>
           <div className="prose">
-            <p>Routes to any available model. Cost fallback and model routing are handled by OpenRouter. Uses the same OpenAI-compatible interface.</p>
+            <p>OpenRouter is the <strong>primary provider</strong> in the fallback chain. It routes to any available model with a single API key. Uses an OpenAI-compatible interface.</p>
           </div>
-          <CodeBlock lang="yaml">{`llm:
-  provider: openrouter
-  model: anthropic/claude-sonnet-4-5  # or openai/gpt-4o, meta-llama/llama-3.1-70b`}</CodeBlock>
+          <CodeBlock lang="yaml">{`model_routing:
+  reason: "openrouter/anthropic/claude-sonnet-4-6"
+  code:   "openrouter/openai/gpt-4o"
+  # openrouter/meta-llama/llama-3.1-70b
+  # openrouter/google/gemini-2.0-flash`}</CodeBlock>
 
           <h2 className="section-title" id="llm-ollama">Ollama</h2>
           <div className="prose">
-            <p>Runs models locally. No API key required. Ollama must be running on the same machine (default <code>http://localhost:11434</code>).</p>
+            <p>Local models, no API key. Ollama must be running on <code>http://localhost:11434</code>.</p>
           </div>
-          <CodeBlock lang="yaml">{`llm:
-  provider: ollama
-  model: llama3.1             # or mistral, phi3, gemma2, etc.
-  num_ctx: 8192               # context window (tokens) — default 8192`}</CodeBlock>
-          <Callout type="info">
-            <p>Ollama tool use quality varies by model. Llama 3.1 70B and above give the best results for multi-tool tasks.</p>
-          </Callout>
-
-          <h3 className="subsection-title">Context window</h3>
-          <div className="prose">
-            <p>Set <code>llm.num_ctx</code> in <code>config.yaml</code> or use the <strong>Context window</strong> slider in Settings → LLM (available when Ollama is the active provider). Steps: 2 048 / 4 096 / 8 192 / 16 384 / 32 768 / 65 536 / 131 072. Larger values give the agent more room for long research results but increase VRAM usage.</p>
-          </div>
-
-          <h3 className="subsection-title">Tool reliability</h3>
-          <div className="prose">
-            <p>Majestic automatically limits local models to 15 priority tools per request (web search, knowledge, file I/O, memory, etc.) and excludes MCP browser tools that tend to confuse smaller models. If a model writes a JSON object as plain text instead of a proper tool call, Majestic detects and rescues it automatically.</p>
-          </div>
+          <CodeBlock lang="yaml">{`model_routing:
+  reason: "ollama/llama3.1"   # or mistral, gemma2, phi3`}</CodeBlock>
 
           <NavButtons current="llm-providers" navigate={navigate} />
         </div>
@@ -1546,231 +1356,165 @@ majestic config set llm.model gpt-4o`}</CodeBlock>
           <hr className="page-divider" />
 
           <h2 className="section-title" id="api-start">Starting the server</h2>
-          <CodeBlock lang="bash">{`majestic api start
-# Server starts on http://localhost:8080 (configurable via api.port)`}</CodeBlock>
           <div className="prose">
             <p>
-              The server also starts automatically as part of <code>docker compose up</code>.
-              Health endpoint is always available at <code>/health</code> even when running
-              via <code>majestic gateway start all</code>.
+              Background agents expose a FastAPI server automatically. The port is set in <code>persona.yaml</code>.
             </p>
           </div>
+          <CodeBlock lang="bash">{`# Start an agent as a background daemon + HTTP server
+majestic run pain_hunter   # starts on port 8001 (set in persona.yaml)
 
-          <h2 className="section-title" id="api-auth">Authentication</h2>
-          <div className="prose">
-            <p>
-              Set <code>api.key</code> in <code>config.yaml</code> to require authentication.
-              Send the key in the <code>X-API-Key</code> header. If <code>api.key</code> is empty,
-              the server accepts all requests.
-            </p>
-          </div>
-          <CodeBlock lang="bash">{`curl -H "X-API-Key: your-key" http://localhost:8080/health`}</CodeBlock>
+# Verify it's running
+majestic ps`}</CodeBlock>
 
           <h2 className="section-title" id="api-endpoints">Endpoints</h2>
 
           <div className="endpoint-card">
             <div className="endpoint-header">
               <span className="badge post">POST</span>
-              <span className="endpoint-path">/chat</span>
+              <span className="endpoint-path">/task</span>
             </div>
             <div className="endpoint-desc">
-              Send a message to the agent. Returns the answer, tools used, cost, and elapsed time.
+              Submit a task to the agent. Returns a task ID immediately; the agent runs the ReAct loop in the background.
             </div>
           </div>
-          <CodeBlock lang="bash">{`curl -X POST http://localhost:8080/chat \\
+          <CodeBlock lang="bash">{`curl -X POST http://localhost:8001/task \\
   -H "Content-Type: application/json" \\
-  -d '{"message": "Search the web for the latest AI releases this week"}'`}</CodeBlock>
+  -d '{"task": "Search for market pain points in B2B project management"}'`}</CodeBlock>
           <CodeBlock lang="json">{`{
-  "answer": "Here are the top AI releases this week: ...",
-  "tools_used": ["web_search"],
-  "cost_usd": 0.0031,
-  "elapsed_s": 4.2
+  "task_id": "t_7f3a2c1b",
+  "status": "running"
 }`}</CodeBlock>
           <h3 className="subsection-title">Request body</h3>
           <table className="api-table">
             <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
             <tbody>
-              <tr><td><code>message</code></td><td><code>string</code></td><td><span className="badge req">required</span></td><td>The user's message.</td></tr>
-              <tr><td><code>session_id</code></td><td><code>string</code></td><td><span className="badge opt">optional</span></td><td>Session ID for conversation continuity. Omit to start a new session.</td></tr>
+              <tr><td><code>task</code></td><td><code>string</code></td><td><span className="badge req">required</span></td><td>The task description for the agent's ReAct loop.</td></tr>
             </tbody>
           </table>
 
           <div className="endpoint-card">
             <div className="endpoint-header">
-              <span className="badge post">POST</span>
-              <span className="endpoint-path">/run</span>
+              <span className="badge get">GET</span>
+              <span className="endpoint-path">/status/{"{task_id}"}</span>
             </div>
             <div className="endpoint-desc">
-              Fire-and-forget task execution. Returns 202 immediately; the agent runs the task in the background.
+              Poll task status and retrieve the result when complete.
             </div>
           </div>
-          <CodeBlock lang="bash">{`curl -X POST http://localhost:8080/run \\
+          <CodeBlock lang="bash">{`curl http://localhost:8001/status/t_7f3a2c1b`}</CodeBlock>
+          <CodeBlock lang="json">{`{
+  "task_id": "t_7f3a2c1b",
+  "status": "done",
+  "result": "Top 3 pain points identified: ...",
+  "steps": 5,
+  "cost_usd": 0.014
+}`}</CodeBlock>
+
+          <div className="endpoint-card">
+            <div className="endpoint-header">
+              <span className="badge post">POST</span>
+              <span className="endpoint-path">/message/{"{task_id}"}</span>
+            </div>
+            <div className="endpoint-desc">
+              Send a follow-up message to an in-progress task (HITL interaction).
+            </div>
+          </div>
+          <CodeBlock lang="bash">{`curl -X POST http://localhost:8001/message/t_7f3a2c1b \\
   -H "Content-Type: application/json" \\
-  -d '{"message": "Summarize the workspace files and save a report"}'`}</CodeBlock>
-
-          <div className="endpoint-card">
-            <div className="endpoint-header">
-              <span className="badge get">GET</span>
-              <span className="endpoint-path">/health</span>
-            </div>
-            <div className="endpoint-desc">Returns server status and version. Always available, no auth required.</div>
-          </div>
-          <CodeBlock lang="json">{`{"status": "ok", "version": "0.1.0"}`}</CodeBlock>
-
-          <div className="endpoint-card">
-            <div className="endpoint-header">
-              <span className="badge get">GET</span>
-              <span className="endpoint-path">/sessions</span>
-            </div>
-            <div className="endpoint-desc">List recent sessions with message counts and start times.</div>
-          </div>
+  -d '{"message": "Focus only on Jira competitors"}'`}</CodeBlock>
 
           <NavButtons current="rest-api" navigate={navigate} />
         </div>
       );
     }
 
-    /* ── Web Dashboard ──────────────────────────────────────────────────────── */
-    function SectionDashboard({ navigate }) {
+    /* ── Multi-Agent ────────────────────────────────────────────────────────── */
+    function SectionMultiAgent({ navigate }) {
       return (
         <div>
           <div className="page-label">Integrations</div>
-          <h1 className="page-title">Web Dashboard</h1>
+          <h1 className="page-title">Multi-Agent</h1>
           <p className="page-desc">
-            A browser-based UI for chatting with the agent, editing memory and skills,
-            managing user tables, and monitoring token usage — all served by the built-in API server.
+            Background agents register themselves in a shared registry. Other agents and scripts discover and delegate tasks to them via HTTP.
           </p>
           <hr className="page-divider" />
 
-          <h2 className="section-title" id="dash-start">Starting the dashboard</h2>
-          <CodeBlock lang="bash">{`# Development mode (Vite dev server, hot-reload)
-majestic dashboard
-
-# Or with a custom port
-majestic dashboard --port 5174
-
-# Production: builds to majestic/api/static/ and serves via the API server
-majestic dashboard --build
-majestic api start   # serves dashboard at http://localhost:8080`}</CodeBlock>
+          <h2 className="section-title" id="ma-registry">Agent registry</h2>
           <div className="prose">
             <p>
-              In development mode the dashboard runs on <code>http://localhost:5173</code> and proxies
-              API calls to the Majestic API server. The API server must be running on port 8080
-              (start it with <code>majestic api start</code>).
+              When an agent starts in background mode (<code>majestic run &lt;name&gt;</code>), it writes an entry to
+              <code> data/registry.json</code>. The <code>agent_client</code> tool reads this file to
+              discover available agents by name.
             </p>
+          </div>
+          <CodeBlock lang="json" filename="data/registry.json">{`{
+  "pain_hunter": {
+    "url": "http://localhost:8001",
+    "status": "running",
+    "pid": 12345
+  },
+  "writer": {
+    "url": "http://localhost:8002",
+    "status": "running",
+    "pid": 12346
+  }
+}`}</CodeBlock>
+
+          <h2 className="section-title" id="ma-delegate">Delegating tasks</h2>
+          <div className="prose">
             <p>
-              After <code>--build</code>, the compiled assets are placed in
-              <code> majestic/api/static/</code> and served automatically by the API server —
-              no separate process needed.
+              From within a running agent, use the <code>agent_client</code> tool to delegate a task to another agent.
+              The Planner automatically decides when delegation is appropriate.
+            </p>
+          </div>
+          <CodeBlock lang="text">{`  majestic default  ❯ Research pain points in CRM software and write a blog post
+
+  ┌ agent_client · delegating to pain_hunter
+  │   task: "Research CRM software pain points from G2 and Reddit"
+  │   → POST http://localhost:8001/task
+  │   → task_id: t_9a2b3c4d
+  ├ agent_client · polling pain_hunter...
+  ├ agent_client · done · result: "Top 5 pain points: ..."
+  ├ agent_client · delegating to writer
+  │   task: "Write a 800-word blog post about these CRM pain points: ..."
+  │   → POST http://localhost:8002/task
+  └ agent_client · done · saved to workspace/crm_blog.md`}</CodeBlock>
+
+          <h2 className="section-title" id="ma-planner">Planner delegation</h2>
+          <div className="prose">
+            <p>
+              The <strong>Planner</strong> (Layer 4) classifies incoming tasks and decides whether to:
+            </p>
+            <ul>
+              <li>Run directly in the current agent's ReAct loop</li>
+              <li>Decompose into subtasks and delegate to specialists</li>
+              <li>Gate on HITL approval before proceeding</li>
+            </ul>
+            <p>
+              Add more background specialist agents by creating profiles with <code>majestic new</code>
+              and starting them with <code>majestic run</code>. The Planner will discover them
+              automatically via the registry.
             </p>
           </div>
 
-          <h2 className="section-title" id="dash-pages">Pages</h2>
-          <table className="api-table">
-            <thead><tr><th>Page</th><th>Description</th></tr></thead>
-            <tbody>
-              <tr><td><strong>Chat</strong></td><td>Real-time streaming chat with session history, agent graph, file artifacts, and delete.</td></tr>
-              <tr><td><strong>Memory</strong></td><td>Edit agent memory and user profile as raw markdown.</td></tr>
-              <tr><td><strong>Skills</strong></td><td>Browse, create, edit, and delete agent skills.</td></tr>
-              <tr><td><strong>Files</strong></td><td>Workspace browser with FileViewer (HTML, Markdown, code, CSV, images) and a <strong>Scripts</strong> tab to run / edit / delete agent-created Python scripts.</td></tr>
-              <tr><td><strong>Tables</strong></td><td>Full CRUD for user-defined SQLite tables visible to the agent.</td></tr>
-              <tr><td><strong>Agent</strong></td><td>Cron schedules with enable/disable and manual-run, active reminders.</td></tr>
-              <tr><td><strong>Monitoring</strong></td><td>Token cost chart, request counts, active schedules and reminders.</td></tr>
-              <tr><td><strong>Settings</strong></td><td>Full config.yaml editor — LLM keys (multi-config), agent role, MCP servers, API key.</td></tr>
-            </tbody>
-          </table>
-          <div className="prose">
-            <p>
-              On first visit (no <code>config.yaml</code>) the dashboard shows an onboarding wizard
-              that sets the API key, model, language, and currency.
-            </p>
-          </div>
+          <h2 className="section-title" id="ma-start">Running multiple agents</h2>
+          <CodeBlock lang="bash">{`# Start all specialist agents
+majestic run pain_hunter   # port 8001
+majestic run writer        # port 8002
+majestic run world_intel   # port 8003
 
-          <h2 className="section-title" id="dash-build">Production build</h2>
-          <CodeBlock lang="bash">{`cd dashboard
-npm install
-npm run build          # outputs to ../majestic/api/static/
-majestic api start     # now serves the dashboard at http://localhost:8080`}</CodeBlock>
-          <div className="prose">
-            <p>
-              The static build is gitignored. CI can regenerate it with <code>majestic dashboard --build</code>.
-              Authentication is the same as the REST API — set <code>api.key</code> in
-              <code> config.yaml</code> to protect the dashboard when exposed externally.
-            </p>
-          </div>
+# Check all are running
+majestic ps
 
-          <NavButtons current="dashboard" navigate={navigate} />
+# Run the orchestrator in foreground
+majestic                   # default agent on port 8000`}</CodeBlock>
+
+          <NavButtons current="multi-agent" navigate={navigate} />
         </div>
       );
     }
 
-    /* ── Gateways ────────────────────────────────────────────────────────────── */
-    function SectionGateways({ navigate }) {
-      return (
-        <div>
-          <div className="page-label">Integrations</div>
-          <h1 className="page-title">Gateways</h1>
-          <p className="page-desc">
-            Gateways connect Majestic to messaging platforms.
-            The same agent, same tools, same memory — just a different interface.
-          </p>
-          <hr className="page-divider" />
-
-          <h2 className="section-title" id="gw-start">Starting gateways</h2>
-          <CodeBlock lang="bash">{`majestic gateway start telegram`}</CodeBlock>
-          <div className="prose">
-            <p>
-              The health endpoint also starts on port 8080 as a side effect.
-            </p>
-          </div>
-
-          <h2 className="section-title" id="gw-setup">Configuring gateways</h2>
-          <div className="prose">
-            <p>
-              Use <code>majestic gateway setup [platform]</code> to configure a specific platform.
-              This command writes <strong>only to <code>~/.majestic-agent/.env</code></strong> —
-              it never touches <code>config.yaml</code> or your LLM API keys.
-            </p>
-          </div>
-          <CodeBlock lang="bash">{`majestic gateway setup telegram   # Telegram token only
-majestic gateway setup            # All platforms`}</CodeBlock>
-          <div className="prose">
-            <p>
-              You can also add tokens manually without running any wizard:
-            </p>
-          </div>
-          <CodeBlock lang="bash">{`echo "TELEGRAM_BOT_TOKEN=your_token" >> ~/.majestic-agent/.env`}</CodeBlock>
-
-          <h2 className="section-title" id="gw-telegram">Telegram</h2>
-          <div className="prose">
-            <p>
-              Create a bot via <a href="#">@BotFather</a> and copy the token to config.
-              Optionally restrict access to specific user IDs.
-            </p>
-          </div>
-          <CodeBlock lang="yaml">{`telegram:
-  token: "123456:ABC-DEF..."
-  allowed_user_ids: [123456789]   # leave empty to allow anyone
-  voice_transcription: false       # transcribe voice messages via Whisper`}</CodeBlock>
-          <h3 className="subsection-title">Bot commands</h3>
-          <table className="api-table">
-            <thead><tr><th>Command</th><th>Description</th></tr></thead>
-            <tbody>
-              {[
-                ["/ask <text>", "Send any question to the agent"],
-                ["/remind <text>", "Add a natural-language reminder"],
-                ["/schedule <text>", "Add or list schedules"],
-              ].map(([c, d]) => <tr key={c}><td><code>{c}</code></td><td>{d}</td></tr>)}
-            </tbody>
-          </table>
-          <Callout type="tip">
-            <p>Enable <code>voice_transcription: true</code> to have voice messages automatically transcribed via OpenAI Whisper and forwarded to the agent as text. Requires <code>OPENAI_API_KEY</code>.</p>
-          </Callout>
-
-          <NavButtons current="gateways" navigate={navigate} />
-        </div>
-      );
-    }
 
     /* ── MCP Servers ─────────────────────────────────────────────────────────── */
     function SectionMCP({ navigate }) {
@@ -1794,7 +1538,13 @@ majestic gateway setup            # All platforms`}</CodeBlock>
           </div>
 
           <h2 className="section-title" id="mcp-config">Configuration</h2>
-          <CodeBlock lang="yaml" filename="~/.majestic-agent/config.yaml">{`mcp_servers:
+          <div className="prose">
+            <p>
+              MCP servers are configured in <code>mcp/registry.yaml</code> in the project root.
+              All agents share this registry.
+            </p>
+          </div>
+          <CodeBlock lang="yaml" filename="mcp/registry.yaml">{`servers:
   # stdio server (most common)
   - name: filesystem
     command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/home/user"]
@@ -1809,41 +1559,16 @@ majestic gateway setup            # All platforms`}</CodeBlock>
   - name: my-service
     url: "http://localhost:3000/sse"`}</CodeBlock>
 
-          <h2 className="section-title" id="mcp-bundle">One-click bundled servers</h2>
-          <div className="prose">
-            <p>
-              Three commonly useful MCP servers are bundled as one-line installs. Each one expands what the agent can do
-              far beyond what's possible with built-in tools alone:
-            </p>
-          </div>
+          <h2 className="section-title" id="mcp-bundle">Common MCP servers</h2>
           <table className="api-table">
-            <thead><tr><th>Preset</th><th>Provides</th><th>Install</th></tr></thead>
+            <thead><tr><th>Server</th><th>Provides</th><th>Env required</th></tr></thead>
             <tbody>
-              <tr><td><code>browser</code></td><td>Real browser with JS rendering, screenshots, form-fill, page navigation (Playwright MCP)</td><td><code>majestic mcp install browser</code></td></tr>
-              <tr><td><code>github</code></td><td>Full GitHub integration — repos, issues, PRs, code search, commits</td><td><code>majestic mcp install github</code></td></tr>
-              <tr><td><code>postgres</code></td><td>SQL queries to any PostgreSQL database — SELECT, INSERT, schema inspection</td><td><code>majestic mcp install postgres</code></td></tr>
+              <tr><td><code>filesystem</code></td><td>Read/write local files outside workspace</td><td>—</td></tr>
+              <tr><td><code>github</code></td><td>Repos, issues, PRs, code search</td><td><code>GITHUB_TOKEN</code></td></tr>
+              <tr><td><code>postgres</code></td><td>SQL queries to any PostgreSQL database</td><td><code>DATABASE_URL</code></td></tr>
+              <tr><td><code>playwright</code></td><td>Real browser with JS rendering, screenshots</td><td>—</td></tr>
             </tbody>
           </table>
-          <div className="prose">
-            <p>
-              <code>github</code> needs <code>GITHUB_TOKEN</code> in <code>.env</code>; <code>postgres</code> needs <code>DATABASE_URL</code>.
-              Bundled servers can also be added, removed, or temporarily disabled from the dashboard
-              under <strong>Settings → MCP</strong>.
-            </p>
-          </div>
-
-          <h2 className="section-title" id="mcp-commands">CLI commands</h2>
-          <CodeBlock lang="bash">{`# Install a bundled preset:
-majestic mcp install browser
-
-# Add a custom server:
-majestic mcp add filesystem npx -y @modelcontextprotocol/server-filesystem /home/user
-
-# List servers and their tools:
-majestic mcp list
-
-# Remove a server:
-majestic mcp remove filesystem`}</CodeBlock>
 
           <h2 className="section-title" id="mcp-naming">Tool naming</h2>
           <div className="prose">
@@ -1881,58 +1606,55 @@ majestic mcp remove filesystem`}</CodeBlock>
           </p>
           <hr className="page-divider" />
 
-          <h2 className="section-title" id="spec-role">Agent role</h2>
+          <h2 className="section-title" id="spec-role">Persona & role</h2>
           <div className="prose">
             <p>
-              The <code>agent.role</code> string is injected as an extra system prompt block at
-              the top of every request. Use it to give the agent a persona, domain focus, or
-              behavioral constraints.
+              The <code>role</code> and <code>context</code> fields in <code>persona.yaml</code> are
+              injected as the agent's system prompt on every task. Use them to give the agent a
+              domain focus, persona background, or behavioral guidance.
             </p>
           </div>
-          <CodeBlock lang="yaml" filename="~/.majestic-agent/config.yaml">{`agent:
-  role: "You are a trading specialist. Focus on market analysis and signals.
-         Always include risk disclaimers. Never suggest specific trades."
-  tools_enabled: [web_search, http_request, db_search, remember]`}</CodeBlock>
-          <CodeBlock lang="bash">{`# Set from within the REPL:
-/set agent.role You are a DevOps specialist focused on infrastructure monitoring.`}</CodeBlock>
+          <CodeBlock lang="yaml" filename="profiles/trading_bot/persona.yaml">{`name: "Trader"
+role: >
+  You are a quantitative trading specialist. Focus on market analysis and
+  signals. Always include risk disclaimers. Never suggest specific trades
+  as definitive buy/sell signals.
+tone: "analytical, precise"
+restrictions:
+  - "Never suggest a trade without a risk disclaimer."
+  - "Do not disclose proprietary strategy parameters."`}</CodeBlock>
 
-          <h2 className="section-title" id="spec-tools">Restricting tools</h2>
+          <h2 className="section-title" id="spec-config">Edit with the wizard</h2>
           <div className="prose">
             <p>
-              Use <code>tools_enabled</code> as a whitelist or <code>tools_disabled</code> as a
-              blacklist. You can combine them — disabled takes priority over enabled.
+              Run <code>majestic config &lt;name&gt;</code> for an interactive field-by-field editor.
+              All fields are validated (port range, cost format, etc.) and saved atomically.
             </p>
           </div>
-          <CodeBlock lang="yaml">{`agent:
-  tools_enabled:
-    - web_search
-    - http_request
-    - remember`}</CodeBlock>
-          <CodeBlock lang="bash">{`# From the REPL:
-/set agent.tools_enabled web_search,http_request,remember
-/set agent.tools_disabled run_command
+          <CodeBlock lang="bash">{`majestic config trading_bot
+# ① Name: Trader
+# ② Role: ...
+# ③ Tone: analytical, precise
+# ④ Language: en
+# ⑤ Port: 8005
+# ⑥ Restrictions: [add/remove/view]
+# ⑦ Limits: max_tokens=8000, max_cost=$0.50
+# ⑧ Context: [edit in $EDITOR]
+# → Save changes to persona.yaml? [Y/n]`}</CodeBlock>
 
-# Reset to all tools:
-/set agent.tools_enabled -
-/set agent.tools_disabled -`}</CodeBlock>
-
-          <h2 className="section-title" id="spec-project">Per-project context</h2>
+          <h2 className="section-title" id="spec-modelrouting">Model routing per profile</h2>
           <div className="prose">
             <p>
-              Place an <code>AGENTS.md</code> file in any working directory. When Majestic starts
-              from that directory, it loads the file as an extra <code>[Project context]</code> block
-              in the system prompt. This keeps project-specific knowledge with the codebase.
+              Override the default LLM for any step type in <code>persona.yaml</code>.
+              This lets code-heavy agents use GPT-4o for the code step while keeping
+              Claude for reasoning.
             </p>
           </div>
-          <CodeBlock lang="markdown" filename="./AGENTS.md">{`# Project: My App
-
-This is a Django 5 + React 18 monorepo.
-Database: PostgreSQL 16. Deployment: Kubernetes on GCP.
-
-Key conventions:
-- All API endpoints use snake_case
-- Tests use pytest with factory_boy fixtures
-- Never commit .env files`}</CodeBlock>
+          <CodeBlock lang="yaml">{`model_routing:
+  reason:     "anthropic/claude-sonnet-4-6"
+  code:       "openai/gpt-4o"
+  simple:     "anthropic/claude-haiku-4-5"
+  reflection: "anthropic/claude-opus-4-7"`}</CodeBlock>
 
           <NavButtons current="specialization" navigate={navigate} />
         </div>
@@ -1951,33 +1673,22 @@ Key conventions:
           </p>
           <hr className="page-divider" />
 
-          <h2 className="section-title" id="local-dir">The local/ directory</h2>
+          <h2 className="section-title" id="local-dir">Adding a custom tool</h2>
           <div className="prose">
             <p>
-              Drop any <code>.py</code> file into <code>majestic/tools/local/</code>.
+              Drop any <code>.py</code> file into <code>majestic/tools/</code>.
               On startup, Majestic automatically imports every Python file in that directory
-              and registers any <code>@tool</code>-decorated functions.
-            </p>
-            <p>
-              The directory is <strong>gitignored</strong> — your custom tools won't be touched by
-              <code> git pull</code> or <code>majestic update</code>. A <code>.gitkeep</code> file
-              keeps the directory in the repo even when empty.
+              and registers any <code>@tool</code>-decorated functions. No wiring, no config changes.
             </p>
           </div>
-          <CodeBlock lang="text">{`majestic/tools/local/
-├── .gitkeep          # tracked — keeps the folder in git
-├── my_tool.py        # gitignored — your custom tool
-└── crm_integration.py`}</CodeBlock>
+          <CodeBlock lang="text">{`majestic/tools/
+├── web_search.py      # built-in
+├── web_fetch.py       # built-in
+├── ...
+└── my_tool.py         # your custom tool — auto-registered`}</CodeBlock>
 
-          <h2 className="section-title" id="local-example">Creating a tool</h2>
-          <div className="prose">
-            <p>
-              Use the <code>@tool</code> decorator from the tool registry. Provide a name,
-              description, and JSON Schema for the inputs. The function receives keyword arguments
-              matching the schema and must return a string.
-            </p>
-          </div>
-          <CodeBlock lang="python" filename="majestic/tools/local/my_tool.py">{`from majestic.tools.registry import tool
+          <h2 className="section-title" id="local-example">Tool example</h2>
+          <CodeBlock lang="python" filename="majestic/tools/get_weather.py">{`from majestic.tools.registry import tool
 
 @tool(
     name="get_weather",
@@ -2001,24 +1712,14 @@ def get_weather(city: str) -> str:
 `}</CodeBlock>
           <div className="prose">
             <p>
-              Restart <code>majestic</code> (or start a new session) for the tool to appear.
-              The agent will then be able to call <code>get_weather</code> when appropriate.
+              Restart the agent for the new tool to appear in the registry.
+              The agent discovers it automatically — no other changes required.
             </p>
           </div>
 
           <Callout type="tip">
             <p>Keep tool functions focused — one clear task, short description, minimal schema. The agent picks tools based on the description, so specificity matters.</p>
           </Callout>
-
-          <h2 className="section-title" id="local-gitignore">.gitignore setup</h2>
-          <div className="prose">
-            <p>
-              The project <code>.gitignore</code> already contains the right rules. Your local
-              tool files are automatically excluded from git, while <code>.gitkeep</code> remains tracked.
-            </p>
-          </div>
-          <CodeBlock lang="text" filename=".gitignore">{`majestic/tools/local/*.py
-!majestic/tools/local/.gitkeep`}</CodeBlock>
 
           <NavButtons current="local-tools" navigate={navigate} />
         </div>
@@ -2053,29 +1754,18 @@ def get_weather(city: str) -> str:
             <thead><tr><th>What</th><th>Why it's safe</th></tr></thead>
             <tbody>
               {[
-                ["~/.majestic-agent/", "Outside the repo — never touched by git"],
-                ["majestic/tools/local/*.py", "Gitignored — git never sees these files"],
-                ["AGENTS.md (project context)", "Can live anywhere outside the repo"],
-                ["config.yaml, .env, memory/", "All in ~/.majestic-agent/ — completely separate"],
+                ["profiles/*/", "Outside core source — git never touches it"],
+                ["profiles/*/persona.yaml", "Your agent identities and settings"],
+                ["profiles/*/.env", "Your API keys"],
+                ["profiles/*/data/*.db", "All SQLite memory databases"],
+                ["profiles/*/skills/", "Auto-generated and manual YAML skills"],
+                ["data/registry.json", "Agent registry — rebuilt automatically on next run"],
               ].map(([w, r]) => <tr key={w}><td><code>{w}</code></td><td>{r}</td></tr>)}
             </tbody>
           </table>
 
           <Callout type="warning">
-            <p>If you've edited files inside the <code>majestic/</code> source directory (not <code>tools/local/</code>), those changes are stashed and popped. Conflicts are flagged by git — resolve them as you would any rebase conflict.</p>
-          </Callout>
-
-          <h2 className="section-title" id="update-requirements">Requirements for update</h2>
-          <div className="prose">
-            <ul>
-              <li>Majestic must have been installed via git clone (not pip install from PyPI)</li>
-              <li>The working directory must be a git repository — <code>majestic update</code> checks for <code>.git</code></li>
-              <li>The remote must be reachable (internet connection required)</li>
-            </ul>
-          </div>
-
-          <Callout type="tip">
-            <p>Run <code>majestic doctor</code> after an update to catch any new configuration requirements or deprecations.</p>
+            <p>If you've edited files inside the <code>majestic/</code> source directory, those changes are stashed and popped. Conflicts are flagged by git — resolve them as you would any rebase conflict.</p>
           </Callout>
 
           <NavButtons current="update" navigate={navigate} />
@@ -2112,41 +1802,37 @@ def get_weather(city: str) -> str:
         { id: "what-is",       label: "What is Majestic?" },
         { id: "how-it-works",  label: "How it works" },
         { id: "features",      label: "Key features" },
-        { id: "architecture",  label: "Architecture" },
+        { id: "architecture",  label: "7-Layer Architecture" },
       ],
-      "vertical": [
-        { id: "v-pattern",   label: "The pattern" },
-        { id: "v-tool",      label: "Writing a domain tool" },
-        { id: "v-role",      label: "Setting the role" },
-        { id: "v-examples",  label: "Vertical examples" },
-        { id: "v-multi",     label: "Running multiple agents" },
-        { id: "v-checklist", label: "Launch checklist" },
+      "profiles": [
+        { id: "v-what",      label: "What is a profile?" },
+        { id: "v-create",    label: "Creating a new profile" },
+        { id: "v-persona",   label: "persona.yaml" },
+        { id: "v-examples",  label: "Included profiles" },
+        { id: "v-multi",     label: "Managing profiles" },
+        { id: "v-checklist", label: "New profile checklist" },
       ],
       "quickstart": [
         { id: "qs-requirements", label: "Requirements" },
         { id: "qs-install",      label: "Installation" },
-        { id: "qs-manual",       label: "Manual install" },
-        { id: "qs-service",      label: "Auto-start service" },
-        { id: "qs-docker",       label: "Docker" },
+        { id: "qs-background",   label: "Background mode" },
       ],
       "cli-commands": [
         { id: "cli-top",        label: "Shell commands" },
-        { id: "cli-agent",      label: "Agent shortcuts" },
-        { id: "cli-memory",     label: "Memory & workspace" },
-        { id: "cli-management", label: "Management" },
+        { id: "cli-flags",      label: "Global flags" },
+        { id: "cli-management", label: "Config wizard fields" },
       ],
       "tools": [
         { id: "tools-builtin",  label: "Built-in tools" },
-        { id: "tools-disable",  label: "Enabling / disabling tools" },
-        { id: "tools-approval", label: "Command approval" },
+        { id: "tools-security", label: "Code execution security" },
+        { id: "tools-mcp",      label: "MCP tools" },
       ],
       "memory-skills": [
-        { id: "memory-how",       label: "How memory works" },
-        { id: "memory-commands",  label: "Memory commands" },
+        { id: "memory-how",       label: "Memory systems" },
+        { id: "memory-gateway",   label: "Memory injection" },
         { id: "skills-how",       label: "How skills work" },
-        { id: "skills-user",      label: "User skills" },
-        { id: "skills-agent",     label: "Agent-created skills" },
-        { id: "scripts-library",  label: "Script library" },
+        { id: "skills-evolution", label: "Self-evolution" },
+        { id: "skills-checkpoint",label: "Checkpoint recovery" },
       ],
       "scheduling": [
         { id: "sched-basics",   label: "Managing schedules" },
@@ -2155,13 +1841,12 @@ def get_weather(city: str) -> str:
         { id: "sched-reminders",label: "Reminders" },
       ],
       "configuration": [
-        { id: "config-full",   label: "Full example" },
-        { id: "config-llm",    label: "LLM section" },
-        { id: "config-agent",  label: "Agent section" },
-        { id: "config-search", label: "Search mode" },
-        { id: "config-keys",   label: "API keys (.env)" },
+        { id: "config-full",   label: "Full persona.yaml" },
+        { id: "config-fields", label: "Field reference" },
+        { id: "config-env",    label: "Settings priority" },
       ],
       "llm-providers": [
+        { id: "llm-routing",    label: "Per-step routing" },
         { id: "llm-switch",     label: "Switching providers" },
         { id: "llm-anthropic",  label: "Anthropic" },
         { id: "llm-openai",     label: "OpenAI" },
@@ -2170,39 +1855,32 @@ def get_weather(city: str) -> str:
       ],
       "rest-api": [
         { id: "api-start",     label: "Starting the server" },
-        { id: "api-auth",      label: "Authentication" },
         { id: "api-endpoints", label: "Endpoints" },
       ],
-      "dashboard": [
-        { id: "dash-start",  label: "Starting the dashboard" },
-        { id: "dash-pages",  label: "Pages" },
-        { id: "dash-build",  label: "Production build" },
-      ],
-      "gateways": [
-        { id: "gw-start",    label: "Starting gateways" },
-        { id: "gw-telegram", label: "Telegram" },
+      "multi-agent": [
+        { id: "ma-registry", label: "Agent registry" },
+        { id: "ma-delegate", label: "Delegating tasks" },
+        { id: "ma-planner",  label: "Planner delegation" },
+        { id: "ma-start",    label: "Running multiple agents" },
       ],
       "mcp": [
         { id: "mcp-what",     label: "What is MCP?" },
-        { id: "mcp-bundle",   label: "Bundled servers" },
         { id: "mcp-config",   label: "Configuration" },
-        { id: "mcp-commands", label: "CLI commands" },
+        { id: "mcp-bundle",   label: "Common servers" },
         { id: "mcp-naming",   label: "Tool naming" },
       ],
       "specialization": [
-        { id: "spec-role",    label: "Agent role" },
-        { id: "spec-tools",   label: "Restricting tools" },
-        { id: "spec-project", label: "Per-project context" },
+        { id: "spec-role",         label: "Persona & role" },
+        { id: "spec-config",       label: "Edit with wizard" },
+        { id: "spec-modelrouting", label: "Model routing" },
       ],
       "local-tools": [
-        { id: "local-dir",       label: "The local/ directory" },
-        { id: "local-example",   label: "Creating a tool" },
-        { id: "local-gitignore", label: ".gitignore setup" },
+        { id: "local-dir",     label: "Adding a custom tool" },
+        { id: "local-example", label: "Tool example" },
       ],
       "update": [
-        { id: "update-cmd",          label: "The update command" },
-        { id: "update-preserved",    label: "What's preserved" },
-        { id: "update-requirements", label: "Requirements" },
+        { id: "update-cmd",       label: "The update command" },
+        { id: "update-preserved", label: "What's preserved" },
       ],
     };
 
@@ -2236,7 +1914,7 @@ def get_weather(city: str) -> str:
 
       const SECTION_MAP = {
         "introduction":  <SectionIntroduction  navigate={navigate} />,
-        "vertical":      <SectionVertical       navigate={navigate} />,
+        "profiles":      <SectionProfiles      navigate={navigate} />,
         "quickstart":    <SectionQuickStart    navigate={navigate} />,
         "cli-commands":  <SectionCLICommands   navigate={navigate} />,
         "tools":         <SectionTools         navigate={navigate} />,
@@ -2245,8 +1923,7 @@ def get_weather(city: str) -> str:
         "configuration": <SectionConfiguration navigate={navigate} />,
         "llm-providers": <SectionLLMProviders  navigate={navigate} />,
         "rest-api":      <SectionRestAPI       navigate={navigate} />,
-        "dashboard":     <SectionDashboard     navigate={navigate} />,
-        "gateways":      <SectionGateways      navigate={navigate} />,
+        "multi-agent":   <SectionMultiAgent    navigate={navigate} />,
         "mcp":           <SectionMCP           navigate={navigate} />,
         "specialization":<SectionSpecialization navigate={navigate} />,
         "local-tools":   <SectionLocalTools    navigate={navigate} />,

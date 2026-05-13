@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://openrouter.ai/api/v1"
 _TIMEOUT = 120.0  # seconds
+_DEFAULT_MAX_TOKENS = 4096  # prevent models with huge context windows from defaulting to max
 
 
 class OpenRouterLLM(BaseLLM):
@@ -90,6 +91,7 @@ class OpenRouterLLM(BaseLLM):
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
+            "max_tokens": kwargs.pop("max_tokens", _DEFAULT_MAX_TOKENS),
             **kwargs,
         }
 
