@@ -180,6 +180,13 @@ class Settings:
 
     @property
     def agent_port(self) -> int:
+        # persona.yaml port takes precedence over env var
+        persona_port = self._persona.get("port")
+        if persona_port is not None:
+            try:
+                return int(persona_port)
+            except (TypeError, ValueError):
+                pass
         raw = self._env_get("AGENT_PORT", "8000")
         try:
             return int(raw)  # type: ignore[arg-type]

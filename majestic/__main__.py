@@ -16,7 +16,7 @@ import argparse
 import sys
 import traceback
 
-_SUBCOMMANDS = {"setup", "new", "list", "rm", "run", "ps", "stop"}
+_SUBCOMMANDS = {"setup", "new", "list", "rm", "run", "ps", "stop", "config"}
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -28,6 +28,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "Examples:\n"
             "  majestic setup             — interactive first-run wizard\n"
             "  majestic new mybot         — scaffold a new agent profile\n"
+            "  majestic config [mybot]    — edit agent configuration\n"
             "  majestic list              — list all profiles\n"
             "  majestic run mybot         — start mybot in the background\n"
             "  majestic ps               — show running agents\n"
@@ -65,6 +66,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p_stop = sub.add_parser("stop", help="Stop a running agent daemon.")
     p_stop.add_argument("name", help="Profile name to stop.")
 
+    p_config = sub.add_parser("config", help="Edit agent configuration interactively.")
+    p_config.add_argument(
+        "name",
+        nargs="?",
+        default="default",
+        help="Profile name to configure (default: default).",
+    )
+
     return parser
 
 
@@ -97,6 +106,10 @@ def _dispatch(command: str | None, args: argparse.Namespace, profile: str) -> No
     elif command == "stop":
         from majestic.cli import stop as _stop
         _stop.run(args.name)
+
+    elif command == "config":
+        from majestic.cli import config as _config
+        _config.run(getattr(args, "name", None) or "default")
 
     else:
         from majestic.cli import foreground as _fg
