@@ -546,26 +546,26 @@
           <div className="page-label">Overview</div>
           <h1 className="page-title">Introduction</h1>
           <p className="page-desc">
-            Majestic is a universal AI agent framework — profile-based, multi-agent, with a 7-layer architecture and 6 SQLite memory systems.
+            Majestic is an AI agent fleet framework — deploy multiple isolated agents, each with its own role and memory, running independently or delegating tasks to each other.
           </p>
           <hr className="page-divider" />
 
           <h2 className="section-title" id="what-is">What is Majestic?</h2>
           <div className="prose">
             <p>
-              <strong>Majestic</strong> is a Python agent framework built around a <strong>profile system</strong>.
-              Each agent is an isolated profile directory with its own identity (<code>persona.yaml</code>),
-              memory databases, workspace, and port. You run multiple independent agents on the same machine —
-              a researcher, a writer, a sales agent — each with different tools, roles, and restrictions.
+              <strong>Majestic</strong> is a Python framework for running a <strong>fleet of AI agents</strong>.
+              Each agent is an isolated profile — its own identity (<code>persona.yaml</code>),
+              memory databases, workspace, and HTTP port. Spin up a researcher, a writer, a sales bot —
+              each with different tools, roles, and restrictions — all on the same machine.
             </p>
             <p>
-              The core is a <strong>ReAct loop</strong> (up to 30 iterations, 300-second timeout) with
-              crash recovery via checkpoints, HITL gating, budget tracking, and post-task reflection that
-              auto-generates YAML skills when patterns repeat.
+              Agents run in the foreground (interactive CLI or split-screen TUI) or as background HTTP daemons
+              that accept tasks from other agents. The <strong>ReAct loop</strong> (up to 30 iterations) handles
+              crash recovery, budget tracking, and post-task reflection that auto-generates YAML skills when
+              patterns repeat — every agent gets smarter over time.
             </p>
             <p>
-              Works with Anthropic, OpenAI, OpenRouter, and Ollama. Per-step model routing —
-              different models for reasoning, code, and reflection steps.
+              Works with Anthropic, OpenAI, OpenRouter, and Ollama. One model per agent, set once during setup.
             </p>
           </div>
 
