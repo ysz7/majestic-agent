@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/majestic-cli-logo.png" alt="Majestic" width="100%">
+  <img src="docs/assets/majestic-cli-logo.png" alt="Majestic" width="85%">
 </p>
 
 <p align="center">
