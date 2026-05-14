@@ -1,4 +1,6 @@
-# Majestic
+<p align="center">
+  <img src="docs/assets/majestic-cli-logo.png" alt="Majestic" width="100%">
+</p>
 
 <p align="center">
   <a href="https://github.com/ysz7/majestic-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
@@ -6,7 +8,9 @@
   <a href="https://github.com/ysz7/majestic-agent"><img src="https://img.shields.io/badge/Providers-Anthropic%20%7C%20OpenAI%20%7C%20OpenRouter%20%7C%20Ollama-blueviolet?style=for-the-badge" alt="Providers"></a>
 </p>
 
-**Universal AI agent framework. Low-resource, self-contained, multi-agent.** Run fully isolated agents from the terminal — plain CLI or split-screen TUI — or as background HTTP daemons that delegate tasks to each other. One model, one command, zero boilerplate.
+# Majestic
+
+**Deploy a fleet of AI agents. Each with its own role, memory, and skills — running independently or collaborating as a team.** Spin up agents from the terminal, run them as background daemons, and let them delegate tasks to each other. Every agent learns from experience and gets smarter over time.
 
 <table>
 <tr><td><b>Foreground + background modes</b></td><td>Plain CLI, split-screen TUI (<code>--tui</code>), or background HTTP daemon. Same agent, same memory, different channel.</td></tr>
