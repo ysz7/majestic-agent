@@ -6,7 +6,7 @@
   <title>Majestic Agent — Deploy a Fleet of AI Agents</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
-  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="icon" type="image/png" href="assets/majestic-icon.png" />
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
@@ -16,21 +16,22 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:      #f8f7f4;
-      --bg2:     #f0efe9;
-      --bg3:     #e8e7e0;
-      --border:  rgba(0,0,0,0.08);
-      --border2: rgba(0,0,0,0.05);
-      --text:    #111110;
-      --text2:   #6b6b63;
-      --text3:   #a0a098;
+      --bg:      #ffffff;
+      --bg2:     #f5f5f7;
+      --bg3:     #e8e8ed;
+      --border:  rgba(0,0,0,0.07);
+      --border2: rgba(0,0,0,0.04);
+      --text:    #1d1d1f;
+      --text2:   #6e6e73;
+      --text3:   #a1a1a6;
       --accent:  oklch(0.42 0.18 145);
-      --accent-bg: oklch(0.94 0.04 145);
+      --accent-bg: oklch(0.96 0.03 145);
       --blue:    oklch(0.42 0.18 260);
-      --nav-bg:  rgba(248,247,244,0.88);
-      --font-sans: 'Geist', -apple-system, sans-serif;
-      --font-mono: 'Geist Mono', 'SF Mono', monospace;
-      --radius: 8px;
+      --nav-bg:  rgba(255,255,255,0.78);
+      --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      --font-mono: 'Geist Mono', 'SF Mono', 'JetBrains Mono', monospace;
+      --radius: 18px;
+      --radius-sm: 10px;
     }
 
     html { scroll-behavior: smooth; overflow-x: hidden; }
@@ -42,6 +43,7 @@
       font-size: 15px;
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
       overflow-x: hidden;
       max-width: 100vw;
     }
@@ -130,8 +132,8 @@
       font-family: var(--font-mono);
       color: #fff;
       background: var(--text);
-      padding: 7px 14px;
-      border-radius: 5px;
+      padding: 7px 16px;
+      border-radius: 100px;
       text-decoration: none;
       font-weight: 500;
       transition: opacity 0.15s;
@@ -202,9 +204,24 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      padding: 100px 0 80px;
+      padding: 120px 0 80px;
       overflow: hidden;
+      position: relative;
+      text-align: center;
     }
+    #hero::before {
+      content: '';
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(ellipse at center, oklch(0.42 0.18 145 / 0.07) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    #hero .container { position: relative; z-index: 1; }
     .hero-badge {
       display: inline-flex;
       align-items: center;
@@ -216,9 +233,9 @@
       text-transform: uppercase;
       background: var(--accent-bg);
       border: 1px solid oklch(0.42 0.18 145 / 0.15);
-      padding: 4px 10px;
-      border-radius: 4px;
-      margin-bottom: 28px;
+      padding: 5px 12px;
+      border-radius: 100px;
+      margin: 0 auto 32px;
       width: fit-content;
     }
     .hero-badge::before {
@@ -229,13 +246,13 @@
       flex-shrink: 0;
     }
     .hero-title {
-      font-size: clamp(28px, 4.5vw, 56px);
-      font-weight: 600;
-      letter-spacing: -0.04em;
+      font-size: clamp(34px, 5.5vw, 72px);
+      font-weight: 700;
+      letter-spacing: -0.05em;
       line-height: 1.0;
       color: var(--text);
-      max-width: 780px;
-      margin-bottom: 24px;
+      max-width: 900px;
+      margin: 0 auto 24px;
       text-wrap: pretty;
     }
     .hero-title em {
@@ -243,42 +260,39 @@
       color: var(--text3);
     }
     .hero-sub {
-      font-size: 17px;
+      font-size: 18px;
       color: var(--text2);
-      max-width: 480px;
+      max-width: 560px;
       line-height: 1.7;
-      margin-bottom: 36px;
+      margin: 0 auto 40px;
       font-weight: 300;
       overflow-wrap: break-word;
     }
     .hero-actions {
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: center;
+      gap: 12px;
       flex-wrap: wrap;
+      margin-bottom: 0;
     }
 
-    /* Hero two-column layout */
-    .hero-grid {
-      display: flex;
-      align-items: center;
-      gap: 48px;
-      margin-bottom: 64px;
-    }
-    .hero-left { flex: 1; min-width: 0; }
-    .hero-right {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .hero-helmet {
-      width: clamp(140px, 17vw, 260px);
+    .hero-icon {
+      width: clamp(80px, 10vw, 140px);
       height: auto;
       display: block;
-      filter: drop-shadow(0 8px 40px rgba(0,0,0,0.10));
+      margin: 36px auto 36px;
+      filter: drop-shadow(0 12px 36px rgba(0,0,0,0.13));
       user-select: none;
       pointer-events: none;
+    }
+
+    /* Hero centered layout */
+    .hero-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 64px;
     }
     .btn-primary {
       font-family: var(--font-mono);
@@ -286,8 +300,8 @@
       font-weight: 500;
       color: #fff;
       background: var(--text);
-      padding: 10px 20px;
-      border-radius: 5px;
+      padding: 11px 24px;
+      border-radius: 100px;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
@@ -301,9 +315,9 @@
       font-size: 13px;
       color: var(--text2);
       background: transparent;
-      border: 1px solid var(--border);
-      padding: 10px 20px;
-      border-radius: 5px;
+      border: 1px solid rgba(0,0,0,0.14);
+      padding: 11px 24px;
+      border-radius: 100px;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
@@ -311,61 +325,76 @@
       transition: all 0.15s;
       white-space: nowrap;
     }
-    .btn-secondary:hover { color: var(--text); border-color: rgba(0,0,0,0.2); background: var(--bg2); }
+    .btn-secondary:hover { color: var(--text); border-color: rgba(0,0,0,0.22); background: var(--bg2); }
+
+    /* Scroll reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: none;
+    }
 
     /* Install steps */
     .install-steps {
       display: flex;
-      gap: 16px;
-      margin-bottom: 40px;
+      gap: 12px;
+      margin: 0 auto 44px;
       flex-wrap: wrap;
+      justify-content: center;
+      max-width: 820px;
     }
-    .install-step { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .install-step { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; min-width: 260px; max-width: 400px; }
     .step-num {
       font-family: var(--font-mono);
       font-size: 10px;
-      color: var(--text3);
-      letter-spacing: 0.06em;
+      color: #555550;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+      text-align: left;
     }
     .step-code {
       display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      gap: 6px;
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      padding: 9px 12px;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 8px;
+      background: #1a1a18;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
       font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--text);
+      font-size: 12.5px;
+      color: #e8e8e0;
       width: 100%;
       word-break: break-all;
     }
-    .step-code .dollar { color: var(--text3); flex-shrink: 0; line-height: 1.6; }
+    .step-code .dollar { color: #4ade80; flex-shrink: 0; line-height: 1.5; }
     .step-code-text {
       flex: 1;
       min-width: 0;
       word-break: break-all;
       overflow-wrap: anywhere;
-      line-height: 1.6;
+      line-height: 1.5;
+      color: #c8c8c0;
     }
     .copy-btn {
       background: none;
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255,255,255,0.1);
       cursor: pointer;
-      color: var(--text3);
+      color: #55554e;
       padding: 3px 8px;
       margin-left: auto;
       font-size: 10px;
       font-family: var(--font-mono);
-      border-radius: 3px;
+      border-radius: 4px;
       transition: all 0.12s;
       flex-shrink: 0;
-      align-self: flex-start;
+      align-self: center;
     }
-    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .copy-btn:hover { color: #4ade80; border-color: rgba(74,222,128,0.4); }
 
     /* Terminal */
     .hero-terminal {
@@ -445,7 +474,7 @@
     }
 
     /* ── CAPABILITIES ── */
-    #features { padding: 100px 0; }
+    #features { padding: 64px 0; }
     .features-header {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -496,7 +525,7 @@
     }
 
     /* ── TOOLS ── */
-    #tools { padding: 0 0 100px; }
+    #tools { padding: 0 0 64px; }
     .tools-inner {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -584,7 +613,7 @@
     .mt-blue   { color: var(--blue); }
 
     /* ── STORAGE ── */
-    #storage { padding: 0 0 100px; }
+    #storage { padding: 0 0 64px; }
     .storage-inner {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -649,7 +678,7 @@
     .diag-table-type { color: var(--text3); }
 
     /* ── PLATFORMS ── */
-    #platforms { padding: 0 0 100px; }
+    #platforms { padding: 0 0 64px; }
     .platforms-header { margin-bottom: 48px; }
     .platforms-grid {
       display: grid;
@@ -700,7 +729,7 @@
 
     /* ── CTA ── */
     #cta {
-      padding: 120px 0 90px;
+      padding: 80px 0 64px;
       border-top: 1px solid var(--border);
       text-align: center;
     }
@@ -762,12 +791,10 @@
       .nav-links { display: none; }
       .nav-hamburger { display: flex; }
       .nav-cta { display: none; }
-      #hero { padding: 80px 0 60px; }
-      .hero-grid { flex-direction: column; gap: 24px; margin-bottom: 40px; }
-      .hero-right { display: none; }
-      .hero-title { font-size: clamp(22px, 6vw, 36px); }
-      .hero-sub { font-size: 14px; }
-      .install-steps { flex-direction: column; gap: 10px; }
+      #hero { padding: 90px 0 60px; }
+      .hero-title { font-size: clamp(26px, 7vw, 40px); }
+      .hero-sub { font-size: 15px; }
+      .install-steps { flex-direction: column; gap: 10px; margin-left: 0; margin-right: 0; }
       .install-step { width: 100%; }
       .step-code { font-size: 11.5px; padding: 8px 12px; }
       .hero-terminal { font-size: 11px; }
@@ -777,8 +804,8 @@
       .platforms-grid { grid-template-columns: repeat(2, 1fr); }
       .tool-name { min-width: 90px; font-size: 11px; }
       .tool-desc { display: none; }
-      #features { padding: 64px 0; }
-      #tools, #storage, #platforms { padding-bottom: 64px; }
+      #features { padding: 40px 0; }
+      #tools, #storage, #platforms { padding-bottom: 40px; }
       .tools-inner > div:first-child { order: 2; }
       .tools-inner > div:last-child  { order: 1; }
       #cta { padding: 80px 0 60px; }
@@ -793,6 +820,7 @@
     .hero-terminals {
       display: flex;
       gap: 16px;
+      text-align: left;
     }
     .hero-terminals .hero-terminal {
       flex: 1;
@@ -830,7 +858,7 @@
       flex-shrink: 0;
     }
     .built-on {
-      padding: 100px 0;
+      padding: 64px 0;
     }
     .built-on-grid {
       display: grid;
@@ -886,7 +914,7 @@
     <div class="nav-inner">
       <a href="#" class="nav-logo">
         <div class="nav-logo-icon">
-          <img src="assets/helmet.png" alt="Majestic Agent" />
+          <img src="assets/majestic-icon.png" alt="Majestic Agent" />
         </div>
         <span class="nav-logo-text">
           <span class="nav-logo-main">Majestic</span><span class="nav-logo-muted">&nbsp;Agent</span>
@@ -917,11 +945,11 @@
   <!-- HERO -->
   <section id="hero">
     <div class="container">
-      <div class="hero-grid">
-      <div class="hero-left">
+      <div class="hero-center">
       <div class="hero-badge">Open Source · MIT License · Local-first</div>
       <h1 class="hero-title">Deploy a Fleet of AI Agents.<br /><em>Each Learns. All Collaborate.</em></h1>
       <p class="hero-sub">Spin up isolated agents — researcher, writer, sales bot — each with its own role, memory, and skills. Run them from the terminal or as background daemons. Let them delegate tasks to each other. Every agent gets smarter over time.</p>
+      <img src="assets/helmet.png" alt="Majestic" class="hero-icon" />
 
       <div class="install-steps">
         <div class="install-step">
@@ -947,12 +975,8 @@
         <a href="https://github.com/ysz7/majestic-agent" class="btn-secondary">View on GitHub ↗</a>
       </div>
       </div>
-      <div class="hero-right">
-        <img src="assets/helmet.png" alt="Majestic Agent" class="hero-helmet" />
-      </div>
-      </div>
 
-      <div class="hero-terminals">
+      <div class="hero-terminals reveal">
         <div class="hero-terminal">
           <div class="terminal-bar">
             <span class="terminal-dot r"></span>
@@ -977,7 +1001,7 @@
             <span class="terminal-dot r"></span>
             <span class="terminal-dot y"></span>
             <span class="terminal-dot g"></span>
-            <span class="terminal-title">vertical — finance_bot</span>
+            <span class="terminal-title">fleet — pain_hunter</span>
           </div>
           <div class="terminal-body">
             <span class="t-line"><span class="t-prompt">pain_hunter ❯</span> <span class="t-cmd">Scan HN for SaaS pain points this week</span></span>
@@ -1000,13 +1024,13 @@
   <!-- CAPABILITIES -->
   <section id="features">
     <div class="container">
-      <div class="feature-badges">
+      <div class="feature-badges reveal">
         <div class="feature-badge"><span class="fb-dot"></span>8 Built-in Tools + MCP</div>
         <div class="feature-badge"><span class="fb-dot"></span>Local-first — Ollama ready</div>
         <div class="feature-badge"><span class="fb-dot"></span>Profile-based — isolated agents</div>
         <div class="feature-badge"><span class="fb-dot"></span>One-command install</div>
       </div>
-      <div class="features-header">
+      <div class="features-header reveal">
         <div>
           <p class="section-label">Capabilities</p>
           <h2 class="section-heading">The Core.<br />Nothing More.</h2>
@@ -1014,7 +1038,7 @@
         <p class="section-sub">Every capability you need for a production agent. Nothing you don't. Fork it, add your domain tools, ship a vertical.</p>
       </div>
 
-      <div class="caps-grid">
+      <div class="caps-grid reveal">
         <div class="cap-card">
           <span class="cap-num">01</span>
           <div class="cap-title">Universal Execution</div>
@@ -1093,8 +1117,8 @@
 
   <!-- TOOLS -->
   <section id="tools">
-    <div class="container" style="padding-top:100px">
-      <div class="tools-inner">
+    <div class="container" style="padding-top:64px">
+      <div class="tools-inner reveal">
         <div>
           <div class="tools-header">
             <p class="section-label">Tools</p>
@@ -1186,8 +1210,8 @@
 
   <!-- STORAGE -->
   <section id="storage">
-    <div class="container" style="padding-top:100px">
-      <div class="storage-inner">
+    <div class="container" style="padding-top:64px">
+      <div class="storage-inner reveal">
         <div>
           <p class="section-label">Storage</p>
           <h2 class="section-heading">6-Layer Memory.<br />All SQLite.</h2>
@@ -1239,14 +1263,14 @@
 
   <!-- PLATFORMS -->
   <section id="platforms">
-    <div class="container" style="padding-top:100px">
-      <div class="platforms-header">
+    <div class="container" style="padding-top:64px">
+      <div class="platforms-header reveal">
         <p class="section-label">Platforms</p>
         <h2 class="section-heading">Two Modes.<br />One Codebase.</h2>
         <p class="section-sub" style="margin-top:14px">Run interactively in the terminal or as a background HTTP server — same agent, same memory, different channel.</p>
       </div>
 
-      <div class="platforms-grid">
+      <div class="platforms-grid reveal">
         <div class="platform-card">
           <div class="platform-icon">⌨</div>
           <div class="platform-name">CLI Foreground</div>
@@ -1270,9 +1294,9 @@
       </div>
 
       <div class="platform-diagram">
-        <div class="pd-line"><span class="pd-source">stdin → CLIChannel</span><span class="pd-arrow">────────┐</span></div>
+        <div class="pd-line"><span class="pd-source">stdin → CLIChannel</span><span class="pd-arrow">───────────┐</span></div>
         <div class="pd-line"><span class="pd-source">POST /task → ServerChannel</span><span class="pd-arrow">─────┤──&nbsp;</span><span class="pd-core">majestic</span><span class="pd-arrow">&nbsp;→&nbsp;</span><span class="pd-llm">LLM</span></div>
-        <div class="pd-line"><span class="pd-source">agent_client → Agent</span><span class="pd-arrow">────────┘</span></div>
+        <div class="pd-line"><span class="pd-source">agent_client → Agent</span><span class="pd-arrow">───────────┘</span></div>
       </div>
     </div>
   </section>
@@ -1285,7 +1309,7 @@
       <p class="section-label">Profiles</p>
       <h2 class="section-heading">Built on Majestic.</h2>
       <p class="section-sub" style="margin-top:14px;max-width:520px">Included example profiles. Each is a self-contained <code style="font-family:var(--font-mono);font-size:12px">persona.yaml</code> — swap role, tone, restrictions, and tools.</p>
-      <div class="built-on-grid">
+      <div class="built-on-grid reveal">
         <div class="built-on-card">
           <div class="built-on-label">Research</div>
           <div class="built-on-name">pain_hunter</div>
@@ -1483,6 +1507,19 @@
         }, 400 + i * 110);
       });
     });
+
+    // Scroll reveal
+    (function() {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.classList.add('visible');
+            observer.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.08 });
+      document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    })();
   </script>
 
   <template id="__bundler_thumbnail">
