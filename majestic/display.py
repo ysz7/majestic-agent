@@ -156,7 +156,7 @@ def _gather_startup(profile: str = "default") -> dict:
 
     try:
         import json
-        reg = Path("data/registry.json")
+        reg = Path(__file__).resolve().parent.parent / "data" / "registry.json"
         if reg.exists():
             data = json.loads(reg.read_text())
             out["running_agents"] = [

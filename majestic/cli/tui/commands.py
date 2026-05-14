@@ -51,7 +51,7 @@ def handle_slash_command(text: str, app: "MajesticApp") -> str | None:
         try:
             import json
             from pathlib import Path
-            reg = Path("data/registry.json")
+            reg = Path(__file__).resolve().parent.parent.parent.parent / "data" / "registry.json"
             if not reg.exists():
                 return "[dim]No background agents running. Start one with: majestic run <profile>[/dim]"
             data = json.loads(reg.read_text())
