@@ -91,8 +91,8 @@ def run(name: str) -> None:
     # Resolve the python interpreter from the current environment
     python = sys.executable
 
-    # Spawn: python -m majestic <name>  — foreground runner handles the loop
-    cmd = [python, "-m", "majestic", name]
+    # Spawn: python -m majestic.__background__ <name>  — HTTP daemon + agent loop
+    cmd = [python, "-m", "majestic.__background__", name]
 
     # Log file for daemon output
     log_dir = _PROJECT_ROOT / "data" / "logs"
@@ -101,15 +101,14 @@ def run(name: str) -> None:
 
     with open(log_file, "a", encoding="utf-8") as log_fh:
         if sys.platform == "win32":
-            # On Windows use DETACHED_PROCESS flag
-            DETACHED_PROCESS = 0x00000008
             CREATE_NEW_PROCESS_GROUP = 0x00000200
+            CREATE_NO_WINDOW = 0x08000000
             proc = subprocess.Popen(
                 cmd,
                 stdout=log_fh,
                 stderr=log_fh,
                 stdin=subprocess.DEVNULL,
-                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+                creationflags=CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW,
                 cwd=str(_PROJECT_ROOT),
             )
         else:

@@ -80,9 +80,7 @@ def _gather_startup(profile: str = "default") -> dict:
         "profile":        profile,
         "agent_name":     "Assistant",
         "role":           "—",
-        "model_reason":   "—",
-        "model_simple":   "—",
-        "model_code":     "—",
+        "model":          "—",
         "api_ok":         False,
         "port":           "—",
         "mode":           "foreground",
@@ -102,12 +100,9 @@ def _gather_startup(profile: str = "default") -> dict:
         from majestic.config.settings import Settings
         settings = Settings(profile)
 
-        out["agent_name"]   = settings.agent_name
-        out["role"]         = settings.agent_role
-        mr = settings.model_routing
-        out["model_reason"] = mr.get("reason", "—")
-        out["model_simple"] = mr.get("simple", "—")
-        out["model_code"]   = mr.get("code",   "—")
+        out["agent_name"] = settings.agent_name
+        out["role"]       = settings.agent_role
+        out["model"]      = settings.get_model()
         lim = settings.limits
         out["limits"] = {
             "max_tokens": lim.get("max_tokens_per_task", 0),
@@ -256,11 +251,8 @@ def print_startup(profile: str = "default", mode: str = "foreground") -> None:
     agents      = d["running_agents"]
 
     right: list[str] = [
-        _sec("MODELS"),
-        f"{DIM}reason   · {R}{(d['model_reason'] or '—')[:RW - 12]}",
-        f"{DIM}simple   · {R}{(d['model_simple'] or '—')[:RW - 12]}",
-        f"{DIM}code     · {R}{(d['model_code']   or '—')[:RW - 12]}",
-        f"{DIM}reflect  · {R}{DIM}same as simple{R}",
+        _sec("MODEL"),
+        f"{DIM}model    · {R}{(d['model'] or '—')[:RW - 12]}",
         "",
         _sec("TOOLS"),
         f"{DIM}web      · {R}web_search  web_fetch",

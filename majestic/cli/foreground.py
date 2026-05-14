@@ -1,12 +1,24 @@
 import asyncio
 
 
-def run(profile_name: str = "default"):
-    """Run agent in foreground interactive mode."""
-    asyncio.run(_run_async(profile_name))
+def run(profile_name: str = "default", tui: bool = False):
+    """Run agent in foreground mode — plain CLI by default, TUI with --tui."""
+    if tui:
+        try:
+            from majestic.cli.tui.app import MajesticApp
+        except ImportError:
+            import majestic.display as display
+            display.warn("textual not installed — falling back to plain mode.")
+            display.info("Install with: pip install textual")
+            asyncio.run(_run_plain(profile_name))
+            return
+        app = MajesticApp(profile_name)
+        app.run()
+    else:
+        asyncio.run(_run_plain(profile_name))
 
 
-async def _run_async(profile_name: str):
+async def _run_plain(profile_name: str):
     from majestic.config.settings import Settings
     from majestic.memory.working import WorkingMemory
     from majestic.core.gateway import Gateway
@@ -17,7 +29,6 @@ async def _run_async(profile_name: str):
     from majestic import display
     import uuid
 
-    # Let FileNotFoundError / ValueError propagate to __main__ for clean output
     settings = Settings(profile_name)
     settings.validate()
 
@@ -54,6 +65,10 @@ async def _run_async(profile_name: str):
             display.ok("Goodbye!")
             break
 
+        if text.startswith("/"):
+            if _handle_slash_plain(text, profile_name, working_memory, runtime):
+                continue
+
         working_memory.add_message("user", text)
         print()
 
@@ -67,6 +82,102 @@ async def _run_async(profile_name: str):
 
         await channel.send(f"\n{result}\n")
         working_memory.add_message("assistant", result)
+
+
+def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime) -> bool:
+    """Handle a slash command in plain CLI. Returns True if handled, False to pass to agent."""
+    try:
+        from rich.console import Console
+        console = Console()
+    except ImportError:
+        console = None
+
+    def out(markup: str) -> None:
+        if console:
+            console.print(markup)
+        else:
+            print(markup)
+
+    cmd = text.strip().lower().split()[0]
+
+    if cmd == "/help":
+        from majestic.cli.tui.commands import SLASH_COMMANDS
+        out("[bold]Available commands:[/bold]")
+        for c, desc in SLASH_COMMANDS.items():
+            out(f"  [cyan]{c:<10}[/cyan]  [dim]{desc}[/dim]")
+        return True
+
+    if cmd == "/skills":
+        try:
+            from majestic.display import _gather_startup
+            d = _gather_startup(profile_name)
+            skills = d.get("skills", [])
+            if not skills:
+                out("[dim]No skills loaded yet. Add YAML files to profiles/<name>/skills/[/dim]")
+            else:
+                out("[bold]Loaded skills:[/bold]")
+                for sk in skills:
+                    name = sk.get("name", "?")
+                    desc = sk.get("description", "")[:60]
+                    out(f"  [cyan]/{name:<18}[/cyan] [dim]{desc}[/dim]")
+        except Exception as e:
+            out(f"[red]Error: {e}[/red]")
+        return True
+
+    if cmd == "/agents":
+        try:
+            import json
+            from pathlib import Path
+            reg = Path("data/registry.json")
+            if not reg.exists():
+                out("[dim]No background agents running. Start one with: majestic run <profile>[/dim]")
+            else:
+                data = json.loads(reg.read_text())
+                if not data:
+                    out("[dim]No background agents running. Start one with: majestic run <profile>[/dim]")
+                else:
+                    out("[bold]Running agents:[/bold]")
+                    for name, info in data.items():
+                        port = info.get("port", "?")
+                        status = info.get("status", "?")
+                        dot = "[green]●[/green]" if status == "running" else "[yellow]●[/yellow]"
+                        out(f"  {dot} [bold]{name}[/bold]  [dim]:{port}  {status}[/dim]")
+        except Exception as e:
+            out(f"[red]Error: {e}[/red]")
+        return True
+
+    if cmd == "/memory":
+        try:
+            from majestic.display import _gather_startup
+            d = _gather_startup(profile_name)
+            mem = d.get("mem_count", 0)
+            les = d.get("lessons_count", 0)
+            out(
+                f"[bold]Memory:[/bold]\n"
+                f"  [dim]episodic · [/dim]{mem} tasks\n"
+                f"  [dim]lessons  · [/dim]{les}\n"
+                f"  [dim]semantic · [/dim]sqlite-vec"
+            )
+        except Exception as e:
+            out(f"[red]Error: {e}[/red]")
+        return True
+
+    if cmd == "/budget":
+        tokens = getattr(runtime, "_tokens_used", 0)
+        cost = getattr(runtime, "_cost_used", 0.0)
+        out(
+            f"[bold]Budget:[/bold]\n"
+            f"  [dim]tokens · [/dim]{tokens:,}\n"
+            f"  [dim]cost   · [/dim]${cost:.4f}"
+        )
+        return True
+
+    if cmd == "/new":
+        working_memory.clear()
+        out("[dim]Session cleared.[/dim]")
+        return True
+
+    return False
 
 
 def _register_tools(runtime, settings):

@@ -29,6 +29,7 @@ setup(
         "click>=8.1.7",
         "aiohttp>=3.9.5",
         "questionary>=2.0.1",
+        "textual>=0.60.0",
     ],
     entry_points={
         "console_scripts": [

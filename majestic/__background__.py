@@ -25,22 +25,11 @@ logging.basicConfig(
 
 
 async def run_agent_loop(settings, channel) -> None:
-    """Continuously receive tasks from the channel and run the agent.
-
-    A minimal LLM router is constructed from the available API keys found
-    in the profile settings.  The loop runs indefinitely until cancelled.
-
-    Args:
-        settings: Loaded Settings object for the active profile.
-        channel:  ServerChannel instance shared with the HTTP server.
-    """
     from majestic.core.runtime import AgentRuntime
     from majestic.memory.working import WorkingMemory
+    from majestic.llm.router import LLMRouter
 
-    # Build a lightweight LLM router that wraps whichever provider is
-    # configured for this profile.
-    llm = _build_llm_router(settings)
-
+    llm = LLMRouter(settings)
     memory = WorkingMemory()
     runtime = AgentRuntime(settings, memory, llm_router=llm)
 
@@ -55,48 +44,8 @@ async def run_agent_loop(settings, channel) -> None:
             result = f"Error: {exc}"
 
         await channel.send(result)
-        # Persist result so HTTP callers can retrieve it later.
-        channel.store_result(task_id, result) if hasattr(channel, "store_result") else None
-
-
-def _build_llm_router(settings):
-    """Return the best available LLM provider for the given settings.
-
-    Tries providers in order: Anthropic → OpenRouter → raises RuntimeError.
-
-    Args:
-        settings: Settings instance with API key properties.
-
-    Returns:
-        An LLM provider instance compatible with ``BaseLLM``.
-
-    Raises:
-        RuntimeError: If no API key is configured.
-    """
-    from majestic.llm.openrouter import OpenRouterLLM
-
-    class _RoutingLLM:
-        """Minimal router that picks a model string and delegates to a provider."""
-
-        def __init__(self, provider, settings) -> None:
-            self._provider = provider
-            self._settings = settings
-
-        async def chat(self, messages: list[dict], step_type: str = "reason", **kwargs) -> dict:
-            model = self._settings.get_model(step_type)
-            return await self._provider.chat(messages, model=model, **kwargs)
-
-    if settings.anthropic_api_key:
-        from majestic.llm.anthropic import AnthropicLLM
-        provider = AnthropicLLM(api_key=settings.anthropic_api_key)
-    elif settings.openrouter_api_key:
-        provider = OpenRouterLLM(api_key=settings.openrouter_api_key)
-    else:
-        raise RuntimeError(
-            f"Profile '{settings.profile_name}' has no LLM API key configured."
-        )
-
-    return _RoutingLLM(provider, settings)
+        if hasattr(channel, "store_result"):
+            channel.store_result(task_id, result)
 
 
 async def main(profile_name: str) -> None:

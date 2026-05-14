@@ -46,6 +46,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Show full tracebacks on error.",
     )
 
+    parser.add_argument(
+        "--tui",
+        action="store_true",
+        default=False,
+        help="Launch the full split-screen TUI (default is plain CLI).",
+    )
+
     sub = parser.add_subparsers(dest="command", metavar="<command>")
 
     sub.add_parser("setup", help="Interactive first-run wizard.")
@@ -77,7 +84,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _dispatch(command: str | None, args: argparse.Namespace, profile: str) -> None:
+def _dispatch(command: str | None, args: argparse.Namespace, profile: str, tui: bool = False) -> None:  # noqa: FBT001
     """Route to the correct CLI module."""
     if command == "setup":
         from majestic.cli import setup as _setup
@@ -113,7 +120,7 @@ def _dispatch(command: str | None, args: argparse.Namespace, profile: str) -> No
 
     else:
         from majestic.cli import foreground as _fg
-        _fg.run(profile)
+        _fg.run(profile, tui=tui)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -122,8 +129,11 @@ def main(argv: list[str] | None = None) -> None:
     # Separate --debug from the rest before argparse, so it doesn't interfere
     # with subcommand detection.
     debug = "--debug" in raw
+    tui = "--tui" in raw
     if debug:
         raw = [a for a in raw if a != "--debug"]
+    if tui:
+        raw = [a for a in raw if a != "--tui"]
 
     # If the first non-flag token is not a known subcommand, treat the whole
     # invocation as a foreground profile launch (e.g. `majestic pain_hunter`).
@@ -133,7 +143,7 @@ def main(argv: list[str] | None = None) -> None:
     if not raw:
         # No arguments → launch default profile in foreground.
         command = None
-        args = argparse.Namespace(command=None)
+        args = argparse.Namespace(command=None, tui=tui)
         profile_name = "default"
     elif raw in (["--help"], ["-h"]):
         _build_parser().parse_args(raw)
@@ -142,7 +152,7 @@ def main(argv: list[str] | None = None) -> None:
         # First token is not a known subcommand → treat as profile name.
         profile_name = first
         command = None
-        args = argparse.Namespace(command=None)
+        args = argparse.Namespace(command=None, tui=tui)
     else:
         parser = _build_parser()
         args = parser.parse_args(raw)
@@ -150,7 +160,7 @@ def main(argv: list[str] | None = None) -> None:
         profile_name = "default"
 
     try:
-        _dispatch(command, args, profile_name)
+        _dispatch(command, args, profile_name, tui=tui)
 
     except KeyboardInterrupt:
         print("\nInterrupted.")

@@ -28,6 +28,14 @@ except ImportError:  # pragma: no cover
     _rich_console = None  # type: ignore[assignment]
     _RICH_AVAILABLE = False
 
+try:
+    from prompt_toolkit import PromptSession as _PromptSession
+    from prompt_toolkit.completion import Completer as _Completer, Completion as _Completion
+    from prompt_toolkit.styles import Style as _Style
+    _PROMPT_TOOLKIT = True
+except ImportError:
+    _PROMPT_TOOLKIT = False
+
 # ---------------------------------------------------------------------------
 # File-path heuristics
 # ---------------------------------------------------------------------------
@@ -41,6 +49,27 @@ _ATTACHMENT_EXTENSIONS = {
 }
 
 _PROMPT = "> "
+
+_SLASH_COMPLETIONS = ["/help", "/skills", "/agents", "/memory", "/budget", "/new", "/quit"]
+
+if _PROMPT_TOOLKIT:
+    class _SlashCompleter(_Completer):
+        def get_completions(self, document, complete_event):
+            text = document.text_before_cursor
+            if not text.startswith("/"):
+                return
+            for cmd in _SLASH_COMPLETIONS:
+                if cmd.startswith(text):
+                    yield _Completion(cmd, start_position=-len(text))
+
+    _COMPLETION_STYLE = _Style.from_dict({
+        "completion-menu":                    "bg:default",
+        "completion-menu.completion":         "fg:#555555 bg:default",
+        "completion-menu.completion.current": "fg:#d95767 bold bg:default",
+        "scrollbar.background":               "bg:default",
+        "scrollbar.button":                   "bg:default",
+        "scrollbar.arrow":                    "bg:default",
+    })
 
 
 def _extract_attachments(text: str) -> tuple[str, list[str]]:
@@ -97,48 +126,36 @@ class CLIChannel(BaseChannel):
     def __init__(self, session_id: str) -> None:
         self.session_id = session_id
         self._pending_attachments: list[str] = []
-        self._loop: asyncio.AbstractEventLoop | None = None
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
-    async def _read_line(self) -> str:
-        """Read one line from stdin without blocking the event loop."""
-        loop = asyncio.get_event_loop()
-        # Use run_in_executor so that the blocking readline does not stall
-        # other coroutines scheduled on the same loop.
-        line: str = await loop.run_in_executor(None, sys.stdin.readline)
-        return line
+        self._pt_session = None  # created lazily on first receive()
 
     # ------------------------------------------------------------------
     # BaseChannel interface
     # ------------------------------------------------------------------
 
     async def receive(self) -> dict:
-        """Show a prompt, read a line, detect attachments.
+        """Show a prompt, read a line, detect attachments."""
+        if self._pt_session is None and _PROMPT_TOOLKIT:
+            try:
+                self._pt_session = _PromptSession(
+                    completer=_SlashCompleter(),
+                    complete_while_typing=True,
+                    style=_COMPLETION_STYLE,
+                )
+            except Exception:
+                pass  # no console — fall back to plain readline
 
-        Returns
-        -------
-        dict with keys:
-            text        (str)       — user's text (file references stripped).
-            attachments (list[str]) — file paths found in the input.
-            session_id  (str)       — this channel's session identifier.
-        """
-        # Write the prompt without a trailing newline.
-        sys.stdout.write(_PROMPT)
-        sys.stdout.flush()
+        if self._pt_session is not None:
+            raw = await self._pt_session.prompt_async(_PROMPT)
+        else:
+            sys.stdout.write(_PROMPT)
+            sys.stdout.flush()
+            loop = asyncio.get_event_loop()
+            raw = await loop.run_in_executor(None, sys.stdin.readline)
+            if not raw:
+                raise EOFError
+            raw = raw.rstrip("\n")
 
-        raw = await self._read_line()
-
-        # Handle EOF (e.g. piped input finished, Ctrl-D).
-        if not raw:
-            return {"text": "", "attachments": [], "session_id": self.session_id}
-
-        raw = raw.rstrip("\n")
         text, attachments = _extract_attachments(raw)
-
-        # Merge with any attachments queued from previous interactions.
         all_attachments = self._pending_attachments + attachments
         self._pending_attachments = []
 

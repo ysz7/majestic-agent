@@ -716,12 +716,7 @@ context: |
 
 limits:
   max_tokens_per_task: 8000
-  max_cost_per_task: 0.50
-
-model_routing:
-  reason:     "anthropic/claude-sonnet-4-6"
-  code:       "openai/gpt-4o"
-  reflection: "anthropic/claude-opus-4-7"`}</CodeBlock>
+  max_cost_per_task: 0.50`}</CodeBlock>
 
           <h2 className="section-title" id="v-examples">Included profiles</h2>
           <table className="api-table">
@@ -867,8 +862,10 @@ majestic stop researcher`}</CodeBlock>
             <thead><tr><th>Command</th><th>Description</th></tr></thead>
             <tbody>
               {[
-                ["majestic",              "Launch default profile in foreground (CLIChannel)"],
+                ["majestic",              "Launch default profile in foreground (plain CLI)"],
+                ["majestic --tui",        "Launch default profile with split-screen TUI"],
                 ["majestic <name>",       "Launch named profile in foreground (e.g. majestic pain_hunter)"],
+                ["majestic <name> --tui", "Launch named profile with split-screen TUI"],
                 ["majestic setup",        "Interactive first-run wizard — API keys, model, preferences"],
                 ["majestic new <name>",   "Scaffold a new agent profile directory"],
                 ["majestic config [name]","Edit profile persona.yaml interactively (default: default)"],
@@ -888,6 +885,7 @@ majestic stop researcher`}</CodeBlock>
             <thead><tr><th>Flag</th><th>Description</th></tr></thead>
             <tbody>
               {[
+                ["--tui",   "Launch the split-screen TUI (textual) instead of plain CLI"],
                 ["--debug", "Show full Python tracebacks on error"],
               ].map(([f, d]) => (
                 <tr key={f}><td><code>{f}</code></td><td>{d}</td></tr>
@@ -941,7 +939,7 @@ majestic stop researcher`}</CodeBlock>
             <thead><tr><th>Tool</th><th>Module</th><th>Description</th></tr></thead>
             <tbody>
               {[
-                ["web_search",   "majestic/tools/web_search.py",   "Web search via OpenRouter / Tavily API"],
+                ["web_search",   "majestic/tools/web_search.py",   "Web search via Brave Search API, falls back to DuckDuckGo"],
                 ["web_fetch",    "majestic/tools/web_fetch.py",    "Fetch and extract readable text from a URL"],
                 ["http",         "majestic/tools/http.py",         "Generic HTTP GET/POST/PUT/DELETE to any REST API"],
                 ["files",        "majestic/tools/files.py",        "Read, write, and list files in the agent's workspace"],
@@ -1192,13 +1190,7 @@ context: |
 
 limits:
   max_tokens_per_task: 0      # 0 = unlimited
-  max_cost_per_task: 0.0      # 0.0 = unlimited (USD)
-
-model_routing:
-  reason:     "openrouter/anthropic/claude-sonnet-4-6"
-  simple:     "openrouter/anthropic/claude-haiku-4-5"
-  code:       "openrouter/openai/gpt-4o"
-  reflection: "openrouter/anthropic/claude-opus-4-7"`}</CodeBlock>
+  max_cost_per_task: 0.0      # 0.0 = unlimited (USD)`}</CodeBlock>
 
           <h2 className="section-title" id="config-fields">Field reference</h2>
           <div className="config-grid">
@@ -1212,7 +1204,6 @@ model_routing:
               { key: "context",      type: "string",   desc: "Free-form system context block (multiline).", def: '""' },
               { key: "limits.max_tokens_per_task", type: "integer", desc: "Token budget per task (0 = unlimited).", def: "0" },
               { key: "limits.max_cost_per_task",   type: "float",   desc: "Cost budget per task in USD (0.0 = unlimited).", def: "0.0" },
-              { key: "model_routing",type: "object",   desc: "Per-step model overrides. Keys: reason, simple, code, reflection.", def: "(provider defaults)" },
             ].map(c => (
               <div className="config-card" key={c.key}>
                 <div className="config-key">{c.key}</div>
@@ -1238,7 +1229,7 @@ model_routing:
           <CodeBlock lang="bash" filename="profiles/<name>/.env">{`ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 OPENROUTER_API_KEY=sk-or-...
-TAVILY_API_KEY=tvly-...`}</CodeBlock>
+BRAVE_SEARCH_API_KEY=BSA-...`}</CodeBlock>
           <CodeBlock lang="bash" filename=".env  (root — shared across all profiles)">{`ANTHROPIC_API_KEY=sk-ant-...
 OPENROUTER_API_KEY=sk-or-...`}</CodeBlock>
 
@@ -1277,67 +1268,46 @@ OPENROUTER_API_KEY=sk-or-...`}</CodeBlock>
             </tbody>
           </table>
 
-          <h2 className="section-title" id="llm-routing">Per-step routing</h2>
+          <h2 className="section-title" id="llm-routing">Model selection</h2>
           <div className="prose">
             <p>
-              Each ReAct loop step is categorized and routed to a different model.
-              Configure per-profile in <code>persona.yaml</code> under <code>model_routing:</code>.
+              One model is used for all tasks. Set it during <code>majestic setup</code>
+              or via the <code>MAJESTIC_MODEL_REASON</code> env var in <code>.env</code>.
             </p>
           </div>
-          <table className="api-table">
-            <thead><tr><th>Step type</th><th>When used</th><th>Default model</th></tr></thead>
-            <tbody>
-              {[
-                ["reason",     "Main reasoning / tool selection step",  "claude-sonnet-4-6"],
-                ["simple",     "Short, factual or classification calls", "claude-haiku-4-5"],
-                ["code",       "Code generation and debugging steps",   "gpt-4o (via OpenRouter)"],
-                ["reflection", "Post-task lesson extraction",           "claude-opus-4-7"],
-              ].map(([s, w, m]) => (
-                <tr key={s}><td><code>{s}</code></td><td>{w}</td><td><code style={{fontSize:11}}>{m}</code></td></tr>
-              ))}
-            </tbody>
-          </table>
+          <CodeBlock lang="bash" filename=".env">{`MAJESTIC_MODEL_REASON=anthropic/claude-sonnet-4-6`}</CodeBlock>
 
-          <h2 className="section-title" id="llm-switch">Switching providers</h2>
+          <h2 className="section-title" id="llm-switch">Switching models</h2>
           <div className="prose">
             <p>
-              Change models in <code>persona.yaml</code> under <code>model_routing</code>, or run
-              <code> majestic setup</code> which walks through provider/key configuration.
+              Run <code>majestic setup</code> to pick a new model interactively,
+              or edit <code>MAJESTIC_MODEL_REASON</code> in <code>.env</code> directly.
             </p>
           </div>
-          <CodeBlock lang="yaml" filename="profiles/<name>/persona.yaml">{`model_routing:
-  reason: "anthropic/claude-sonnet-4-6"   # or openai/gpt-4o, etc.
-  simple: "anthropic/claude-haiku-4-5"
-  code:   "openai/gpt-4o"
-  reflection: "anthropic/claude-opus-4-7"`}</CodeBlock>
 
           <h2 className="section-title" id="llm-anthropic">Anthropic</h2>
-          <CodeBlock lang="yaml">{`model_routing:
-  reason: "anthropic/claude-sonnet-4-6"
-  # claude-opus-4-7  (most capable)
-  # claude-haiku-4-5 (fastest)`}</CodeBlock>
+          <CodeBlock lang="bash">{`MAJESTIC_MODEL_REASON=anthropic/claude-sonnet-4-6
+# anthropic/claude-opus-4-7   (most capable)
+# anthropic/claude-haiku-4-5  (fastest)`}</CodeBlock>
 
           <h2 className="section-title" id="llm-openai">OpenAI</h2>
-          <CodeBlock lang="yaml">{`model_routing:
-  code: "openai/gpt-4o"
-  # or o3, o1-mini, gpt-4-turbo`}</CodeBlock>
+          <CodeBlock lang="bash">{`MAJESTIC_MODEL_REASON=openai/gpt-4o
+# openai/o3, openai/o1-mini, openai/gpt-4-turbo`}</CodeBlock>
 
           <h2 className="section-title" id="llm-openrouter">OpenRouter</h2>
           <div className="prose">
             <p>OpenRouter is the <strong>primary provider</strong> in the fallback chain. It routes to any available model with a single API key. Uses an OpenAI-compatible interface.</p>
           </div>
-          <CodeBlock lang="yaml">{`model_routing:
-  reason: "openrouter/anthropic/claude-sonnet-4-6"
-  code:   "openrouter/openai/gpt-4o"
-  # openrouter/meta-llama/llama-3.1-70b
-  # openrouter/google/gemini-2.0-flash`}</CodeBlock>
+          <CodeBlock lang="bash">{`MAJESTIC_MODEL_REASON=anthropic/claude-sonnet-4-6
+# meta-llama/llama-3.1-70b
+# google/gemini-2.0-flash`}</CodeBlock>
 
           <h2 className="section-title" id="llm-ollama">Ollama</h2>
           <div className="prose">
             <p>Local models, no API key. Ollama must be running on <code>http://localhost:11434</code>.</p>
           </div>
-          <CodeBlock lang="yaml">{`model_routing:
-  reason: "ollama/llama3.1"   # or mistral, gemma2, phi3`}</CodeBlock>
+          <CodeBlock lang="bash">{`OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2   # or mistral, gemma2, phi3`}</CodeBlock>
 
           <NavButtons current="llm-providers" navigate={navigate} />
         </div>
@@ -1642,19 +1612,14 @@ restrictions:
 # ⑧ Context: [edit in $EDITOR]
 # → Save changes to persona.yaml? [Y/n]`}</CodeBlock>
 
-          <h2 className="section-title" id="spec-modelrouting">Model routing per profile</h2>
+          <h2 className="section-title" id="spec-modelrouting">Model per profile</h2>
           <div className="prose">
             <p>
-              Override the default LLM for any step type in <code>persona.yaml</code>.
-              This lets code-heavy agents use GPT-4o for the code step while keeping
-              Claude for reasoning.
+              Each profile can use a different model. Set <code>MAJESTIC_MODEL_REASON</code>
+              in the profile's <code>.env</code> file to override the global default.
             </p>
           </div>
-          <CodeBlock lang="yaml">{`model_routing:
-  reason:     "anthropic/claude-sonnet-4-6"
-  code:       "openai/gpt-4o"
-  simple:     "anthropic/claude-haiku-4-5"
-  reflection: "anthropic/claude-opus-4-7"`}</CodeBlock>
+          <CodeBlock lang="bash" filename="profiles/<name>/.env">{`MAJESTIC_MODEL_REASON=anthropic/claude-opus-4-7`}</CodeBlock>
 
           <NavButtons current="specialization" navigate={navigate} />
         </div>
@@ -1846,7 +1811,7 @@ def get_weather(city: str) -> str:
         { id: "config-env",    label: "Settings priority" },
       ],
       "llm-providers": [
-        { id: "llm-routing",    label: "Per-step routing" },
+        { id: "llm-routing",    label: "Model selection" },
         { id: "llm-switch",     label: "Switching providers" },
         { id: "llm-anthropic",  label: "Anthropic" },
         { id: "llm-openai",     label: "OpenAI" },
@@ -1872,7 +1837,7 @@ def get_weather(city: str) -> str:
       "specialization": [
         { id: "spec-role",         label: "Persona & role" },
         { id: "spec-config",       label: "Edit with wizard" },
-        { id: "spec-modelrouting", label: "Model routing" },
+        { id: "spec-modelrouting", label: "Model per profile" },
       ],
       "local-tools": [
         { id: "local-dir",     label: "Adding a custom tool" },

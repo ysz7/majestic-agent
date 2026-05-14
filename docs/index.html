@@ -1054,7 +1054,7 @@
         <div class="cap-card">
           <span class="cap-num">07</span>
           <div class="cap-title">4 LLM Providers</div>
-          <p class="cap-desc">Anthropic, OpenAI, OpenRouter, Ollama. Per-step routing — reason model, code model, reflection model — configured in <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">persona.yaml</code>.</p>
+          <p class="cap-desc">Anthropic, OpenAI, OpenRouter, Ollama. One model across all tasks — set during <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">majestic setup</code> or via <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">MAJESTIC_MODEL_REASON</code> in <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">.env</code>.</p>
           <div class="cap-tags"><span class="cap-tag">anthropic</span><span class="cap-tag">openai</span><span class="cap-tag">openrouter</span><span class="cap-tag">ollama</span></div>
         </div>
         <div class="cap-card">
@@ -1104,7 +1104,7 @@
           <div class="tools-list">
             <div class="tool-row">
               <span class="tool-name">web_search</span>
-              <span class="tool-desc">Search the web via OpenRouter / Tavily</span>
+              <span class="tool-desc">Search the web via Brave Search API → DuckDuckGo fallback</span>
               <span class="tool-badge badge-web">web</span>
             </div>
             <div class="tool-row">
@@ -1250,7 +1250,7 @@
         <div class="platform-card">
           <div class="platform-icon">⌨</div>
           <div class="platform-name">CLI Foreground</div>
-          <div class="platform-desc">Rich terminal UI, reads stdin, prints with live formatting</div>
+          <div class="platform-desc">Plain CLI or split-screen TUI (<code>--tui</code>), reads stdin, prints with live formatting</div>
         </div>
         <div class="platform-card">
           <div class="platform-icon">⚙</div>

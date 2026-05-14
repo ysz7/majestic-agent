@@ -226,30 +226,14 @@ class Settings:
 
     @property
     def model_routing(self) -> dict[str, str]:
-        """
-        Model routing with 3-level fallback:
-          1. persona.yaml model_routing (per-profile override)
-          2. MAJESTIC_MODEL_* env vars in root .env or profile .env
-          3. Hardcoded defaults (_DEFAULT_MODELS)
-        """
-        # Start from hardcoded defaults
-        routing: dict[str, str] = dict(_DEFAULT_MODELS)
-
-        # Override from MAJESTIC_MODEL_* env vars (root or profile .env)
-        for step in ("reason", "simple", "code", "reflection"):
-            env_key = f"MAJESTIC_MODEL_{step.upper()}"
-            val = self._env_get(env_key)
-            if val:
-                routing[step] = val
-
-        # Override from persona.yaml model_routing section (highest priority)
-        yaml_routing = self._persona.get("model_routing", {})
-        if isinstance(yaml_routing, dict):
-            for k, v in yaml_routing.items():
-                if k and v:
-                    routing[str(k)] = str(v)
-
-        return routing
+        """Returns the single configured model for all step types."""
+        model = self.get_model()
+        return {
+            "reason":     model,
+            "simple":     model,
+            "code":       model,
+            "reflection": model,
+        }
 
     @property
     def limits(self) -> dict[str, Any]:
@@ -287,12 +271,8 @@ class Settings:
                 )
             )
 
-    def get_model(self, step_type: str) -> str:
-        """Return the model for the given step type.
-
-        When only Ollama is configured, always returns the Ollama model name —
-        cloud model IDs like 'anthropic/claude-sonnet-4-5' are not valid there.
-        """
+    def get_model(self, step_type: str = "reason") -> str:
+        """Return the single configured model (step_type is ignored)."""
         ollama_only = self.ollama_base_url and not any([
             self.openrouter_api_key,
             self.anthropic_api_key,
@@ -301,10 +281,11 @@ class Settings:
         if ollama_only:
             return self.ollama_model or "llama3.2"
 
-        routing = self.model_routing
-        if step_type in routing:
-            return routing[step_type]
-        return routing.get("reason", _DEFAULT_MODELS["reason"])
+        return (
+            self._env_get("MAJESTIC_MODEL_REASON")
+            or self._env_get("MAJESTIC_MODEL")
+            or _DEFAULT_MODELS["reason"]
+        )
 
     # ------------------------------------------------------------------
     # Class-level helpers

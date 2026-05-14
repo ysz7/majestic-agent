@@ -1,31 +1,29 @@
 # Majestic
 
-Universal AI agent framework. Low-resource, self-contained, multi-agent.
+<p align="center">
+  <a href="https://github.com/ysz7/majestic-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/ysz7/majestic-agent"><img src="https://img.shields.io/badge/Python-3.11+-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+"></a>
+  <a href="https://github.com/ysz7/majestic-agent"><img src="https://img.shields.io/badge/Providers-Anthropic%20%7C%20OpenAI%20%7C%20OpenRouter%20%7C%20Ollama-blueviolet?style=for-the-badge" alt="Providers"></a>
+</p>
 
-```
-pip install -e .
-majestic setup
-majestic
-```
+**Universal AI agent framework. Low-resource, self-contained, multi-agent.** Run fully isolated agents from the terminal — plain CLI or split-screen TUI — or as background HTTP daemons that delegate tasks to each other. One model, one command, zero boilerplate.
 
----
-
-## What it does
-
-- Runs AI agents in **foreground** (interactive CLI) or **background** (HTTP server)
-- Multiple isolated **profiles** — each with its own persona, models, keys, memory
-- **Multi-agent**: background agents accept tasks from other agents via HTTP
-- Searches the web, fetches pages, writes and runs Python/Node scripts
-- Parses PDF, DOCX, CSV, TXT, MD → indexes to memory → answers from content
-- Learns from every task (reflection + lessons learned)
-- Costs controlled: token/USD budget per task, warn at 80%, stop at 100%
-- ~100–150 MB RAM per agent in Docker
+<table>
+<tr><td><b>Foreground + background modes</b></td><td>Plain CLI, split-screen TUI (<code>--tui</code>), or background HTTP daemon. Same agent, same memory, different channel.</td></tr>
+<tr><td><b>Profile system</b></td><td>Each agent is a fully isolated profile — its own persona, model, keys, memory, skills, and workspace. Unlimited agents, each on its own port.</td></tr>
+<tr><td><b>Multi-agent</b></td><td>Background agents register in a shared registry. Any agent can delegate tasks to any other via HTTP using the <code>agent_client</code> tool.</td></tr>
+<tr><td><b>8 built-in tools</b></td><td>web_search (Brave → DDG fallback), web_fetch, http, files, python_exec, node_exec, file_parser, agent_client. Add tools with one file in <code>tools/</code>.</td></tr>
+<tr><td><b>Self-improving</b></td><td>After complex tasks the agent writes YAML skill files from experience. Skills are hot-reloaded — no restart needed. Gets smarter over time, zero effort.</td></tr>
+<tr><td><b>6 memory types</b></td><td>Working, Episodic, Semantic (sqlite-vec), Procedural (skills), Lessons Learned, User Profile — all SQLite, all local.</td></tr>
+<tr><td><b>Cost control</b></td><td>Token and USD budgets per task. Warns at 80%, stops at 100%. Budget bar visible in the TUI.</td></tr>
+<tr><td><b>~100–150 MB RAM per agent</b></td><td>Runs comfortably in Docker, a VPS, or a Raspberry Pi.</td></tr>
+</table>
 
 ---
 
 ## Install
 
-**Linux / Mac**
+**Linux / macOS**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ysz7/majestic-agent/main/scripts/install.sh | bash
 ```
@@ -49,35 +47,46 @@ pip install -e .
 
 ---
 
-## Setup
+## Quick Start
 
+```bash
+majestic setup     # first-time wizard — provider, API key, model, agent name
+majestic           # start the default agent (plain CLI)
+majestic --tui     # start with split-screen TUI
 ```
-majestic setup
-```
 
-Asks for:
-- OpenRouter key (primary LLM provider)
-- Anthropic / OpenAI keys (optional fallbacks)
-- Brave Search API key (optional, uses DuckDuckGo if missing)
-- Agent name, language, models per step type, optional budget limits
-
-Creates `profiles/default/` with `.env` and `persona.yaml`.
+The setup wizard asks for your LLM provider, API key, model (fetched live for OpenRouter; curated list for others), Brave Search key (optional), and agent name. Creates `profiles/default/` and writes keys to root `.env`.
 
 ---
 
-## CLI commands
+## CLI Reference
 
-```
-majestic setup          interactive first-time setup wizard
-majestic new <name>     create new profile
-majestic list           list available profiles
-majestic rm <name>      delete profile (confirmation required)
-majestic <profile>      run in foreground (interactive CLI)
-majestic run <profile>  run in background (HTTP server)
-majestic ps             list running background agents
-majestic stop <profile> stop a background agent
-majestic                run default profile in foreground
-```
+| Command | Description |
+|---------|-------------|
+| `majestic setup` | Interactive first-time setup wizard |
+| `majestic` | Run default profile — plain CLI |
+| `majestic --tui` | Run default profile — split-screen TUI |
+| `majestic <name>` | Run named profile — plain CLI |
+| `majestic <name> --tui` | Run named profile — split-screen TUI |
+| `majestic new <name>` | Create a new profile |
+| `majestic list` | List all profiles |
+| `majestic config [name]` | Edit agent configuration interactively |
+| `majestic rm <name>` | Delete a profile (confirmation required) |
+| `majestic run <name>` | Run as background HTTP daemon |
+| `majestic ps` | List running background agents |
+| `majestic stop <name>` | Stop a background agent |
+
+**Slash commands** (available in both plain CLI and TUI):
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show available commands |
+| `/skills` | List loaded skills |
+| `/agents` | Show running background agents |
+| `/memory` | Memory stats |
+| `/budget` | Token / cost usage |
+| `/new` | Clear chat and reset session |
+| `/quit` | Exit |
 
 ---
 
@@ -88,21 +97,17 @@ Each profile is a fully isolated agent:
 ```
 profiles/
 └── my_agent/
-    ├── .env            OPENROUTER_API_KEY, AGENT_PORT, ...
-    ├── persona.yaml    name, role, tone, model routing, limits
+    ├── persona.yaml    name, role, tone, model, limits, port
+    ├── .env            API keys for this agent
     ├── skills/         YAML skill files (hot-reloaded)
     ├── workspace/      files, scripts, .venv, node_modules
     └── data/           all SQLite databases
 ```
 
-Create a new profile:
-```
+```bash
 majestic new sales_agent
+majestic config sales_agent
 ```
-
----
-
-## Persona
 
 `profiles/my_agent/persona.yaml`:
 
@@ -111,17 +116,11 @@ name: "Alex"
 role: "Sales Manager"
 tone: "friendly, persuasive"
 language: "en"
+port: 8001
 restrictions:
   - "do not discuss competitors"
 context: |
   You work at Company X. You sell a SaaS platform for HR departments.
-
-model_routing:
-  reason:     "anthropic/claude-sonnet-4-5"
-  simple:     "meta-llama/llama-3.1-8b-instruct:free"
-  code:       "qwen/qwen-2.5-coder-32b-instruct"
-  reflection: "meta-llama/llama-3.1-8b-instruct:free"
-
 limits:
   max_tokens_per_task: 50000   # 0 = unlimited
   max_cost_per_task: 0.10      # 0 = unlimited
@@ -129,61 +128,52 @@ limits:
 
 ---
 
-## LLM providers
+## LLM Providers
 
-Primary: **OpenRouter** (access to 100+ models via one key)
-Fallback 1: **Anthropic**
-Fallback 2: **OpenAI**
+One model is used for all tasks — set during `majestic setup` or via `.env`:
 
-Per-step model routing:
+```bash
+MAJESTIC_MODEL_REASON=anthropic/claude-sonnet-4-6
 ```
-REASON step     → reason model   (smart, complex)
-SIMPLE actions  → simple model   (fast, cheap/free)
-CODE generation → code model     (specialized)
-REFLECTION      → simple model   (always cheapest)
-```
+
+| Provider | Env var | Notes |
+|----------|---------|-------|
+| OpenRouter | `OPENROUTER_API_KEY` | 200+ models via one key — recommended |
+| Anthropic | `ANTHROPIC_API_KEY` | Claude family |
+| OpenAI | `OPENAI_API_KEY` | GPT family |
+| Ollama | `OLLAMA_BASE_URL` | Local, no key needed |
 
 ---
 
 ## Tools
 
-Built into every agent:
+| Tool | Description |
+|------|-------------|
+| `web_search` | Brave Search API → DuckDuckGo fallback |
+| `web_fetch` | Fetch URL → clean readable text |
+| `http` | GET / POST to any REST API |
+| `files` | Read / write / list workspace files |
+| `python_exec` | Write + run `.py` scripts in isolated `.venv` |
+| `node_exec` | Write + run `.js` scripts in isolated `node_modules` |
+| `file_parser` | PDF / DOCX / CSV / TXT / MD → text → memory index |
+| `agent_client` | Delegate tasks to running background agents |
 
-```
-web_search      Brave Search API → DuckDuckGo fallback
-web_fetch       fetch URL → clean readable text (trafilatura)
-http            GET / POST requests to any API
-files           read / write / list workspace files
-python_exec     write + run .py scripts in .venv (timeout 30s)
-node_exec       write + run .js scripts in node_modules (timeout 30s)
-file_parser     PDF / DOCX / CSV / TXT / MD → text → memory index
-agent_client    delegate tasks to running background agents
-```
-
-Web search + fetch workflow:
-```
-1. web_search("query") → [{title, url, snippet}]
-2. web_fetch(url)      → clean page content
-3. synthesize answer   → return with source URLs
-```
-
-Add a new simple tool: one file in `majestic/tools/`.
-Add a new complex tool: one folder in `majestic/tools/`.
+Add a new tool: drop one `.py` file in `majestic/tools/` — auto-registered.
 
 ---
 
 ## Memory
 
-Six types, all SQLite:
+Six types, all SQLite, all local:
 
-```
-Working         current session (in-memory)
-Episodic        task history + reflections (FTS5)
-Semantic        knowledge base + indexed files (sqlite-vec / FTS5)
-Procedural      YAML skills per profile (hot-reload)
-Lessons Learned principles from experience (FTS5)
-User Profile    preferences and patterns
-```
+| Type | Purpose |
+|------|---------|
+| Working | Current session (in-memory) |
+| Episodic | Task history + reflections (FTS5) |
+| Semantic | Knowledge base + indexed files (sqlite-vec / FTS5) |
+| Procedural | YAML skills per profile (hot-reload) |
+| Lessons Learned | Principles extracted from experience (FTS5) |
+| User Profile | Preferences and interaction patterns |
 
 Attach a file in chat → auto-detected → parsed → indexed to semantic memory → agent answers from it.
 
@@ -191,7 +181,7 @@ Attach a file in chat → auto-detected → parsed → indexed to semantic memor
 
 ## Skills
 
-Add a YAML file to `profiles/<name>/skills/` — picked up on next task, no restart needed:
+Add a YAML file to `profiles/<name>/skills/` — picked up on next task, no restart:
 
 ```yaml
 name: "research"
@@ -208,23 +198,21 @@ steps:
 
 ## Multi-agent
 
-Run agents in background, let them delegate to each other:
-
 ```bash
-majestic run default        # port 8000
-majestic run sales_agent    # port 8001
-majestic ps                 # see both running
+majestic run default       # port 8000
+majestic run sales_agent   # port 8001
+majestic ps                # see both running
 ```
 
-Any agent can call `agent_client` tool to delegate to another running agent.
-Registry is in `data/registry.json`.
+Any agent can delegate to another via `agent_client`. Registry lives in `data/registry.json`.
 
-Agent HTTP API (background mode):
-```
-POST /task      receive a delegated task
-GET  /status    health check
-POST /message   future channels (Telegram, webhook)
-```
+**Background agent HTTP API:**
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /task` | Submit a delegated task |
+| `GET /status/{id}` | Check task status |
+| `POST /message/{id}` | Send a message to a running task |
 
 ---
 
@@ -236,33 +224,38 @@ docker exec -it majestic majestic setup
 docker exec -it majestic majestic
 ```
 
-Single container, ~100–150 MB RAM per agent.
-Volumes: `./profiles`, `./data`.
-
----
-
-## MCP
-
-Add an MCP server in `majestic/mcp/registry.yaml` — auto-installed and available as tools:
-
-```yaml
-servers:
-  git:
-    runtime: python
-    package: "mcp-server-git"
-    description: "git repository operations"
-```
+Single container, ~100–150 MB RAM per agent. Volumes: `./profiles`, `./data`.
 
 ---
 
 ## Architecture
 
 ```
-Layer 7  CLI                 setup · new · list · rm · run · ps · stop
-Layer 6  Channels            CLI (foreground) · HTTP Server (background)
-Layer 5  Gateway             normalize · session · persona · file detection
-Layer 4  Planner             classify · decompose · cron · HITL · delegation
-Layer 3  Agent Runtime       ReAct loop · tools · budget · compaction · retry
-Layer 2  Tools + MCP         http · files · web_search · web_fetch · exec · MCP
-Layer 1  Memory + LLM        6 memory types · LLM Router (3 providers)
+Layer 7  CLI          setup · new · list · config · rm · run · ps · stop
+Layer 6  Channels     CLI (foreground) · HTTP Server (background)
+Layer 5  Gateway      normalize · session · persona · file detection
+Layer 4  Planner      classify · decompose · cron · HITL · delegation
+Layer 3  Runtime      ReAct loop · tools · budget · compaction · retry
+Layer 2  Tools + MCP  http · files · web_search · web_fetch · exec · MCP
+Layer 1  Memory + LLM 6 memory types · LLM Router (4 providers)
 ```
+
+---
+
+## Contributing
+
+```bash
+git clone https://github.com/ysz7/majestic-agent
+cd majestic-agent
+pip install -e .
+pip install pytest pytest-asyncio
+pytest tests/
+```
+
+Issues and PRs welcome.
+
+---
+
+## License
+
+MIT
