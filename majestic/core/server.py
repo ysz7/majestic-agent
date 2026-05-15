@@ -12,11 +12,58 @@ Exposes three endpoints:
 from __future__ import annotations
 
 import secrets
+import time
 import uuid
+from collections import defaultdict
 from pathlib import Path
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request, Response
 import uvicorn
+
+# ---------------------------------------------------------------------------
+# Rate limiting — simple sliding-window counter per IP
+# ---------------------------------------------------------------------------
+
+_RATE_LIMIT = 10        # max requests per window
+_RATE_WINDOW = 1.0      # window size in seconds
+_rate_counts: dict[str, list[float]] = defaultdict(list)
+
+
+def _check_rate_limit(ip: str) -> bool:
+    now = time.monotonic()
+    window = _rate_counts[ip]
+    _rate_counts[ip] = [t for t in window if now - t < _RATE_WINDOW]
+    if len(_rate_counts[ip]) >= _RATE_LIMIT:
+        return False
+    _rate_counts[ip].append(now)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Observability — lightweight Prometheus-format metrics
+# ---------------------------------------------------------------------------
+
+_metrics: dict[str, int | float] = {
+    "tasks_accepted": 0,
+    "tasks_rejected_rate": 0,
+    "tasks_rejected_full": 0,
+}
+
+
+def _prometheus_text(channel) -> str:
+    lines = [
+        "# HELP majestic_tasks_accepted_total Tasks accepted into the queue",
+        "# TYPE majestic_tasks_accepted_total counter",
+        f"majestic_tasks_accepted_total {_metrics['tasks_accepted']}",
+        "# HELP majestic_tasks_rejected_total Tasks rejected (rate limit or queue full)",
+        "# TYPE majestic_tasks_rejected_total counter",
+        f'majestic_tasks_rejected_total{{reason="rate_limit"}} {_metrics["tasks_rejected_rate"]}',
+        f'majestic_tasks_rejected_total{{reason="queue_full"}} {_metrics["tasks_rejected_full"]}',
+        "# HELP majestic_queue_size Current number of tasks waiting in queue",
+        "# TYPE majestic_queue_size gauge",
+        f"majestic_queue_size {channel.queue_size()}",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def _token_path() -> Path:
@@ -53,7 +100,7 @@ def create_app(channel, settings) -> FastAPI:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
     @app.post("/task", dependencies=[__import__("fastapi").Depends(_check_token)])
-    async def receive_task(body: dict) -> dict:
+    async def receive_task(request: Request, body: dict) -> dict:
         """Enqueue a task into the channel and return an acceptance receipt.
 
         Request body fields:
@@ -63,6 +110,10 @@ def create_app(channel, settings) -> FastAPI:
         Returns:
             {"status": "accepted", "task_id": "<uuid>"}
         """
+        ip = request.client.host if request.client else "unknown"
+        if not _check_rate_limit(ip):
+            _metrics["tasks_rejected_rate"] += 1
+            raise HTTPException(status_code=429, detail="Rate limit exceeded — slow down")
         task_id = str(uuid.uuid4())
         task = {
             "task_id": task_id,
@@ -71,7 +122,9 @@ def create_app(channel, settings) -> FastAPI:
             "session_id": body.get("session_id", settings.profile_name),
         }
         if not channel.try_enqueue(task):
+            _metrics["tasks_rejected_full"] += 1
             raise HTTPException(status_code=429, detail="Task queue full — try again later")
+        _metrics["tasks_accepted"] += 1
         return {"status": "accepted", "task_id": task_id}
 
     @app.get("/status")
@@ -88,7 +141,7 @@ def create_app(channel, settings) -> FastAPI:
         }
 
     @app.post("/message", dependencies=[__import__("fastapi").Depends(_check_token)])
-    async def message(body: dict) -> dict:
+    async def message(request: Request, body: dict) -> dict:
         """Receive an inbound message (future: Telegram / webhook).
 
         For now this is functionally identical to POST /task.
@@ -96,6 +149,10 @@ def create_app(channel, settings) -> FastAPI:
         Returns:
             {"status": "accepted", "task_id": "<uuid>"}
         """
+        ip = request.client.host if request.client else "unknown"
+        if not _check_rate_limit(ip):
+            _metrics["tasks_rejected_rate"] += 1
+            raise HTTPException(status_code=429, detail="Rate limit exceeded — slow down")
         task_id = str(uuid.uuid4())
         task = {
             "task_id": task_id,
@@ -104,8 +161,22 @@ def create_app(channel, settings) -> FastAPI:
             "session_id": body.get("session_id", settings.profile_name),
         }
         if not channel.try_enqueue(task):
+            _metrics["tasks_rejected_full"] += 1
             raise HTTPException(status_code=429, detail="Task queue full — try again later")
+        _metrics["tasks_accepted"] += 1
         return {"status": "accepted", "task_id": task_id}
+
+    @app.get("/metrics")
+    async def metrics() -> Response:
+        """Expose Prometheus-format counters and gauges.
+
+        Returns:
+            Plain text in Prometheus exposition format (text/plain; version=0.0.4).
+        """
+        return Response(
+            content=_prometheus_text(channel),
+            media_type="text/plain; version=0.0.4",
+        )
 
     return app
 

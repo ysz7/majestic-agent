@@ -2,38 +2,20 @@
 majestic.cli.stop
 ~~~~~~~~~~~~~~~~~
 Stop a running agent daemon by sending it a termination signal and removing
-its entry from data/registry.json.
+its entry from the registry.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import signal
 import sys
 import time
-from pathlib import Path
 
 from majestic import display
-
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_REGISTRY = _PROJECT_ROOT / "data" / "registry.json"
+from majestic.cli.registry_db import load_registry, delete_entry
 
 _GRACEFUL_TIMEOUT_S = 8   # seconds to wait before escalating to SIGKILL
-
-
-def _load_registry() -> dict:
-    if _REGISTRY.exists():
-        try:
-            return json.loads(_REGISTRY.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return {}
-    return {}
-
-
-def _save_registry(data: dict) -> None:
-    _REGISTRY.parent.mkdir(parents=True, exist_ok=True)
-    _REGISTRY.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def _is_process_alive(pid: int) -> bool:
@@ -87,7 +69,7 @@ def _terminate_process(pid: int) -> bool:
 
 
 def run(name: str) -> None:
-    registry = _load_registry()
+    registry = load_registry()
 
     if name not in registry:
         display.warn(
@@ -101,24 +83,20 @@ def run(name: str) -> None:
 
     if not pid:
         display.warn(f"No PID recorded for '{name}'. Removing stale registry entry.")
-        del registry[name]
-        _save_registry(registry)
+        delete_entry(name)
         sys.exit(0)
 
     if not _is_process_alive(pid):
         display.warn(
             f"Process {pid} for '{name}' is not running. Cleaning up stale registry entry."
         )
-        del registry[name]
-        _save_registry(registry)
+        delete_entry(name)
         sys.exit(0)
 
     display.info(f"Stopping '{name}' (pid {pid})…")
 
     success = _terminate_process(pid)
-
-    del registry[name]
-    _save_registry(registry)
+    delete_entry(name)
 
     if success:
         display.ok(f"Agent '{name}' stopped.")

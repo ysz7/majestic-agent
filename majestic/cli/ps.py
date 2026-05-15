@@ -6,24 +6,11 @@ List all agent daemons tracked in data/registry.json and show their status.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
-from pathlib import Path
 
 from majestic import display
-
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_REGISTRY = _PROJECT_ROOT / "data" / "registry.json"
-
-
-def _load_registry() -> dict:
-    if _REGISTRY.exists():
-        try:
-            return json.loads(_REGISTRY.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return {}
-    return {}
+from majestic.cli.registry_db import load_registry
 
 
 def _is_process_alive(pid: int) -> bool:
@@ -44,7 +31,7 @@ def _is_process_alive(pid: int) -> bool:
 
 
 def run() -> None:
-    registry = _load_registry()
+    registry = load_registry()
 
     agents = []
     stale: list[str] = []

@@ -45,12 +45,15 @@ class AnthropicLLM(BaseLLM):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _headers(self) -> dict[str, str]:
-        return {
+    def _headers(self, cache: bool = False) -> dict[str, str]:
+        h = {
             "x-api-key": self._api_key,
             "anthropic-version": _API_VERSION,
             "content-type": "application/json",
         }
+        if cache:
+            h["anthropic-beta"] = "prompt-caching-2024-07-31"
+        return h
 
     @staticmethod
     def _convert_messages(messages: list[dict]) -> tuple[str, list[dict]]:
@@ -94,6 +97,8 @@ class AnthropicLLM(BaseLLM):
         if not self._api_key:
             raise LLMError("ANTHROPIC_API_KEY is not set", provider=self.provider_name)
 
+        use_cache: bool = kwargs.pop("use_cache", False)
+
         system_prompt, converted_messages = self._convert_messages(messages)
 
         if not converted_messages:
@@ -115,14 +120,20 @@ class AnthropicLLM(BaseLLM):
             "messages": converted_messages,
         }
         if system_prompt:
-            payload["system"] = system_prompt
+            if use_cache:
+                # Cache the system prompt — stable prefix, rarely changes
+                payload["system"] = [
+                    {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}
+                ]
+            else:
+                payload["system"] = system_prompt
         payload.update(kwargs)
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             try:
                 response = await client.post(
                     f"{_BASE_URL}/messages",
-                    headers=self._headers(),
+                    headers=self._headers(cache=use_cache),
                     json=payload,
                 )
             except httpx.TimeoutException as exc:

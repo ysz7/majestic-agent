@@ -156,7 +156,11 @@ class LLMRouter:
                     model,
                     step_type,
                 )
-                result = await provider.chat(messages=messages, model=model, **kwargs)
+                provider_kwargs = dict(kwargs)
+                # Enable prompt caching for stable system prompts on Anthropic
+                if step_type in ("reason", "reflection") and provider.provider_name == "anthropic":
+                    provider_kwargs.setdefault("use_cache", True)
+                result = await provider.chat(messages=messages, model=model, **provider_kwargs)
                 result["model"] = model
                 result["provider"] = provider.provider_name
                 logger.debug(

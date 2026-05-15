@@ -11,8 +11,6 @@ manage it.
 
 from __future__ import annotations
 
-import contextlib
-import json
 import os
 import subprocess
 import sys
@@ -22,56 +20,11 @@ from pathlib import Path
 from rich.console import Console
 
 from majestic.config.settings import Settings
+from majestic.cli.registry_db import load_registry, save_entry, get_entry
 
 console = Console()
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_REGISTRY = _PROJECT_ROOT / "data" / "registry.json"
-
-
-@contextlib.contextmanager
-def _registry_lock():
-    """Cross-platform exclusive lock around registry read/write."""
-    lock_path = _REGISTRY.with_suffix(".lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(lock_path, "w") as lf:
-        if sys.platform == "win32":
-            import msvcrt
-            while True:
-                try:
-                    msvcrt.locking(lf.fileno(), msvcrt.LK_NBLCK, 1)
-                    break
-                except OSError:
-                    import time
-                    time.sleep(0.05)
-            try:
-                yield
-            finally:
-                try:
-                    msvcrt.locking(lf.fileno(), msvcrt.LK_UNLCK, 1)
-                except OSError:
-                    pass
-        else:
-            import fcntl
-            fcntl.flock(lf, fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.flock(lf, fcntl.LOCK_UN)
-
-
-def _load_registry() -> dict:
-    if _REGISTRY.exists():
-        try:
-            return json.loads(_REGISTRY.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return {}
-    return {}
-
-
-def _save_registry(data: dict) -> None:
-    _REGISTRY.parent.mkdir(parents=True, exist_ok=True)
-    _REGISTRY.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def _is_process_alive(pid: int) -> bool:
@@ -109,8 +62,7 @@ def run(name: str) -> None:
         sys.exit(1)
 
     # Check if already running
-    registry = _load_registry()
-    entry = registry.get(name, {})
+    entry = get_entry(name) or {}
     existing_pid = entry.get("pid")
     if existing_pid and _is_process_alive(existing_pid):
         console.print(
@@ -154,17 +106,14 @@ def run(name: str) -> None:
             )
 
     pid = proc.pid
-    with _registry_lock():
-        registry = _load_registry()
-        registry[name] = {
-            "pid": pid,
-            "profile": name,
-            "agent_name": settings.agent_name,
-            "port": settings.agent_port,
-            "started_at": datetime.now(timezone.utc).isoformat(),
-            "log": str(log_file),
-        }
-        _save_registry(registry)
+    save_entry(name, {
+        "pid": pid,
+        "profile": name,
+        "agent_name": settings.agent_name,
+        "port": settings.agent_port,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "log": str(log_file),
+    })
 
     console.print(
         f"[green]✓[/green] Agent '{settings.agent_name}' (profile: {name}) "

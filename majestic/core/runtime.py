@@ -5,6 +5,13 @@ import time
 import uuid
 from typing import Any
 
+from pydantic import BaseModel, ValidationError
+
+
+class _ToolCall(BaseModel):
+    name: str
+    args: dict = {}
+
 from majestic import display
 
 logger = logging.getLogger(__name__)
@@ -301,8 +308,9 @@ class AgentRuntime:
             end = json_str.rfind("}") + 1
             if start == -1:
                 return None
-            return json.loads(json_str[start:end])
-        except (json.JSONDecodeError, ValueError):
+            raw = json.loads(json_str[start:end])
+            return _ToolCall(**raw).model_dump()
+        except (json.JSONDecodeError, ValueError, ValidationError):
             return None
 
     # ------------------------------------------------------------------
