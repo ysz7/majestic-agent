@@ -610,7 +610,7 @@
                 ["4 LLM providers",       "Anthropic, OpenAI, OpenRouter, Ollama — automatic fallback chain"],
                 ["Dual-mode operation",   "CLI foreground (Rich) or background daemon + FastAPI server"],
                 ["REST API",              "POST /task · GET /status/{id} · POST /message/{id}"],
-                ["Multi-agent",           "Agents discover each other via registry.json and delegate via agent_client"],
+                ["Multi-agent",           "Agents discover each other via registry.json, delegate via agent_client — target auto-starts if not running"],
                 ["MCP integration",       "Any MCP server wired via mcp/registry.yaml — auto-prefixed tools"],
                 ["Gateway layer",         "Normalizes input, detects prompt injection, injects RAG context"],
                 ["HITL gating",           "Planner asks for approval before sensitive tool calls"],
@@ -1406,79 +1406,79 @@ majestic ps`}</CodeBlock>
           <div className="page-label">Integrations</div>
           <h1 className="page-title">Multi-Agent</h1>
           <p className="page-desc">
-            Background agents register themselves in a shared registry. Other agents and scripts discover and delegate tasks to them via HTTP.
+            Agents discover each other via a shared registry and delegate tasks via HTTP.
+            Target agents are <strong>started automatically</strong> if not running — no manual setup required.
           </p>
           <hr className="page-divider" />
 
-          <h2 className="section-title" id="ma-registry">Agent registry</h2>
+          <h2 className="section-title" id="ma-tools">Orchestration tools</h2>
           <div className="prose">
             <p>
-              When an agent starts in background mode (<code>majestic run &lt;name&gt;</code>), it writes an entry to
-              <code> data/registry.json</code>. The <code>agent_client</code> tool reads this file to
-              discover available agents by name.
+              Every agent has two built-in tools for multi-agent orchestration:
             </p>
           </div>
-          <CodeBlock lang="json" filename="data/registry.json">{`{
-  "pain_hunter": {
-    "url": "http://localhost:8001",
-    "status": "running",
-    "pid": 12345
-  },
-  "writer": {
-    "url": "http://localhost:8002",
-    "status": "running",
-    "pid": 12346
-  }
-}`}</CodeBlock>
+          <table className="ref-table">
+            <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code>list_agents</code></td><td>List all profiles with roles and running status</td></tr>
+              <tr><td><code>delegate_to_agent</code></td><td>Delegate a task — auto-starts the agent if not running</td></tr>
+            </tbody>
+          </table>
 
           <h2 className="section-title" id="ma-delegate">Delegating tasks</h2>
           <div className="prose">
             <p>
-              From within a running agent, use the <code>agent_client</code> tool to delegate a task to another agent.
-              The Planner automatically decides when delegation is appropriate.
+              Just ask the default agent. It will call <code>list_agents</code> to find the right specialist,
+              auto-start it if needed, and delegate — all without manual intervention.
             </p>
           </div>
-          <CodeBlock lang="text">{`  majestic default  ❯ Research pain points in CRM software and write a blog post
+          <CodeBlock lang="text">{`  majestic ❯ Research pain points in CRM software and write a blog post
 
-  ┌ agent_client · delegating to pain_hunter
-  │   task: "Research CRM software pain points from G2 and Reddit"
-  │   → POST http://localhost:8001/task
-  │   → task_id: t_9a2b3c4d
-  ├ agent_client · polling pain_hunter...
-  ├ agent_client · done · result: "Top 5 pain points: ..."
-  ├ agent_client · delegating to writer
-  │   task: "Write a 800-word blog post about these CRM pain points: ..."
-  │   → POST http://localhost:8002/task
-  └ agent_client · done · saved to workspace/crm_blog.md`}</CodeBlock>
+  ┌ list_agents · 4 profiles found (1 running)
+  │   pain_hunter · Market Research Analyst · not running
+  │   writer      · Content Writer          · not running
+  ├ delegate_to_agent · starting pain_hunter...
+  │   → spawning background daemon on port 8001
+  │   → agent ready in 3.2s
+  │   → POST /task · "Research CRM pain points from G2 and Reddit"
+  ├ delegate_to_agent · starting writer...
+  │   → spawning background daemon on port 8002
+  │   → agent ready in 2.8s
+  │   → POST /task · "Write 800-word blog post about: ..."
+  └ ✓ Done · saved to workspace/crm_blog.md`}</CodeBlock>
 
-          <h2 className="section-title" id="ma-planner">Planner delegation</h2>
+          <h2 className="section-title" id="ma-registry">Agent registry</h2>
           <div className="prose">
             <p>
-              The <strong>Planner</strong> (Layer 4) classifies incoming tasks and decides whether to:
-            </p>
-            <ul>
-              <li>Run directly in the current agent's ReAct loop</li>
-              <li>Decompose into subtasks and delegate to specialists</li>
-              <li>Gate on HITL approval before proceeding</li>
-            </ul>
-            <p>
-              Add more background specialist agents by creating profiles with <code>majestic new</code>
-              and starting them with <code>majestic run</code>. The Planner will discover them
-              automatically via the registry.
+              Running agents are tracked in <code>data/registry.json</code>. Entries are written when
+              an agent starts (via <code>majestic run</code> or auto-start) and read by
+              <code> agent_client</code> to resolve ports.
             </p>
           </div>
+          <CodeBlock lang="json" filename="data/registry.json">{`{
+  "pain_hunter": {
+    "pid": 12345,
+    "port": 8001,
+    "agent_name": "Aria",
+    "status": "starting"
+  },
+  "writer": {
+    "pid": 12346,
+    "port": 8002,
+    "agent_name": "Writer",
+    "status": "starting"
+  }
+}`}</CodeBlock>
 
-          <h2 className="section-title" id="ma-start">Running multiple agents</h2>
-          <CodeBlock lang="bash">{`# Start all specialist agents
-majestic run pain_hunter   # port 8001
-majestic run writer        # port 8002
-majestic run world_intel   # port 8003
-
-# Check all are running
-majestic ps
-
-# Run the orchestrator in foreground
-majestic                   # default agent on port 8000`}</CodeBlock>
+          <h2 className="section-title" id="ma-manual">Manual control</h2>
+          <div className="prose">
+            <p>
+              You can still start, inspect, and stop agents manually:
+            </p>
+          </div>
+          <CodeBlock lang="bash">{`majestic run pain_hunter   # start on port from persona.yaml
+majestic ps                # list running agents
+majestic stop pain_hunter  # stop a background agent`}</CodeBlock>
 
           <NavButtons current="multi-agent" navigate={navigate} />
         </div>

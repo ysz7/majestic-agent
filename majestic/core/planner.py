@@ -29,14 +29,51 @@ class Planner:
         return "\n".join(lines)
 
     def get_available_agents(self) -> list[dict]:
-        """Return list of running background agents from registry."""
+        """Return all agent profiles with role info and running status.
+
+        Includes both running and stopped agents so the LLM can decide
+        whether to auto-start one via delegate_to_agent.
+        """
         import json
+        import yaml
         from pathlib import Path
+
+        root = Path(__file__).resolve().parent.parent.parent
+        profiles_dir = root / "profiles"
+
         try:
-            data = json.loads(Path(self.registry_path).read_text())
-            return [{"name": k, **v} for k, v in data.items()]
+            registry = json.loads(Path(self.registry_path).read_text())
         except Exception:
-            return []
+            registry = {}
+
+        result = []
+        if not profiles_dir.exists():
+            return result
+
+        for entry in sorted(profiles_dir.iterdir()):
+            if not entry.is_dir() or entry.name.startswith("."):
+                continue
+
+            persona: dict = {}
+            persona_file = entry / "persona.yaml"
+            if persona_file.exists():
+                try:
+                    persona = yaml.safe_load(
+                        persona_file.read_text(encoding="utf-8")
+                    ) or {}
+                except Exception:
+                    pass
+
+            running_info = registry.get(entry.name, {})
+            result.append({
+                "name": entry.name,
+                "agent_name": persona.get("name", entry.name),
+                "role": persona.get("role", "General assistant"),
+                "running": bool(running_info),
+                "port": running_info.get("port") or persona.get("port"),
+            })
+
+        return result
 
     async def decompose(self, task: str) -> list[str]:
         """Break a complex task into subtasks using LLM."""

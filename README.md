@@ -208,7 +208,16 @@ majestic run sales_agent   # port 8001
 majestic ps                # see both running
 ```
 
-Any agent can delegate to another via `agent_client`. Registry lives in `data/registry.json`.
+Any agent can delegate to another via `agent_client`. If the target agent is not running, it is **started automatically** — no manual `majestic run` required. Registry lives in `data/registry.json`.
+
+The default agent has two built-in tools for orchestration:
+
+| Tool | Description |
+|------|-------------|
+| `list_agents` | List all profiles with roles and running status |
+| `delegate_to_agent` | Delegate a task — auto-starts the agent if needed |
+
+Example: ask the default agent *"do market research on X"* — it calls `list_agents`, picks the right profile, starts it, and delegates the task automatically.
 
 **Background agent HTTP API:**
 

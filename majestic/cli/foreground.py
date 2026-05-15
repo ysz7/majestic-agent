@@ -200,6 +200,11 @@ def _register_tools(runtime, settings):
     async def web_search_tool(query: str, max_results: int = 5):
         return await web_search_fn(query, max_results, brave_api_key=brave_key)
 
+    async def delegate_to_agent(agent_name: str, task: str):
+        """Auto-start the agent if needed, then delegate the task."""
+        await agent_client.ensure_running(agent_name)
+        return await agent_client.delegate(agent_name, task)
+
     runtime.tools = {
         "web_search": web_search_tool,
         "web_fetch": web_fetch_fn,
@@ -210,7 +215,8 @@ def _register_tools(runtime, settings):
         "file_list": files.list,
         "python_exec": py_exec.run,
         "node_exec": node_exec.run,
-        "delegate_to_agent": agent_client.delegate,
+        "list_agents": agent_client.list_profiles_with_roles,
+        "delegate_to_agent": delegate_to_agent,
     }
 
     return runtime

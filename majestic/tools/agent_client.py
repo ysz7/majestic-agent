@@ -3,15 +3,19 @@ majestic.tools.agent_client
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 HTTP client for delegating tasks to other running Majestic agents.
 
-Agents register themselves in ``data/registry.json`` when they start
-(via ``majestic run <name>``).  AgentClient reads that file to discover
-live agents and communicates with them over HTTP.
+Agents register themselves in ``data/registry.json`` when they start.
+AgentClient reads that file to discover live agents and communicates with
+them over HTTP.  Use ``ensure_running()`` to auto-start an agent before
+delegating — the agent will be spawned as a background daemon if it is
+not already running.
 """
 
 from __future__ import annotations
 
 import json
-import os
+import sys
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +25,6 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 def _project_root() -> Path:
-    """Return the repository / project root (three levels above this file)."""
     return Path(__file__).resolve().parent.parent.parent
 
 
@@ -34,13 +37,10 @@ def _default_registry_path() -> str:
 # ---------------------------------------------------------------------------
 
 class AgentClient:
-    """Delegate tasks to named running Majestic agents via HTTP.
+    """Delegate tasks to named Majestic agents via HTTP.
 
-    Args:
-        registry_path: Path to the JSON registry file written by
-                       ``majestic run``.  Defaults to ``data/registry.json``
-                       relative to the project root.
-        timeout:       HTTP request timeout in seconds.
+    Supports auto-starting agents that are not yet running via
+    ``ensure_running()``.
     """
 
     def __init__(
@@ -56,12 +56,6 @@ class AgentClient:
     # ------------------------------------------------------------------
 
     def get_registry(self) -> dict[str, Any]:
-        """Load and return the running agents registry.
-
-        Returns:
-            Dict mapping agent name to its registry entry (port, pid, …).
-            Returns an empty dict if the file does not exist or is invalid.
-        """
         path = Path(self.registry_path)
         if not path.exists():
             return {}
@@ -70,17 +64,12 @@ class AgentClient:
         except (json.JSONDecodeError, OSError):
             return {}
 
+    def _save_registry(self, data: dict) -> None:
+        path = Path(self.registry_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
     def list_available(self) -> list[dict[str, Any]]:
-        """Return a list of running agents with their registry information.
-
-        Each entry in the returned list is a dict with at least:
-            name  (str)  — agent profile name.
-            port  (int)  — HTTP port the agent listens on.
-            pid   (int)  — OS process ID.
-
-        Returns:
-            List of agent info dicts (may be empty).
-        """
         registry = self.get_registry()
         result: list[dict[str, Any]] = []
         for name, info in registry.items():
@@ -89,49 +78,176 @@ class AgentClient:
             result.append(entry)
         return result
 
-    def _base_url(self, agent_name: str) -> str:
-        """Resolve the base URL for *agent_name* from the registry.
+    def list_profiles_with_roles(self) -> list[dict[str, Any]]:
+        """Return ALL agent profiles with role info and running status.
 
-        Args:
-            agent_name: Profile name of the target agent.
+        Scans ``profiles/`` and enriches each entry with data from
+        ``persona.yaml``.  Useful for the LLM to decide which agent to
+        delegate a task to.
 
         Returns:
-            Base URL string, e.g. ``"http://localhost:8001"``.
-
-        Raises:
-            KeyError: If the agent is not found in the registry.
+            List of dicts with keys: profile, name, role, running, port.
         """
+        import yaml
+
+        profiles_dir = _project_root() / "profiles"
+        registry = self.get_registry()
+        result: list[dict[str, Any]] = []
+
+        if not profiles_dir.exists():
+            return result
+
+        for entry in sorted(profiles_dir.iterdir()):
+            if not entry.is_dir() or entry.name.startswith("."):
+                continue
+
+            persona: dict[str, Any] = {}
+            persona_file = entry / "persona.yaml"
+            if persona_file.exists():
+                try:
+                    persona = yaml.safe_load(
+                        persona_file.read_text(encoding="utf-8")
+                    ) or {}
+                except Exception:
+                    pass
+
+            running_info = registry.get(entry.name, {})
+            result.append({
+                "profile": entry.name,
+                "name": persona.get("name", entry.name),
+                "role": persona.get("role", "General assistant"),
+                "running": bool(running_info),
+                "port": running_info.get("port") or persona.get("port"),
+            })
+
+        return result
+
+    def _base_url(self, agent_name: str) -> str:
         registry = self.get_registry()
         if agent_name not in registry:
-            available = list(registry.keys())
             raise KeyError(
                 f"Agent '{agent_name}' not found in registry. "
-                f"Available: {available}"
+                f"Available: {list(registry.keys())}"
             )
         port = registry[agent_name]["port"]
         return f"http://localhost:{port}"
+
+    # ------------------------------------------------------------------
+    # Auto-start
+    # ------------------------------------------------------------------
+
+    async def ensure_running(self, profile_name: str, timeout: float = 20.0) -> None:
+        """Ensure *profile_name* is running, spawning it as a daemon if not.
+
+        Steps:
+        1. Check registry — if present, probe the port with GET /status.
+        2. If healthy → return immediately.
+        3. Otherwise spawn ``majestic.__background__ <profile_name>`` and
+           poll until the HTTP server is ready.
+
+        Args:
+            profile_name: Profile directory name under ``profiles/``.
+            timeout:      Seconds to wait for the agent to become ready.
+
+        Raises:
+            ValueError:   Profile does not exist.
+            TimeoutError: Agent did not become ready within *timeout* seconds.
+        """
+        import asyncio
+        import httpx
+        from majestic.config.settings import Settings
+
+        root = _project_root()
+
+        # ── 1. Check if already healthy ──────────────────────────────────
+        registry = self.get_registry()
+        if profile_name in registry:
+            port = registry[profile_name].get("port", 8000)
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as client:
+                    r = await client.get(f"http://localhost:{port}/status")
+                    if r.status_code == 200:
+                        return
+            except Exception:
+                pass  # stale entry — fall through to respawn
+
+        # ── 2. Validate profile ───────────────────────────────────────────
+        if not Settings.profile_exists(profile_name):
+            raise ValueError(
+                f"Profile '{profile_name}' does not exist. "
+                f"Create it with: majestic new {profile_name}"
+            )
+
+        settings = Settings(profile_name)
+        port = settings.agent_port
+
+        # ── 3. Spawn daemon ───────────────────────────────────────────────
+        cmd = [sys.executable, "-m", "majestic.__background__", profile_name]
+
+        log_dir = root / "data" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / f"{profile_name}.log"
+
+        with open(log_file, "a", encoding="utf-8") as log_fh:
+            if sys.platform == "win32":
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=log_fh, stderr=log_fh, stdin=subprocess.DEVNULL,
+                    creationflags=0x00000200 | 0x08000000,  # NEW_PROCESS_GROUP | NO_WINDOW
+                    cwd=str(root),
+                )
+            else:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=log_fh, stderr=log_fh, stdin=subprocess.DEVNULL,
+                    start_new_session=True,
+                    cwd=str(root),
+                )
+
+        # Write initial registry entry so other tools see it immediately
+        registry = self.get_registry()
+        registry[profile_name] = {
+            "pid": proc.pid,
+            "profile": profile_name,
+            "agent_name": settings.agent_name,
+            "port": port,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "log": str(log_file),
+            "status": "starting",
+        }
+        self._save_registry(registry)
+
+        # ── 4. Poll until ready ───────────────────────────────────────────
+        loop = asyncio.get_event_loop()
+        deadline = loop.time() + timeout
+
+        while loop.time() < deadline:
+            await asyncio.sleep(1.0)
+            try:
+                async with httpx.AsyncClient(timeout=2.0) as client:
+                    r = await client.get(f"http://localhost:{port}/status")
+                    if r.status_code == 200:
+                        return
+            except Exception:
+                pass
+
+        raise TimeoutError(
+            f"Agent '{profile_name}' did not become ready within {timeout:.0f}s. "
+            f"Check logs: {log_file}"
+        )
 
     # ------------------------------------------------------------------
     # HTTP actions
     # ------------------------------------------------------------------
 
     async def delegate(self, agent_name: str, task: str) -> dict[str, Any]:
-        """Send a task to a named running agent via ``POST /task``.
+        """Send a task to a named agent via ``POST /task``.
 
-        Args:
-            agent_name: Profile name of the target agent.
-            task:       Natural-language task description.
-
-        Returns:
-            dict with keys:
-                status  (str)  — ``"accepted"`` on success.
-                task_id (str)  — Unique identifier for the submitted task.
-
-        Raises:
-            KeyError:  If the agent is not in the registry.
-            Exception: On HTTP errors or connection failures.
+        The agent must already be running.  Use the ``delegate_to_agent``
+        tool (registered in foreground.py) which calls ``ensure_running``
+        automatically.
         """
-        import httpx  # deferred import — optional at module level
+        import httpx
 
         base_url = self._base_url(agent_name)
         payload = {"text": task}
@@ -148,20 +264,7 @@ class AgentClient:
         }
 
     async def check_status(self, agent_name: str) -> dict[str, Any]:
-        """Perform a health check on a named agent via ``GET /status``.
-
-        Args:
-            agent_name: Profile name of the target agent.
-
-        Returns:
-            dict with keys returned by the agent's ``/status`` endpoint,
-            typically: ``status``, ``agent``, ``port``.
-
-        Raises:
-            KeyError:  If the agent is not in the registry.
-            Exception: On HTTP errors or connection failures.
-        """
-        import httpx  # deferred import
+        import httpx
 
         base_url = self._base_url(agent_name)
 
@@ -171,30 +274,43 @@ class AgentClient:
             return response.json()
 
     # ------------------------------------------------------------------
-    # LLM tool schema
+    # LLM tool schemas
     # ------------------------------------------------------------------
 
     def tool_schema(self) -> dict[str, Any]:
-        """Return a JSON schema descriptor for use in LLM tool calls.
-
-        Returns:
-            OpenAI-compatible tool schema dict.
-        """
         return {
-            "name": "agent_client",
-            "description": "Delegate a task to another running Majestic agent",
+            "name": "delegate_to_agent",
+            "description": (
+                "Delegate a task to a specialized agent. "
+                "The agent will be auto-started if not already running. "
+                "Use list_agents first to discover available agents and their roles."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "agent_name": {
                         "type": "string",
-                        "description": "Name of the target agent (must be running)",
+                        "description": "Profile name of the target agent (e.g. 'pain_hunter')",
                     },
                     "task": {
                         "type": "string",
-                        "description": "Task description to send to the agent",
+                        "description": "Natural-language task description to send to the agent",
                     },
                 },
                 "required": ["agent_name", "task"],
+            },
+        }
+
+    def list_agents_schema(self) -> dict[str, Any]:
+        return {
+            "name": "list_agents",
+            "description": (
+                "List all available agent profiles with their roles and running status. "
+                "Use this to find the right specialized agent for a task before delegating."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
             },
         }
