@@ -51,17 +51,25 @@ _ATTACHMENT_EXTENSIONS = {
 _PROMPT = "> "
 
 _SYSTEM_COMPLETIONS = ["/help", "/skills", "/agents", "/memory", "/budget", "/new", "/quit"]
-_SLASH_COMPLETIONS: list[str] = list(_SYSTEM_COMPLETIONS)
 
 if _PROMPT_TOOLKIT:
     class _SlashCompleter(_Completer):
+        """Completer that holds a reference to a mutable list so updates are instant."""
+
+        def __init__(self, completions: list[str]) -> None:
+            self._completions = completions  # shared mutable reference
+
         def get_completions(self, document, complete_event):
             text = document.text_before_cursor
             if not text.startswith("/"):
                 return
-            for cmd in _SLASH_COMPLETIONS:
+            for cmd in self._completions:
                 if cmd.startswith(text):
-                    yield _Completion(cmd[len(text):], start_position=0)
+                    yield _Completion(
+                        cmd,
+                        start_position=-len(text),
+                        display=cmd,
+                    )
 
     _COMPLETION_STYLE = _Style.from_dict({
         "completion-menu":                    "bg:default",
@@ -128,13 +136,14 @@ class CLIChannel(BaseChannel):
         self.session_id = session_id
         self._pending_attachments: list[str] = []
         self._pt_session = None  # created lazily on first receive()
+        # Mutable list shared with the completer — modify IN-PLACE to update live
+        self._completions: list[str] = list(_SYSTEM_COMPLETIONS)
 
     def set_skill_completions(self, skill_names: list[str]) -> None:
         """Register profile skill names as /skill-name completions."""
-        global _SLASH_COMPLETIONS
-        _SLASH_COMPLETIONS = list(_SYSTEM_COMPLETIONS) + [f"/{n}" for n in skill_names if n]
-        if self._pt_session is not None:
-            self._pt_session.completer = _SlashCompleter()
+        self._completions.clear()
+        self._completions.extend(_SYSTEM_COMPLETIONS)
+        self._completions.extend(f"/{n}" for n in skill_names if n)
 
     # ------------------------------------------------------------------
     # BaseChannel interface
@@ -145,7 +154,7 @@ class CLIChannel(BaseChannel):
         if self._pt_session is None and _PROMPT_TOOLKIT:
             try:
                 self._pt_session = _PromptSession(
-                    completer=_SlashCompleter(),
+                    completer=_SlashCompleter(self._completions),
                     complete_while_typing=True,
                     style=_COMPLETION_STYLE,
                 )

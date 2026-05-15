@@ -135,7 +135,8 @@ def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime, s
                 out("[bold]Loaded skills:[/bold]")
                 for sk in skills:
                     name = sk.get("name", "?")
-                    desc = sk.get("description", "")[:60]
+                    raw  = sk.get("description", "")
+                    desc = (raw[:57] + "…") if len(raw) > 60 else raw
                     out(f"  [cyan]/{name:<18}[/cyan] [dim]{desc}[/dim]")
         except Exception as e:
             out(f"[red]Error: {e}[/red]")
@@ -222,6 +223,7 @@ def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime, s
 
 def _build_runtime(settings, working_memory, llm_router) -> "AgentRuntime":
     """Instantiate AgentRuntime with the full self-evolution stack wired up."""
+    from majestic.core.runtime import AgentRuntime
     from majestic.memory.lessons import LessonsStore
     from majestic.memory.episodic import EpisodicMemory
     from majestic.memory.checkpoints import CheckpointStore

@@ -267,8 +267,10 @@ def print_startup(profile: str = "default", mode: str = "foreground") -> None:
 
     if skills:
         for sk in skills[:4]:
-            n    = (sk.get("name", "?"))[:16]
-            desc = (sk.get("description", ""))[:RW - 19]
+            n       = (sk.get("name", "?"))[:16]
+            raw     = sk.get("description", "")
+            max_d   = RW - 19
+            desc    = (raw[:max_d - 1] + "…") if len(raw) > max_d else raw
             right.append(f"{DIM}/{n:<16}{R} {desc}")
         if skill_cnt > 4:
             right.append(f"{DIM}+ {skill_cnt - 4} more{R}")
