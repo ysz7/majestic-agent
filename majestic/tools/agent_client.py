@@ -12,6 +12,7 @@ not already running.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 import subprocess
@@ -30,6 +31,44 @@ def _project_root() -> Path:
 
 def _default_registry_path() -> str:
     return str(_project_root() / "data" / "registry.json")
+
+
+@contextlib.contextmanager
+def _registry_lock(registry_path: Path):
+    """Cross-platform exclusive lock around registry read/write."""
+    lock_path = registry_path.with_suffix(".lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock_path, "w") as lf:
+        if sys.platform == "win32":
+            import msvcrt
+            while True:
+                try:
+                    msvcrt.locking(lf.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    import time
+                    time.sleep(0.05)
+            try:
+                yield
+            finally:
+                try:
+                    msvcrt.locking(lf.fileno(), msvcrt.LK_UNLCK, 1)
+                except OSError:
+                    pass
+        else:
+            import fcntl
+            fcntl.flock(lf, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lf, fcntl.LOCK_UN)
+
+
+def _get_agent_token() -> str:
+    token_path = _project_root() / "data" / "agent_token"
+    if token_path.exists():
+        return token_path.read_text(encoding="utf-8").strip()
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -205,17 +244,18 @@ class AgentClient:
                 )
 
         # Write initial registry entry so other tools see it immediately
-        registry = self.get_registry()
-        registry[profile_name] = {
-            "pid": proc.pid,
-            "profile": profile_name,
-            "agent_name": settings.agent_name,
-            "port": port,
-            "started_at": datetime.now(timezone.utc).isoformat(),
-            "log": str(log_file),
-            "status": "starting",
-        }
-        self._save_registry(registry)
+        with _registry_lock(Path(self.registry_path)):
+            registry = self.get_registry()
+            registry[profile_name] = {
+                "pid": proc.pid,
+                "profile": profile_name,
+                "agent_name": settings.agent_name,
+                "port": port,
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "log": str(log_file),
+                "status": "starting",
+            }
+            self._save_registry(registry)
 
         # ── 4. Poll until ready ───────────────────────────────────────────
         loop = asyncio.get_event_loop()
@@ -252,8 +292,9 @@ class AgentClient:
         base_url = self._base_url(agent_name)
         payload = {"text": task}
 
+        headers = {"X-Agent-Token": _get_agent_token()}
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(f"{base_url}/task", json=payload)
+            response = await client.post(f"{base_url}/task", json=payload, headers=headers)
             response.raise_for_status()
             data = response.json()
 

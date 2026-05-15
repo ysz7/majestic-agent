@@ -12,6 +12,12 @@ _BLOCKED_PATTERNS = [
     re.compile(r"\bexec\s*\(\s*(?:input|request|user|data)\b"),
     re.compile(r"__import__\s*\(\s*['\"]os['\"]"),
     re.compile(r"\bpty\b|\bpexpect\b"),
+    re.compile(r"\bimport\s+pickle\b|__import__\s*\(\s*['\"]pickle['\"]"),
+    re.compile(r"\bcompile\s*\("),
+    re.compile(r"\bimport\s+ctypes\b|__import__\s*\(\s*['\"]ctypes['\"]"),
+    re.compile(r"\bimportlib\.import_module\s*\("),
+    re.compile(r"\bimport\s+getpass\b|__import__\s*\(\s*['\"]getpass['\"]"),
+    re.compile(r"\binput\s*\("),
 ]
 
 

@@ -11,10 +11,29 @@ Exposes three endpoints:
 
 from __future__ import annotations
 
+import secrets
 import uuid
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 import uvicorn
+
+
+def _token_path() -> Path:
+    return Path(__file__).resolve().parent.parent.parent / "data" / "agent_token"
+
+
+def _load_or_create_token() -> str:
+    path = _token_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        return path.read_text(encoding="utf-8").strip()
+    token = secrets.token_hex(32)
+    path.write_text(token, encoding="utf-8")
+    return token
+
+
+_AGENT_TOKEN = _load_or_create_token()
 
 
 def create_app(channel, settings) -> FastAPI:
@@ -29,7 +48,11 @@ def create_app(channel, settings) -> FastAPI:
     """
     app = FastAPI(title="Majestic Agent Server")
 
-    @app.post("/task")
+    async def _check_token(x_agent_token: str | None = Header(default=None)) -> None:
+        if x_agent_token != _AGENT_TOKEN:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+    @app.post("/task", dependencies=[__import__("fastapi").Depends(_check_token)])
     async def receive_task(body: dict) -> dict:
         """Enqueue a task into the channel and return an acceptance receipt.
 
@@ -63,7 +86,7 @@ def create_app(channel, settings) -> FastAPI:
             "port": settings.agent_port,
         }
 
-    @app.post("/message")
+    @app.post("/message", dependencies=[__import__("fastapi").Depends(_check_token)])
     async def message(body: dict) -> dict:
         """Receive an inbound message (future: Telegram / webhook).
 

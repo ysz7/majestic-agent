@@ -175,6 +175,10 @@ Rules:
 
         dest = self.skills_dir / f"{name}.yaml"
 
+        # Guard against path traversal (name is already [a-z0-9_] but be explicit)
+        if not str(dest.resolve()).startswith(str(self.skills_dir.resolve())):
+            return None
+
         # Don't overwrite manually-created skills (those without auto_generated flag)
         if dest.exists():
             with open(dest) as f:
