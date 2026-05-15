@@ -70,7 +70,8 @@ def create_app(channel, settings) -> FastAPI:
             "attachments": body.get("attachments", []),
             "session_id": body.get("session_id", settings.profile_name),
         }
-        await channel.enqueue(task)
+        if not channel.try_enqueue(task):
+            raise HTTPException(status_code=429, detail="Task queue full — try again later")
         return {"status": "accepted", "task_id": task_id}
 
     @app.get("/status")
@@ -102,7 +103,8 @@ def create_app(channel, settings) -> FastAPI:
             "attachments": body.get("attachments", []),
             "session_id": body.get("session_id", settings.profile_name),
         }
-        await channel.enqueue(task)
+        if not channel.try_enqueue(task):
+            raise HTTPException(status_code=429, detail="Task queue full — try again later")
         return {"status": "accepted", "task_id": task_id}
 
     return app

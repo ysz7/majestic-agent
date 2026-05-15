@@ -26,13 +26,17 @@ from datetime import datetime, timezone, timedelta
 from typing import Any
 
 
+_SCHEMA_VERSION = 2
+_COMMIT_BATCH = 5
+
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS checkpoints (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id    TEXT    NOT NULL,
-    step_num   INTEGER NOT NULL,
-    step_data  TEXT    NOT NULL DEFAULT '{}',
-    created_at TEXT    NOT NULL,
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id        TEXT    NOT NULL,
+    step_num       INTEGER NOT NULL,
+    step_data      TEXT    NOT NULL DEFAULT '{}',
+    created_at     TEXT    NOT NULL,
+    schema_version INTEGER NOT NULL DEFAULT 2,
     UNIQUE (task_id, step_num)
 );
 """
@@ -59,11 +63,13 @@ class CheckpointStore:
         """
         self._db_path = db_path
         self._lock = threading.Lock()
+        self._pending = 0
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL;")
         self._conn.execute("PRAGMA foreign_keys=ON;")
         self._init_schema()
+        self._migrate_schema()
 
     # ------------------------------------------------------------------
     # Schema
@@ -73,6 +79,15 @@ class CheckpointStore:
         with self._conn:
             self._conn.execute(_CREATE_TABLE)
             self._conn.execute(_CREATE_INDEX)
+
+    def _migrate_schema(self) -> None:
+        """Add schema_version column if upgrading from v1."""
+        cols = {row[1] for row in self._conn.execute("PRAGMA table_info(checkpoints)")}
+        if "schema_version" not in cols:
+            self._conn.execute(
+                "ALTER TABLE checkpoints ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1"
+            )
+            self._conn.commit()
 
     # ------------------------------------------------------------------
     # Write
@@ -97,15 +112,25 @@ class CheckpointStore:
         with self._lock:
             self._conn.execute(
                 """
-                INSERT INTO checkpoints (task_id, step_num, step_data, created_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO checkpoints (task_id, step_num, step_data, created_at, schema_version)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(task_id, step_num)
                 DO UPDATE SET step_data=excluded.step_data,
                               created_at=excluded.created_at
                 """,
-                (task_id, step_num, payload, now),
+                (task_id, step_num, payload, now, _SCHEMA_VERSION),
             )
-            self._conn.commit()
+            self._pending += 1
+            if self._pending >= _COMMIT_BATCH:
+                self._conn.commit()
+                self._pending = 0
+
+    def flush(self) -> None:
+        """Force-commit any buffered writes. Call before shutdown or crash recovery."""
+        with self._lock:
+            if self._pending > 0:
+                self._conn.commit()
+                self._pending = 0
 
     # ------------------------------------------------------------------
     # Read

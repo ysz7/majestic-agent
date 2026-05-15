@@ -79,8 +79,10 @@ Do not add commentary, only YAML."""
         updated["name"] = existing.get("name", skill_name)
         updated["updated_at"] = datetime.utcnow().isoformat()
 
-        with open(skill_path, "w") as f:
+        tmp = skill_path.with_suffix(".tmp")
+        with open(tmp, "w") as f:
             yaml.dump(updated, f, default_flow_style=False, allow_unicode=True)
+        tmp.replace(skill_path)
 
         return True
 
@@ -187,7 +189,9 @@ Rules:
                 name = f"{name}_v2"
                 dest = self.skills_dir / f"{name}.yaml"
 
-        with open(dest, "w") as f:
+        tmp = dest.with_suffix(".tmp")
+        with open(tmp, "w") as f:
             yaml.dump(skill, f, default_flow_style=False, allow_unicode=True)
+        tmp.replace(dest)
 
         return name

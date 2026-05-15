@@ -7,6 +7,8 @@ class LessonsStore:
     def __init__(self, db_path: str):
         self.db_path = db_path
         self._lock = threading.Lock()
+        self._conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._conn.execute("PRAGMA journal_mode=WAL;")
         self._init_db()
 
     def _init_db(self):
@@ -26,7 +28,7 @@ class LessonsStore:
             """)
 
     def _get_conn(self):
-        return sqlite3.connect(self.db_path)
+        return self._conn
 
     def save(self, task_type: str, lesson: str):
         with self._lock:

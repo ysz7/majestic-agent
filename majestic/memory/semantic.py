@@ -8,6 +8,8 @@ class SemanticMemory:
         self.db_path = db_path
         self._lock = threading.Lock()
         self._use_vec = False
+        self._conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._conn.execute("PRAGMA journal_mode=WAL;")
         self._init_db()
 
     def _init_db(self):
@@ -37,7 +39,7 @@ class SemanticMemory:
             """)
 
     def _get_conn(self):
-        return sqlite3.connect(self.db_path)
+        return self._conn
 
     def index(self, source: str, content: str, chunk_size: int = 500):
         """Split content into chunks and index them."""

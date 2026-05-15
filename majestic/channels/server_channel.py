@@ -31,7 +31,7 @@ class ServerChannel(BaseChannel):
 
     def __init__(self, session_id: str) -> None:
         self.session_id = session_id
-        self._queue: asyncio.Queue[dict] = asyncio.Queue()
+        self._queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=100)
         self._last_response: str = ""
         self._stream_buffer: str = ""
 
@@ -61,6 +61,17 @@ class ServerChannel(BaseChannel):
         task.setdefault("text", "")
         task.setdefault("attachments", [])
         await self._queue.put(task)
+
+    def try_enqueue(self, task: dict) -> bool:
+        """Non-blocking enqueue. Returns False if queue is full."""
+        task.setdefault("session_id", self.session_id)
+        task.setdefault("text", "")
+        task.setdefault("attachments", [])
+        try:
+            self._queue.put_nowait(task)
+            return True
+        except asyncio.QueueFull:
+            return False
 
     # ------------------------------------------------------------------
     # BaseChannel interface

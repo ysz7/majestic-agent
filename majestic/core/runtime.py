@@ -116,6 +116,9 @@ class AgentRuntime:
                 while iteration < self.MAX_ITERATIONS:
                     iteration += 1
 
+                    # Pre-check budget before spending tokens on this step
+                    self._check_budget()
+
                     # REASON
                     with display.Spinner("Thinking..."):
                         response = await self._reason(messages, steps)
@@ -223,9 +226,8 @@ class AgentRuntime:
                 task_id=task_id,
                 step_num=step_num,
                 step_data={
-                    # Save last 10 messages to avoid huge payloads
-                    "messages": messages[-10:],
-                    "steps": steps[-5:],
+                    "messages": messages,
+                    "steps": steps,
                 },
             )
         except Exception as exc:
@@ -323,8 +325,14 @@ class AgentRuntime:
     # ------------------------------------------------------------------
 
     def _track_usage(self, response: dict):
-        self._tokens_used += response.get("input_tokens", 0) + response.get("output_tokens", 0)
-        self._cost_used += response.get("cost", 0.0)
+        input_tokens = response.get("input_tokens", 0)
+        output_tokens = response.get("output_tokens", 0)
+        self._tokens_used += input_tokens + output_tokens
+        cost = response.get("cost") or 0.0
+        if not cost and (input_tokens or output_tokens):
+            from majestic.llm.base import BaseLLM
+            cost = BaseLLM._estimate_cost(input_tokens, output_tokens)
+        self._cost_used += cost
 
     def _check_budget(self):
         limits = self.settings.limits

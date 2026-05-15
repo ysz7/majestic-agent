@@ -1,5 +1,8 @@
+import logging
 import yaml
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 class ProceduralMemory:
@@ -15,7 +18,7 @@ class ProceduralMemory:
         """Scan skills_dir and load/reload any changed YAML files."""
         if not self.skills_dir.exists():
             return
-        for path in self.skills_dir.glob("*.yaml"):
+        for path in sorted(self.skills_dir.glob("*.yaml")):
             mtime = path.stat().st_mtime
             if str(path) not in self._last_modified or self._last_modified[str(path)] < mtime:
                 try:
@@ -26,6 +29,23 @@ class ProceduralMemory:
                     self._last_modified[str(path)] = mtime
                 except Exception:
                     pass
+
+        # Deduplicate triggers across all loaded skills (sorted order = deterministic winner)
+        claimed: dict[str, str] = {}
+        for name in sorted(self._skills):
+            skill = self._skills[name]
+            deduped = []
+            for trigger in skill.get("triggers", []):
+                key = trigger.lower()
+                if key in claimed:
+                    logger.warning(
+                        "Skill '%s' trigger '%s' already claimed by '%s' — skipped",
+                        name, trigger, claimed[key],
+                    )
+                else:
+                    claimed[key] = name
+                    deduped.append(trigger)
+            skill["triggers"] = deduped
 
     def get_all(self) -> list[dict]:
         self.reload()

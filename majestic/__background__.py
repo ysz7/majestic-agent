@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import signal
 import sys
 
 logging.basicConfig(
@@ -62,10 +63,37 @@ async def main(profile_name: str) -> None:
     channel = ServerChannel(session_id=profile_name)
     app = create_app(channel, settings)
 
-    await asyncio.gather(
-        start_server(app, settings.agent_port),
-        run_agent_loop(settings, channel),
-    )
+    loop = asyncio.get_running_loop()
+    shutdown = asyncio.Event()
+
+    def _request_shutdown():
+        shutdown.set()
+
+    try:
+        loop.add_signal_handler(signal.SIGTERM, _request_shutdown)
+        loop.add_signal_handler(signal.SIGINT, _request_shutdown)
+    except NotImplementedError:
+        # Windows — synchronous signal handler
+        def _sync_handler(signum, frame):
+            loop.call_soon_threadsafe(_request_shutdown)
+        signal.signal(signal.SIGTERM, _sync_handler)
+        signal.signal(signal.SIGINT, _sync_handler)
+
+    server_task = asyncio.create_task(start_server(app, settings.agent_port))
+    agent_task = asyncio.create_task(run_agent_loop(settings, channel))
+
+    await shutdown.wait()
+
+    logger.warning("Shutdown signal received — draining (up to 30 s)...")
+    server_task.cancel()
+    agent_task.cancel()
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(server_task, agent_task, return_exceptions=True),
+            timeout=30.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Drain timeout — forcing exit.")
 
 
 if __name__ == "__main__":

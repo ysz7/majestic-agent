@@ -28,6 +28,7 @@ Usage::
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -147,7 +148,7 @@ class LLMRouter:
         model: str = self._settings.get_model(step_type)
         last_error: LLMError | None = None
 
-        for provider in self._providers:
+        for attempt, provider in enumerate(self._providers):
             try:
                 logger.debug(
                     "LLMRouter trying | provider=%s model=%s step_type=%s",
@@ -167,6 +168,14 @@ class LLMRouter:
                     result["cost"],
                 )
                 return result
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "LLMRouter timeout | provider=%s — moving to next",
+                    provider.provider_name,
+                )
+                last_error = LLMError("Request timed out", provider=provider.provider_name)
+                # No backoff on timeout — move to next provider immediately
+                continue
             except LLMError as exc:
                 logger.warning(
                     "LLMRouter provider failed | provider=%s error=%s",
@@ -174,6 +183,10 @@ class LLMRouter:
                     exc,
                 )
                 last_error = exc
+                # Exponential backoff before trying next provider
+                if attempt + 1 < len(self._providers):
+                    delay = min(2 ** attempt, 8)
+                    await asyncio.sleep(delay)
                 continue
 
         # All providers exhausted.
