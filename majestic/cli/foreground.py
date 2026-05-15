@@ -201,9 +201,20 @@ def _register_tools(runtime, settings):
         return await web_search_fn(query, max_results, brave_api_key=brave_key)
 
     async def delegate_to_agent(agent_name: str, task: str):
-        """Auto-start the agent if needed, then delegate the task."""
+        """Auto-start the agent if needed, then delegate the task.
+
+        NOTE: delegation is fire-and-forget. The sub-agent queues the task
+        asynchronously — you will NOT receive its output here. Use this tool
+        to hand off long-running background work, then give your own FINAL_ANSWER
+        based on what you already know. Do not delegate the same task multiple times.
+        """
         await agent_client.ensure_running(agent_name)
-        return await agent_client.delegate(agent_name, task)
+        resp = await agent_client.delegate(agent_name, task)
+        return (
+            f"Task accepted by agent '{agent_name}' (task_id={resp.get('task_id', '?')}). "
+            "The sub-agent will process it in the background — results are NOT returned here. "
+            "Do not delegate again; synthesize your answer now."
+        )
 
     runtime.tools = {
         "web_search": web_search_tool,

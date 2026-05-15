@@ -29,6 +29,7 @@ class HitlDenied(Exception):
 class AgentRuntime:
     MAX_ITERATIONS = 30
     TIMEOUT_SECONDS = 300
+    MAX_DELEGATIONS = 4  # cap fire-and-forget delegate_to_agent calls per task
 
     def __init__(
         self,
@@ -51,6 +52,7 @@ class AgentRuntime:
         self._hitl_enabled = hitl_enabled
         self._tokens_used = 0
         self._cost_used = 0.0
+        self._delegation_count = 0
 
     async def run(
         self,
@@ -163,6 +165,23 @@ class AgentRuntime:
                                     })
                                     await self._save_checkpoint(task_id, iteration, messages, steps)
                                     continue
+
+                        # Delegation cap — prevent fire-and-forget loop
+                        if tool_name == "delegate_to_agent":
+                            self._delegation_count += 1
+                            if self._delegation_count > self.MAX_DELEGATIONS:
+                                messages.append({"role": "assistant", "content": content})
+                                messages.append({
+                                    "role": "user",
+                                    "content": (
+                                        "[SYSTEM] Delegation limit reached. "
+                                        "Sub-agents process tasks asynchronously — you will not receive their results here. "
+                                        "Synthesize what you know and give a FINAL_ANSWER now."
+                                    ),
+                                })
+                                steps.append({"tool": tool_name, "args": tool_args, "result": "BLOCKED: delegation cap"})
+                                await self._save_checkpoint(task_id, iteration, messages, steps)
+                                continue
 
                         # Execute tool
                         display.info(f"Using {tool_name}...")
