@@ -23,5 +23,5 @@ restrictions:
   - "do research only when topic has no data provided"
 
 limits:
-  max_tokens_per_task: 80000
-  max_cost_per_task: 0.50
+  max_tokens_per_task: 0.0
+  max_cost_per_task: 0.0

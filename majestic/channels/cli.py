@@ -50,7 +50,8 @@ _ATTACHMENT_EXTENSIONS = {
 
 _PROMPT = "> "
 
-_SLASH_COMPLETIONS = ["/help", "/skills", "/agents", "/memory", "/budget", "/new", "/quit"]
+_SYSTEM_COMPLETIONS = ["/help", "/skills", "/agents", "/memory", "/budget", "/new", "/quit"]
+_SLASH_COMPLETIONS: list[str] = list(_SYSTEM_COMPLETIONS)
 
 if _PROMPT_TOOLKIT:
     class _SlashCompleter(_Completer):
@@ -60,7 +61,7 @@ if _PROMPT_TOOLKIT:
                 return
             for cmd in _SLASH_COMPLETIONS:
                 if cmd.startswith(text):
-                    yield _Completion(cmd, start_position=-len(text))
+                    yield _Completion(cmd[len(text):], start_position=0)
 
     _COMPLETION_STYLE = _Style.from_dict({
         "completion-menu":                    "bg:default",
@@ -127,6 +128,13 @@ class CLIChannel(BaseChannel):
         self.session_id = session_id
         self._pending_attachments: list[str] = []
         self._pt_session = None  # created lazily on first receive()
+
+    def set_skill_completions(self, skill_names: list[str]) -> None:
+        """Register profile skill names as /skill-name completions."""
+        global _SLASH_COMPLETIONS
+        _SLASH_COMPLETIONS = list(_SYSTEM_COMPLETIONS) + [f"/{n}" for n in skill_names if n]
+        if self._pt_session is not None:
+            self._pt_session.completer = _SlashCompleter()
 
     # ------------------------------------------------------------------
     # BaseChannel interface

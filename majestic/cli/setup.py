@@ -246,12 +246,37 @@ def run() -> None:
 
 
 def _init_profile(profile_name: str, agent_name: str = "Assistant") -> None:
-    """Create profile directory structure and minimal persona.yaml."""
+    """Create profile directory structure and minimal persona.yaml.
+
+    Canonical layout
+    ----------------
+    profiles/<name>/
+    ├── persona.yaml          tracked in git
+    ├── .env                  gitignored (secrets)
+    ├── skills/               tracked — YAML skill definitions
+    │   └── .gitkeep
+    ├── workspace/
+    │   ├── tools/            tracked — promoted reusable scripts
+    │   │   └── .gitkeep
+    │   ├── output/           gitignored — generated reports / data
+    │   └── temp/             gitignored — transient scripts
+    └── data/                 gitignored — SQLite databases
+    """
     import yaml
 
     profile_dir = _PROJECT_ROOT / "profiles" / profile_name
-    for sub in ("workspace/tools", "workspace/output", "workspace/temp", "data", "skills"):
+
+    # Gitignored dirs (auto-created at runtime, not tracked)
+    for sub in ("workspace/output", "workspace/temp", "data"):
         (profile_dir / sub).mkdir(parents=True, exist_ok=True)
+
+    # Tracked dirs — keep empty with .gitkeep so structure is in git
+    for sub in ("skills", "workspace/tools"):
+        d = profile_dir / sub
+        d.mkdir(parents=True, exist_ok=True)
+        gitkeep = d / ".gitkeep"
+        if not gitkeep.exists():
+            gitkeep.touch()
 
     persona_file = profile_dir / "persona.yaml"
     if not persona_file.exists():

@@ -132,6 +132,24 @@ class Settings:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
+    @property
+    def output_dir(self) -> Path:
+        d = self._profile_dir / "workspace" / "output"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    @property
+    def tools_dir(self) -> Path:
+        d = self._profile_dir / "workspace" / "tools"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    @property
+    def temp_dir(self) -> Path:
+        d = self._profile_dir / "workspace" / "temp"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
     # ------------------------------------------------------------------
     # Env lookup: profile .env → root .env → os.environ → default
     # ------------------------------------------------------------------

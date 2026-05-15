@@ -92,10 +92,21 @@ dmypy.json
 *.log
 logs/
 
-# Profile-specific generated data and workspace internals
+# Per-profile: databases and generated personal data
 profiles/*/data/
+
+# Per-profile: runtime workspace artifacts (outputs, temp scripts, sandboxes)
+# workspace/tools/ and skills/ are intentionally kept in git
+profiles/*/workspace/output/
+profiles/*/workspace/temp/
 profiles/*/workspace/.venv/
 profiles/*/workspace/node_modules/
+
+# Stale / misplaced venv at profile root (pain_hunter legacy)
+profiles/*/.venv/
+
+# Stale registry folder accidentally created by agent
+profiles/data/
 
 # Secrets and keys
 *.pem

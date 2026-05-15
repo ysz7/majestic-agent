@@ -104,36 +104,38 @@ class SelfEvolution:
 
     def _trigger2_promote_scripts(self, steps: list[dict]):
         """
-        For each successful python_exec / node_exec step, check if the
-        script was recorded as promotable and move it to workspace/tools/.
+        For each successful python_exec / node_exec step, save the script to
+        workspace/tools/ if it produced useful output and isn't already there.
         """
         for step in steps:
-            run_id = step.get("script_run_id")
-            if not run_id:
-                continue
-            if not self.tracker.should_promote(run_id):
+            if step.get("tool") not in ("python_exec", "node_exec"):
                 continue
 
-            lang = step.get("lang", "python")
+            result_text = str(step.get("result", ""))
+            is_success = result_text and not any(
+                sig in result_text.lower()
+                for sig in ("error", "traceback", "exception", "timed out")
+            )
+            if not is_success:
+                continue
+
+            args = step.get("args", {})
+            code = args.get("code", "")
+            if not code or len(code) < 30:
+                continue
+
+            lang = "python" if step.get("tool") == "python_exec" else "node"
             ext = ".py" if lang == "python" else ".js"
-            code = step.get("code", "")
-            if not code:
-                continue
-
-            # Generate a filename from the first meaningful line
             name = self._derive_script_name(code, ext)
             dest = self.tools_dir / name
 
-            # Don't overwrite existing tools
             if dest.exists():
-                stem = dest.stem
-                dest = self.tools_dir / f"{stem}_{run_id}{ext}"
+                continue  # already promoted
 
             dest.write_text(code, encoding="utf-8")
-            self.tracker.mark_promoted(
-                run_id,
-                str(dest),
-                description=f"Promoted from temp after successful run (task step {run_id})",
+            self.lessons.save(
+                task_type="meta",
+                lesson=f"Promoted reusable script → {dest.name}",
             )
 
     # ------------------------------------------------------------------ #
@@ -246,11 +248,20 @@ Return ONLY the code, no markdown fences."""
         for step in steps:
             if step.get("tool") not in ("python_exec", "node_exec"):
                 continue
-            if step.get("success", True):
+
+            result_text = str(step.get("result", ""))
+            # Detect failure from result text (runtime doesn't set a success flag)
+            is_failure = any(
+                sig in result_text.lower()
+                for sig in ("error", "traceback", "exception", "stderr")
+            )
+            if not is_failure:
                 continue
 
-            code = step.get("code", "")
-            error = str(step.get("result", ""))[:500]
+            # Code is stored in step["args"]["code"], not step["code"]
+            args = step.get("args", {})
+            code = args.get("code", "")
+            error = result_text[:500]
             lang = "Python" if step.get("tool") == "python_exec" else "Node.js"
 
             if not code or not error:

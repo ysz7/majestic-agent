@@ -22,5 +22,5 @@ restrictions:
   - "save all outputs to profiles/world_intel/workspace/output/"
 
 limits:
-  max_tokens_per_task: 150000
-  max_cost_per_task: 1.00
+  max_tokens_per_task: 0
+  max_cost_per_task: 0.0

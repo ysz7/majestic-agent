@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 import uuid
 from typing import Any
@@ -75,6 +76,9 @@ class AgentRuntime:
         """
         task_id = task_id or str(uuid.uuid4())
         start_time = time.time()
+        self._tokens_used = 0
+        self._cost_used = 0.0
+        self._delegation_count = 0
 
         # ------------------------------------------------------------------
         # 1. Load lessons and inject into system prompt
@@ -99,6 +103,7 @@ class AgentRuntime:
 
         steps: list[dict] = []
         resume_from = 0
+        display.reset_tool_counter()
 
         # ------------------------------------------------------------------
         # 3. Crash recovery — reload messages/steps from last checkpoint
@@ -184,9 +189,9 @@ class AgentRuntime:
                                 continue
 
                         # Execute tool
-                        display.info(f"Using {tool_name}...")
-                        with display.Spinner(f"Running {tool_name}..."):
+                        with display.Spinner(f"{tool_name}..."):
                             result = await self._execute_tool(tool_name, tool_args)
+                        display.tool_done(tool_name, tool_args, result)
 
                         messages.append({"role": "assistant", "content": content})
                         messages.append({
@@ -287,11 +292,16 @@ class AgentRuntime:
                 for name, fn in self.tools.items()
             )
             tool_msg = (
-                f"\nAvailable tools:\n{tool_list}\n\n"
-                "To use a tool, respond with:\n"
-                'TOOL_CALL: {"name": "tool_name", "args": {...}}\n\n'
-                "To give final answer:\n"
-                "FINAL_ANSWER: <your answer>"
+                f"\n\nAvailable tools:\n{tool_list}\n\n"
+                "=== RESPONSE FORMAT — follow exactly, never translate these keywords ===\n\n"
+                "To call a tool, output ONLY this (nothing before or after on the same line):\n"
+                'TOOL_CALL: {"name": "exact_tool_name", "args": {"param": "value"}}\n\n'
+                "Example:\n"
+                'TOOL_CALL: {"name": "web_search", "args": {"query": "python tutorials"}}\n\n'
+                "After seeing the tool result, continue reasoning and call more tools or give the final answer.\n\n"
+                "When you have enough information, output ONLY:\n"
+                "FINAL_ANSWER: your complete answer here\n\n"
+                "CRITICAL: Write TOOL_CALL and FINAL_ANSWER in English exactly as shown above."
             )
             enhanced = list(messages)
             if enhanced and enhanced[0]["role"] == "system":
@@ -310,27 +320,55 @@ class AgentRuntime:
     # Parsing helpers
     # ------------------------------------------------------------------
 
+    # patterns compiled once
+    _RE_FINAL   = re.compile(r"(?i)final[_\s-]?answer\s*:\s*")
+    _RE_TOOLPFX = re.compile(r"(?i)tool[_\s-]?call\s*:\s*")
+
     def _is_final(self, content: str) -> bool:
-        return "FINAL_ANSWER:" in content
+        return bool(self._RE_FINAL.search(content))
 
     def _extract_final(self, content: str) -> str:
-        idx = content.find("FINAL_ANSWER:")
-        return content[idx + len("FINAL_ANSWER:"):].strip()
+        m = self._RE_FINAL.search(content)
+        return content[m.end():].strip() if m else content.strip()
 
     def _parse_tool_call(self, content: str) -> dict | None:
-        if "TOOL_CALL:" not in content:
+        # 1. Recognized prefix (case-insensitive: TOOL_CALL:, Tool Call:, etc.)
+        m = self._RE_TOOLPFX.search(content)
+        if m:
+            result = self._json_at(content, m.end())
+            if result:
+                return result
+
+        # 2. Fallback: bare {"name": "...", "args": ...} anywhere in response
+        for fm in re.finditer(r'\{[^{]*?"name"\s*:\s*"', content):
+            result = self._json_at(content, fm.start())
+            if result:
+                return result
+
+        return None
+
+    def _json_at(self, content: str, pos: int) -> dict | None:
+        """Parse a JSON object starting at or after `pos`. Returns validated tool call or None."""
+        tail = content[pos:]
+        start = tail.find("{")
+        if start == -1:
             return None
-        idx = content.find("TOOL_CALL:")
-        json_str = content[idx + len("TOOL_CALL:"):].strip()
-        try:
-            start = json_str.find("{")
-            end = json_str.rfind("}") + 1
-            if start == -1:
-                return None
-            raw = json.loads(json_str[start:end])
-            return _ToolCall(**raw).model_dump()
-        except (json.JSONDecodeError, ValueError, ValidationError):
-            return None
+        depth = 0
+        for i, ch in enumerate(tail[start:]):
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        raw = json.loads(tail[start : start + i + 1])
+                        if "name" in raw:
+                            raw.setdefault("args", {})
+                            return _ToolCall(**raw).model_dump()
+                    except (json.JSONDecodeError, ValueError, ValidationError):
+                        pass
+                    break
+        return None
 
     # ------------------------------------------------------------------
     # Tool execution

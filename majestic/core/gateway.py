@@ -192,6 +192,23 @@ class Gateway:
         if context.strip():
             parts.append(context.strip())
 
+        # Inject actual runtime paths so persona.yaml stays portable across projects.
+        # These override any hardcoded paths the persona context might mention.
+        try:
+            workspace = str(getattr(s, "workspace_dir", None) or "")
+            profile   = str(getattr(s, "profile_dir",   None) or "")
+            if workspace:
+                parts.append(
+                    f"\n[RUNTIME PATHS]\n"
+                    f"workspace_dir: {workspace}\n"
+                    f"output_dir:    {workspace}/output\n"
+                    f"tools_dir:     {workspace}/tools\n"
+                    f"profile_dir:   {profile}\n"
+                    f"Save all output files to: {workspace}/output/"
+                )
+        except Exception:
+            pass
+
         return "\n".join(parts)
 
     # ------------------------------------------------------------------

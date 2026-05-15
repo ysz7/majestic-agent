@@ -18,5 +18,5 @@ context: |
   next steps: demos, proposals, or signed agreements.
 
 limits:
-  max_tokens_per_task: 8000
-  max_cost_per_task: 0.50
+  max_tokens_per_task: 0
+  max_cost_per_task: 0.0

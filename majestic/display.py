@@ -47,7 +47,7 @@ class Spinner:
         i = 0
         while not self._stop.is_set():
             frame = self._FRAMES[i % len(self._FRAMES)]
-            self._real.write(f"\r\033[2K{CYN}{frame}{R} {self.text}")
+            self._real.write(f"\r\033[2K  {CYN}{frame}{R} {DIM}{self.text}{R}")
             self._real.flush()
             i += 1
             time.sleep(0.08)
@@ -343,6 +343,83 @@ def budget_exceeded(kind: str, used: str, limit: str) -> None:
     """Shown when budget is fully exhausted."""
     print(f"  {RED}✗{R} {kind} limit reached  {DIM}({used} / {limit}){R}  Task stopped.")
 
+
+# ── Tool-call tree display ────────────────────────────────────────────────────
+
+_tool_step: int = 0
+
+
+def reset_tool_counter() -> None:
+    global _tool_step
+    _tool_step = 0
+
+
+def _args_summary(name: str, args: dict) -> str:
+    def _trunc(s: str, n: int = 36) -> str:
+        return (s[:n - 1] + "…") if len(s) > n else s
+
+    if name == "web_search":
+        q = str(args.get("query", ""))
+        return f'"{_trunc(q, 38)}"' if q else ""
+    if name in ("web_fetch", "http_get", "http_post"):
+        url = str(args.get("url", "")).replace("https://", "").replace("http://", "")
+        return _trunc(url, 40)
+    if name == "file_read":
+        # show only filename
+        from pathlib import Path as _P
+        p = str(args.get("path", ""))
+        return _P(p).name if p else ""
+    if name == "file_write":
+        from pathlib import Path as _P
+        p = str(args.get("path", ""))
+        n = len(str(args.get("content", "")))
+        return f"{_P(p).name}  ·  {n:,} chars" if p else ""
+    if name == "file_list":
+        return str(args.get("subdir", "")) or "."
+    if name in ("python_exec", "node_exec"):
+        code = str(args.get("code", "")).strip()
+        return _trunc(code.splitlines()[0], 38) if code else ""
+    if name == "delegate_to_agent":
+        agent = str(args.get("agent_name", ""))
+        task  = _trunc(str(args.get("task", "")), 28)
+        return f"→ {agent}  {task}" if agent else task
+    if name == "list_agents":
+        return ""
+    if args:
+        return _trunc(str(next(iter(args.values()))), 38)
+    return ""
+
+
+def _result_summary(result: object) -> str:
+    if isinstance(result, dict):
+        keys = ", ".join(list(result.keys())[:3])
+        return "{" + keys + "}"
+    if isinstance(result, (list, tuple)):
+        n = len(result)
+        return f"{n} item{'s' if n != 1 else ''}"
+    s = str(result).replace("\n", " ").strip()
+    # Strip common long error prefixes to keep it short
+    if s.startswith("Tool error: "):
+        s = s[len("Tool error: "):]
+    return (s[:44] + "…") if len(s) > 47 else s
+
+
+def tool_done(name: str, args: dict, result: object) -> None:
+    """Print one completed tool-call line in the running tree display."""
+    global _tool_step
+    prefix = "┌" if _tool_step == 0 else "├"
+    _tool_step += 1
+    arg_str = _args_summary(name, args)
+    res_str = _result_summary(result)
+    sep = f"  {DIM}·{R}  "
+    parts = [f"{B}{name}{R}"]
+    if arg_str:
+        parts.append(f"{DIM}{arg_str}{R}")
+    if res_str:
+        parts.append(f"{DIM}{res_str}{R}")
+    print(f"  {C}{prefix}{R} " + sep.join(parts))
+
+
 def agent_delegating(to: str, task_preview: str) -> None:
     """Shown when current agent delegates to another."""
     preview = task_preview[:48] + "…" if len(task_preview) > 48 else task_preview
@@ -361,13 +438,20 @@ def lesson_saved(lesson: str) -> None:
 
 def task_report(steps: int, tokens: int, cost: float, elapsed: float) -> None:
     """Summary shown after every task completes."""
+    global _tool_step
     print()
-    print(f"  {DIM}{'─' * 56}{R}")
-    print(
-        f"  {DIM}steps {steps}  ·  tokens {tokens:,}  ·  "
-        f"cost ${cost:.4f}  ·  {elapsed:.1f}s{R}"
-    )
-    print(f"  {DIM}{'─' * 56}{R}")
+    if _tool_step > 0:
+        print(
+            f"  {G}└{R} {B}Done{R}"
+            f"  {DIM}·  {steps} step{'s' if steps != 1 else ''}"
+            f"  ·  ${cost:.4f}  ·  {elapsed:.1f}s{R}"
+        )
+    else:
+        print(
+            f"  {DIM}steps {steps}  ·  tokens {tokens:,}  ·  "
+            f"cost ${cost:.4f}  ·  {elapsed:.1f}s{R}"
+        )
+    _tool_step = 0
     print()
 
 def ask(prompt: str, default: str = "") -> str:
