@@ -157,6 +157,16 @@ def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime, s
             out(f"[red]Error: {e}[/red]")
         return True
 
+    if cmd == "/tools":
+        tools = list(getattr(runtime, "tools", {}).keys())
+        if not tools:
+            out("[dim]No tools registered.[/dim]")
+        else:
+            out("[bold]Available tools:[/bold]")
+            for t in tools:
+                out(f"  [cyan]{t}[/cyan]")
+        return True
+
     if cmd == "/agents":
         try:
             import json

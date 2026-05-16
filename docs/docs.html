@@ -895,6 +895,26 @@ majestic stop researcher`}</CodeBlock>
             </tbody>
           </table>
 
+          <h2 className="section-title" id="cli-slash">Slash commands</h2>
+          <div className="prose"><p>Available inside the interactive session — both plain CLI and TUI. Start typing <code>/</code> to see tab-complete suggestions.</p></div>
+          <table className="api-table">
+            <thead><tr><th>Command</th><th>Description</th></tr></thead>
+            <tbody>
+              {[
+                ["/help",   "Show all available slash commands"],
+                ["/skills", "List loaded skills with descriptions"],
+                ["/tools",  "List all registered tools"],
+                ["/agents", "Show running background agents"],
+                ["/memory", "Memory stats — episodic tasks, lessons, semantic index"],
+                ["/budget", "Current token and cost usage for this session"],
+                ["/new",    "Clear session and reset working memory"],
+                ["/quit",   "Exit gracefully"],
+              ].map(([cmd, desc]) => (
+                <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
+              ))}
+            </tbody>
+          </table>
+
           <h2 className="section-title" id="cli-management">Config wizard fields</h2>
           <div className="prose"><p>Fields available in <code>majestic config &lt;name&gt;</code> (interactive wizard):</p></div>
           <table className="api-table">

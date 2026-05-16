@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -183,9 +184,12 @@ class Gateway:
         restrictions: list[str] = self._get(s, "agent_restrictions", []) or []
         context: str = self._get(s, "agent_context", "") or ""
 
+        today = date.today().isoformat()
+
         parts: list[str] = [
             f"You are {name}, {role}.",
             f"Tone: {tone}.",
+            f"Today's date: {today}.",
         ]
         if restrictions:
             parts.append("Restrictions: " + "; ".join(restrictions))

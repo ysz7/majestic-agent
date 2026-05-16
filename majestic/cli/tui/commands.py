@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 SLASH_COMMANDS = {
     "/help":   "Show available commands",
     "/skills": "List loaded skills with descriptions",
+    "/tools":  "List available tools",
     "/agents": "Show running agents (like majestic ps)",
     "/memory": "Show memory stats",
     "/budget": "Show current token/cost usage",
@@ -46,6 +47,15 @@ def handle_slash_command(text: str, app: "MajesticApp") -> str | None:
             return "\n".join(lines)
         except Exception as e:
             return f"[red]Error loading skills: {e}[/red]"
+
+    if cmd == "/tools":
+        tools = list(getattr(app, "_runtime_tools", {}).keys())
+        if not tools:
+            return "[dim]No tools registered.[/dim]"
+        lines = ["[bold]Available tools:[/bold]"]
+        for t in tools:
+            lines.append(f"  [cyan]{t}[/cyan]")
+        return "\n".join(lines)
 
     if cmd == "/agents":
         try:

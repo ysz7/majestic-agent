@@ -50,7 +50,7 @@ _ATTACHMENT_EXTENSIONS = {
 
 _PROMPT = "> "
 
-_SYSTEM_COMPLETIONS = ["/help", "/skills", "/agents", "/memory", "/budget", "/new", "/quit"]
+_SYSTEM_COMPLETIONS = ["/help", "/skills", "/tools", "/agents", "/memory", "/budget", "/new", "/quit"]
 
 if _PROMPT_TOOLKIT:
     class _SlashCompleter(_Completer):

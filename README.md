@@ -88,6 +88,7 @@ The setup wizard asks for your LLM provider, API key, model (fetched live for Op
 |---------|-------------|
 | `/help` | Show available commands |
 | `/skills` | List loaded skills |
+| `/tools` | List all registered tools |
 | `/agents` | Show running background agents |
 | `/memory` | Memory stats |
 | `/budget` | Token / cost usage |
