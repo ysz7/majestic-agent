@@ -22,6 +22,8 @@ def run(profile_name: str = "default", tui: bool = False):
 async def _run_plain(profile_name: str):
     from majestic.config.settings import Settings
     from majestic.memory.working import WorkingMemory
+    from majestic.memory.semantic import SemanticMemory
+    from majestic.memory.episodic import EpisodicMemory
     from majestic.core.gateway import Gateway
     from majestic.channels.cli import CLIChannel
     from majestic.core.runtime import AgentRuntime
@@ -37,6 +39,10 @@ async def _run_plain(profile_name: str):
     working_memory = WorkingMemory()
     channel = CLIChannel(session_id=session_id)
     llm_router = LLMRouter(settings)
+
+    # Memory systems wired into gateway for per-request RAG
+    _semantic = SemanticMemory(str(settings.data_dir / "semantic.db"))
+    _episodic = EpisodicMemory(str(settings.data_dir / "episodic.db"))
 
     startup = StartupManager(settings)
     incomplete = await startup.run()
@@ -54,11 +60,12 @@ async def _run_plain(profile_name: str):
     except Exception:
         pass
 
-    gateway = Gateway(settings, working_memory, channel)
-    system_prompt = gateway.build_system_prompt()
+    gateway = Gateway(settings, working_memory, channel,
+                      episodic_memory=_episodic,
+                      semantic_memory=_semantic)
 
     runtime = _build_runtime(settings, working_memory, llm_router)
-    runtime = _register_tools(runtime, settings)
+    runtime = _register_tools(runtime, settings, semantic=_semantic)
 
     _last_stats: dict | None = None
 
@@ -77,7 +84,10 @@ async def _run_plain(profile_name: str):
             break
 
         if text.startswith("/"):
-            slash_result = await _handle_slash_plain(text, profile_name, working_memory, runtime, settings)
+            slash_result = await _handle_slash_plain(
+                text, profile_name, working_memory, runtime, settings,
+                semantic=_semantic,
+            )
             if slash_result is True:
                 continue
             elif isinstance(slash_result, str):
@@ -89,6 +99,9 @@ async def _run_plain(profile_name: str):
 
         working_memory.add_message("user", text)
         print()
+
+        # Per-request enriched system prompt: persona + episodic history + semantic RAG
+        system_prompt = gateway._build_enriched_system_prompt(text)
 
         t0 = time.monotonic()
         try:
@@ -110,7 +123,7 @@ async def _run_plain(profile_name: str):
         working_memory.add_message("assistant", result)
 
 
-async def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime, settings=None):
+async def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime, settings=None, semantic=None):
     """Handle a slash command in plain CLI.
 
     Returns:
@@ -200,6 +213,18 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                 )
             except Exception as e:
                 out(f"[yellow]DB warning: {e}[/yellow]")
+
+            # Index new articles into semantic memory so future queries can find them
+            if semantic is not None and new_articles:
+                try:
+                    for a in new_articles:
+                        chunk = f"{a['title']}. {a.get('summary', '')}"
+                        semantic.index(
+                            source=a.get("url") or a.get("source", "research"),
+                            content=chunk,
+                        )
+                except Exception:
+                    pass
 
         _display.tree_close("sending to agent…")
 
@@ -416,7 +441,7 @@ def _build_runtime(settings, working_memory, llm_router) -> "AgentRuntime":
     )
 
 
-def _register_tools(runtime, settings):
+def _register_tools(runtime, settings, semantic=None):
     workspace = settings.workspace_dir
     brave_key = settings.brave_search_api_key
 
@@ -447,7 +472,19 @@ def _register_tools(runtime, settings):
 
     async def web_search_tool(query: str, max_results: int = 5):
         """Search the web for information."""
-        return await web_search_fn(query, max_results, brave_api_key=brave_key)
+        results = await web_search_fn(query, max_results, brave_api_key=brave_key)
+        # Index results into semantic memory for future RAG retrieval
+        if semantic is not None and isinstance(results, list):
+            for r in results:
+                try:
+                    chunk = " ".join(filter(None, [
+                        r.get("title", ""), r.get("snippet", ""), r.get("description", ""),
+                    ]))
+                    if chunk:
+                        semantic.index(source=r.get("url", query), content=chunk)
+                except Exception:
+                    pass
+        return results
 
     async def list_scripts() -> list[str]:
         """List reusable scripts in workspace/tools/. Always call before writing new code."""

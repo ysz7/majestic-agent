@@ -287,17 +287,25 @@ class AgentRuntime:
     async def _reason(self, messages: list, steps: list) -> dict:
         """Call LLM for reasoning step."""
         if self.tools:
+            from datetime import date as _date
+            today = _date.today().isoformat()
+            year  = today[:4]
+
             tool_list = "\n".join(
                 f"- {name}: {getattr(fn, '__doc__', '').splitlines()[0] if getattr(fn, '__doc__', '') else ''}"
                 for name, fn in self.tools.items()
             )
             tool_msg = (
-                f"\n\nAvailable tools:\n{tool_list}\n\n"
+                f"\n\nToday's date: {today}.\n"
+                f"Search rule: ALWAYS use {year} in web_search queries — never use past years like 2024 or 2023.\n"
+                "Knowledge-base rule: if the system prompt contains a [KNOWLEDGE BASE] section with relevant context, "
+                "use it to answer directly and skip web_search entirely.\n\n"
+                f"Available tools:\n{tool_list}\n\n"
                 "=== RESPONSE FORMAT — follow exactly, never translate these keywords ===\n\n"
                 "To call a tool, output ONLY this (nothing before or after on the same line):\n"
                 'TOOL_CALL: {"name": "exact_tool_name", "args": {"param": "value"}}\n\n'
                 "Example:\n"
-                'TOOL_CALL: {"name": "web_search", "args": {"query": "python tutorials"}}\n\n'
+                f'TOOL_CALL: {{"name": "web_search", "args": {{"query": "best solo business {year}"}}}}\n\n'
                 "After seeing the tool result, continue reasoning and call more tools or give the final answer.\n\n"
                 "When you have enough information, output ONLY:\n"
                 "FINAL_ANSWER: your complete answer here\n\n"
