@@ -6,14 +6,15 @@ if TYPE_CHECKING:
     from .app import MajesticApp
 
 SLASH_COMMANDS = {
-    "/help":   "Show available commands",
-    "/skills": "List loaded skills with descriptions",
-    "/tools":  "List available tools",
-    "/agents": "Show running agents (like majestic ps)",
-    "/memory": "Show memory stats",
-    "/budget": "Show current token/cost usage",
-    "/new":    "Start fresh session (clear chat, reset working memory)",
-    "/quit":   "Exit gracefully",
+    "/help":     "Show available commands",
+    "/skills":   "List loaded skills with descriptions",
+    "/tools":    "List available tools",
+    "/research": "Research a topic from curated sources — /research <query>",
+    "/agents":   "Show running agents (like majestic ps)",
+    "/memory":   "Show memory stats",
+    "/budget":   "Show current token/cost usage",
+    "/new":      "Start fresh session (clear chat, reset working memory)",
+    "/quit":     "Exit gracefully",
 }
 
 

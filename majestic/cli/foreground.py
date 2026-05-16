@@ -77,7 +77,7 @@ async def _run_plain(profile_name: str):
             break
 
         if text.startswith("/"):
-            slash_result = _handle_slash_plain(text, profile_name, working_memory, runtime, settings)
+            slash_result = await _handle_slash_plain(text, profile_name, working_memory, runtime, settings)
             if slash_result is True:
                 continue
             elif isinstance(slash_result, str):
@@ -110,7 +110,7 @@ async def _run_plain(profile_name: str):
         working_memory.add_message("assistant", result)
 
 
-def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime, settings=None):
+async def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime, settings=None):
     """Handle a slash command in plain CLI.
 
     Returns:
@@ -165,6 +165,50 @@ def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime, s
             out("[bold]Available tools:[/bold]")
             for t in tools:
                 out(f"  [cyan]{t}[/cyan]")
+        return True
+
+    if cmd == "/research":
+        words = text.strip().split(None, 1)
+        query = words[1].strip() if len(words) > 1 else ""
+        if not query:
+            out("[dim]Usage: /research <query>  e.g. /research AI news[/dim]")
+            return True
+        out(f"[dim]Fetching from curated sources…[/dim]")
+        try:
+            from majestic.tools.research import research as _research
+            result = await _research(query)
+        except Exception as e:
+            out(f"[red]Error: {e}[/red]")
+            return True
+        items = result.get("results", [])
+        ok    = result.get("sources_ok", [])
+        failed = result.get("sources_failed", [])
+        if not items:
+            out(f"[dim]No results found for:[/dim] {query}")
+            if failed:
+                out(f"[dim]Failed sources: {', '.join(failed)}[/dim]")
+            return True
+        out(f"\n[bold]Research:[/bold] {query}  [dim]· {len(items)} results from {len(ok)} sources[/dim]\n")
+        _cat_seen: set[str] = set()
+        for item in items:
+            cat = item.get("category", "")
+            if cat not in _cat_seen:
+                out(f"[dim]── {cat.upper()} ──[/dim]")
+                _cat_seen.add(cat)
+            date    = f"[dim]{item['date']}[/dim]  " if item.get("date") else ""
+            source  = f"[dim]{item['source']}[/dim]"
+            title   = item.get("title", "")
+            summary = item.get("summary", "")
+            url     = item.get("url", "")
+            out(f"{date}{source}")
+            out(f"  [bold]{title}[/bold]")
+            if summary:
+                out(f"  [dim]{summary[:120]}[/dim]")
+            if url:
+                out(f"  [cyan]{url}[/cyan]")
+            out("")
+        if failed:
+            out(f"[dim]Unavailable: {', '.join(failed)}[/dim]")
         return True
 
     if cmd == "/agents":
@@ -305,6 +349,7 @@ def _register_tools(runtime, settings):
     from majestic.tools.python_exec.executor import PythonExecutor
     from majestic.tools.node_exec.executor import NodeExecutor
     from majestic.tools.agent_client import AgentClient
+    from majestic.tools.research import research as research_fn
     from majestic.core.script_tracker import ScriptTracker
     from pathlib import Path
 
@@ -362,6 +407,7 @@ def _register_tools(runtime, settings):
         "node_exec":         node_exec.run,
         "list_scripts":      list_scripts,
         "run_script":        run_script,
+        "research":          research_fn,
         "list_agents":       agent_client.list_profiles_with_roles,
         "delegate_to_agent": delegate_to_agent,
     }

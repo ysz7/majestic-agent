@@ -1,0 +1,96 @@
+sources:
+
+  # ── General News ─────────────────────────────────────────────────────────────
+  - name: BBC News
+    category: news
+    type: rss
+    url: http://feeds.bbci.co.uk/news/rss.xml
+
+  - name: The Guardian
+    category: news
+    type: rss
+    url: https://www.theguardian.com/world/rss
+
+  - name: Al Jazeera
+    category: news
+    type: rss
+    url: https://www.aljazeera.com/xml/rss/all.xml
+
+  - name: NPR News
+    category: news
+    type: rss
+    url: https://feeds.npr.org/1001/rss.xml
+
+  # ── Technology ────────────────────────────────────────────────────────────────
+  - name: Hacker News
+    category: tech
+    type: hn_api
+    url: https://hacker-news.firebaseio.com/v0/topstories.json
+
+  - name: TechCrunch
+    category: tech
+    type: rss
+    url: https://techcrunch.com/feed/
+
+  - name: The Verge
+    category: tech
+    type: rss
+    url: https://www.theverge.com/rss/index.xml
+
+  - name: Ars Technica
+    category: tech
+    type: rss
+    url: https://feeds.arstechnica.com/arstechnica/index
+
+  - name: Wired
+    category: tech
+    type: rss
+    url: https://www.wired.com/feed/rss
+
+  - name: MIT Technology Review
+    category: tech
+    type: rss
+    url: https://www.technologyreview.com/stories.rss
+
+  # ── Science ───────────────────────────────────────────────────────────────────
+  - name: Science Daily
+    category: science
+    type: rss
+    url: https://www.sciencedaily.com/rss/all.xml
+
+  - name: NASA Breaking News
+    category: science
+    type: rss
+    url: https://www.nasa.gov/rss/dyn/breaking_news.rss
+
+  - name: Nature
+    category: science
+    type: rss
+    url: https://www.nature.com/nature.rss
+
+  # ── Finance ───────────────────────────────────────────────────────────────────
+  - name: MarketWatch
+    category: finance
+    type: rss
+    url: https://feeds.content.dowjones.io/public/rss/mw_topstories
+
+  - name: Investopedia
+    category: finance
+    type: rss
+    url: https://www.investopedia.com/feedbuilder/feed/getfeed?feedName=rss_headline
+
+  # ── AI & Research ─────────────────────────────────────────────────────────────
+  - name: DeepMind Blog
+    category: ai
+    type: rss
+    url: https://deepmind.google/blog/rss.xml
+
+  - name: OpenAI Blog
+    category: ai
+    type: rss
+    url: https://openai.com/blog/rss.xml
+
+  - name: Anthropic Blog
+    category: ai
+    type: rss
+    url: https://www.anthropic.com/rss.xml
