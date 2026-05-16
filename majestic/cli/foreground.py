@@ -186,14 +186,18 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             out(f"[red]Fetch error: {e}[/red]")
             return True
 
-        # Store to profile DB
+        # Store to profile DB — only new (unseen) articles go to the agent
+        new_articles: list[dict] = articles
         if settings is not None:
             try:
                 db = ResearchDB(str(settings.data_dir / "research.db"))
-                new, skipped = db.insert_articles(articles)
+                new_articles, skipped = db.insert_articles(articles)
                 stats = db.stats()
                 db.close()
-                _display.tree_step("saved", f"{new} new · {skipped} cached · {stats['total']} total")
+                _display.tree_step(
+                    "saved",
+                    f"{len(new_articles)} new · {skipped} cached · {stats['total']} total",
+                )
             except Exception as e:
                 out(f"[yellow]DB warning: {e}[/yellow]")
 
@@ -203,20 +207,26 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             out("[dim]No articles fetched. Check your internet connection.[/dim]")
             return True
 
-        # Build prompt and pass to agent for narrated briefing
-        lines = [f"Here are the latest news articles fetched right now from {len(ok_sources)} verified sources:\n"]
-        for a in articles[:40]:
+        if not new_articles:
+            out("[dim]No new articles since last /research. Use /briefing to analyze stored news.[/dim]")
+            return True
+
+        # Build prompt — only newly fetched articles (not cached ones)
+        lines = [
+            f"Here are {len(new_articles)} NEW articles just fetched from {len(ok_sources)} sources "
+            f"(previously seen articles were excluded):\n"
+        ]
+        for a in new_articles[:40]:
             lines.append(f"[{a.get('category','?').upper()}] {a.get('source','?')} · {a.get('date','')}:")
             lines.append(f"  {a.get('title','')}")
             if a.get("summary"):
                 lines.append(f"  {a.get('summary','')[:180]}")
             lines.append("")
         lines.append(
-            "\nWrite a concise world briefing based on these articles. "
-            "Structure it as: 1) Top stories right now, 2) What's happening in Tech & AI, "
-            "3) Business & Finance trends, 4) Science & World events. "
-            "Be specific, mention real names and companies. "
-            "Keep the total response under 500 words."
+            "\nWrite a concise briefing of these NEW articles only. "
+            "Structure it as: 1) Top stories right now, 2) Tech & AI, "
+            "3) Business & Finance, 4) Science & World. "
+            "Be specific, mention real names and numbers. Under 400 words."
         )
         return "\n".join(lines)
 

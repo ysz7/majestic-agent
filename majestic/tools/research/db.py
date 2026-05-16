@@ -46,12 +46,14 @@ class ResearchDB:
 
     # ── Write ─────────────────────────────────────────────────────────────────
 
-    def insert_articles(self, articles: list[dict]) -> tuple[int, int]:
+    def insert_articles(self, articles: list[dict]) -> tuple[list[dict], int]:
         """Insert new articles, skip duplicates.
 
-        Returns (new_count, skipped_count).
+        Returns (new_articles, skipped_count) where new_articles is the list
+        of articles that were actually inserted (not previously seen).
         """
-        new = skipped = 0
+        new_articles: list[dict] = []
+        skipped = 0
         for a in articles:
             h = _url_hash(a.get("url", ""), a.get("title", ""))
             try:
@@ -63,11 +65,11 @@ class ResearchDB:
                      a.get("summary", ""), a.get("source", ""),
                      a.get("category", ""), a.get("date", "")),
                 )
-                new += 1
+                new_articles.append(a)
             except sqlite3.IntegrityError:
                 skipped += 1
         self._conn.commit()
-        return new, skipped
+        return new_articles, skipped
 
     # ── Read ──────────────────────────────────────────────────────────────────
 

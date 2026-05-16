@@ -352,11 +352,67 @@ def budget_exceeded(kind: str, used: str, limit: str) -> None:
 # ── Tree display (general-purpose step trace) ─────────────────────────────────
 
 _tree_step: int = 0
+_current_pending: "TreePending | None" = None
+
+
+def _stop_pending() -> None:
+    """Stop the active TreePending spinner (if any) and clear its line."""
+    global _current_pending
+    if _current_pending is not None:
+        _current_pending._stop_and_clear()
+        _current_pending = None
+
+
+class TreePending:
+    """Animated in-progress line in the tree.
+
+    Shows  ├ ⠋ label…  with a spinner until explicitly exited or until
+    tree_step() / tree_close() / tree_reset() is called — whichever comes first.
+    """
+
+    _FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+    def __init__(self, label: str) -> None:
+        self.label   = label
+        self._stop   = threading.Event()
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+
+    def _spin(self) -> None:
+        i = 0
+        while not self._stop.is_set():
+            frame = self._FRAMES[i % len(self._FRAMES)]
+            sys.__stdout__.write(
+                f"\r\033[2K  {C}├{R} {CYN}{frame}{R} {DIM}{self.label}…{R}"
+            )
+            sys.__stdout__.flush()
+            i += 1
+            time.sleep(0.08)
+
+    def _stop_and_clear(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=0.3)
+        sys.__stdout__.write("\r\033[2K")
+        sys.__stdout__.flush()
+
+    def __enter__(self) -> "TreePending":
+        global _current_pending, _tree_step
+        _stop_pending()          # stop any previous pending first
+        _tree_step += 1          # pre-consume a slot so ├ is used after us
+        _current_pending = self
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_) -> None:
+        global _current_pending
+        if _current_pending is self:
+            _current_pending = None
+        self._stop_and_clear()
 
 
 def tree_reset() -> None:
     """Reset the tree step counter. Call before starting a new trace."""
     global _tree_step
+    _stop_pending()
     _tree_step = 0
 
 
@@ -367,6 +423,7 @@ def reset_tool_counter() -> None:
 def tree_step(label: str, detail: str = "", status: str = "ok") -> None:
     """Print one step in the running tree (┌ first, ├ subsequent)."""
     global _tree_step
+    _stop_pending()   # clear any active spinner before printing
     prefix = "┌" if _tree_step == 0 else "├"
     _tree_step += 1
     if status == "error":
@@ -385,6 +442,7 @@ def tree_step(label: str, detail: str = "", status: str = "ok") -> None:
 def tree_close(label: str = "Done", detail: str = "") -> None:
     """Close the active tree with └. Resets the counter."""
     global _tree_step
+    _stop_pending()   # clear any active spinner before closing
     if _tree_step > 0:
         sep = f"  {DIM}·{R}  "
         parts = [f"{DIM}{label}{R}"]

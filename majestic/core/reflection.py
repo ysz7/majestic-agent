@@ -32,10 +32,11 @@ class ReflectionEngine:
         display.tree_step("reflecting", f"{step_count} step{'s' if step_count != 1 else ''}")
 
         prompt = self._build_reflection_prompt(task, result, steps)
-        response = await self.llm.chat(
-            [{"role": "user", "content": prompt}],
-            step_type="reflection",
-        )
+        with display.TreePending("analyzing task"):
+            response = await self.llm.chat(
+                [{"role": "user", "content": prompt}],
+                step_type="reflection",
+            )
         reflection_text = response["content"]
 
         # Extract lesson if present
@@ -56,16 +57,18 @@ class ReflectionEngine:
         )
 
         # Self-evolution: generate skills, promote scripts, fix failures
-        # (adds its own tree_step calls to this same tree)
+        # TreePending is active while evolution runs; its internal tree_step calls
+        # will automatically stop the spinner before printing their own lines.
         if self.evolution:
             try:
-                await self.evolution.run(
-                    task=task,
-                    steps=steps,
-                    reflection=reflection_text,
-                    skill_quality_ok=skill_quality_ok,
-                    used_skill=used_skill,
-                )
+                with display.TreePending("self-evolution"):
+                    await self.evolution.run(
+                        task=task,
+                        steps=steps,
+                        reflection=reflection_text,
+                        skill_quality_ok=skill_quality_ok,
+                        used_skill=used_skill,
+                    )
             except Exception:
                 pass  # evolution is non-fatal
 
