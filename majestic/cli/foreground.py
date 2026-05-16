@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 
 def run(profile_name: str = "default", tui: bool = False):
@@ -59,6 +60,8 @@ async def _run_plain(profile_name: str):
     runtime = _build_runtime(settings, working_memory, llm_router)
     runtime = _register_tools(runtime, settings)
 
+    _last_stats: dict | None = None
+
     while True:
         try:
             raw = await channel.receive()
@@ -80,9 +83,14 @@ async def _run_plain(profile_name: str):
             elif isinstance(slash_result, str):
                 text = slash_result  # skill expanded to task
 
+        # Show previous task stats right below the user's input line
+        if _last_stats:
+            display.inline_stats(**_last_stats)
+
         working_memory.add_message("user", text)
         print()
 
+        t0 = time.monotonic()
         try:
             result = await runtime.run(
                 task=text,
@@ -90,6 +98,13 @@ async def _run_plain(profile_name: str):
             )
         except Exception as exc:
             result = f"Error: {exc}"
+        elapsed = time.monotonic() - t0
+
+        _last_stats = {
+            "tokens":  getattr(runtime, "_tokens_used", 0),
+            "cost":    getattr(runtime, "_cost_used", 0.0),
+            "elapsed": elapsed,
+        }
 
         await channel.send(f"\n{result}\n")
         working_memory.add_message("assistant", result)

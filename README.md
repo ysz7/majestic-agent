@@ -75,6 +75,8 @@ The setup wizard asks for your LLM provider, API key, model (fetched live for Op
 | `majestic new <name>` | Create a new profile |
 | `majestic list` | List all profiles |
 | `majestic config [name]` | Edit agent configuration interactively |
+| `majestic model` | Change global LLM provider or model interactively |
+| `majestic model <name>` | Override model for a specific profile (or clear override) |
 | `majestic rm <name>` | Delete a profile (confirmation required) |
 | `majestic run <name>` | Run as background HTTP daemon |
 | `majestic ps` | List running background agents |
@@ -134,11 +136,14 @@ limits:
 
 ## LLM Providers
 
-One model is used for all tasks — set during `majestic setup` or via `.env`:
+One model is used for all tasks — set during `majestic setup` or changed at any time with `majestic model`:
 
 ```bash
-MAJESTIC_MODEL_REASON=anthropic/claude-sonnet-4-6
+majestic model                # change global provider / model
+majestic model sales_agent    # override model for one profile only
 ```
+
+The wizard skips the API key prompt if you stay on the same provider. To revert a profile back to the global default, choose "Clear profile overrides".
 
 | Provider | Env var | Notes |
 |----------|---------|-------|

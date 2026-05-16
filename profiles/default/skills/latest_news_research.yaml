@@ -1,0 +1,16 @@
+auto_generated: true
+created_at: '2026-05-16T10:00:26.584175'
+description: Searches the web for the latest news and fetches relevant articles.
+name: latest_news_research
+steps:
+- 'Step 1: Perform a web search for the latest news topics'
+- 'Step 2: Conduct a second web search to gather additional sources'
+- 'Step 3: Run a third web search to ensure coverage of varied outlets'
+- 'Step 4: Fetch the content of the top search results'
+- 'Step 5: Extract and compile the news information for presentation'
+triggers:
+- find latest news
+- research recent news
+- get current news
+- search for news updates
+- look up recent headlines

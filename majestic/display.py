@@ -229,12 +229,15 @@ def print_startup(profile: str = "default", mode: str = "foreground") -> None:
     if d["recent"]:
         for task in d["recent"]:
             try:
-                delta = datetime.now() - datetime.fromisoformat(task["started_at"])
+                ts = re.sub(r'[+-]\d{2}:\d{2}$', '', task["started_at"]).rstrip('Z')
+                delta = datetime.now() - datetime.fromisoformat(ts)
                 rel   = "today" if delta.days == 0 else ("yesterday" if delta.days == 1 else f"{delta.days}d ago")
-                label = (task.get("goal") or "")[:18]
+                goal  = (task.get("goal") or "").split("\n")[0].strip()
+                label = (goal[:17] + "…") if len(goal) > 18 else goal
                 left.append(f"{DIM}·{R} {DIM}{rel:<10}{R}{label}")
             except Exception:
-                left.append(f"{DIM}· {task}{R}")
+                goal = (task.get("goal") or str(task))[:17]
+                left.append(f"{DIM}· {goal}…{R}")
     else:
         left.append(f"{DIM}no tasks yet{R}")
 
@@ -439,22 +442,16 @@ def lesson_saved(lesson: str) -> None:
     print(f"  {G}✓{R} {DIM}lesson saved:{R} {preview}")
 
 def task_report(steps: int, tokens: int, cost: float, elapsed: float) -> None:
-    """Summary shown after every task completes."""
+    """Close the tool-call tree. Stats are shown below the next user prompt."""
     global _tool_step
-    print()
     if _tool_step > 0:
-        print(
-            f"  {G}└{R} {B}Done{R}"
-            f"  {DIM}·  {steps} step{'s' if steps != 1 else ''}"
-            f"  ·  ${cost:.4f}  ·  {elapsed:.1f}s{R}"
-        )
-    else:
-        print(
-            f"  {DIM}steps {steps}  ·  tokens {tokens:,}  ·  "
-            f"cost ${cost:.4f}  ·  {elapsed:.1f}s{R}"
-        )
+        print(f"  {G}└{R} {DIM}Done{R}")
     _tool_step = 0
-    print()
+
+
+def inline_stats(tokens: int, cost: float, elapsed: float) -> None:
+    """Compact stats line printed right below the user's input."""
+    print(f"  {DIM}· {tokens:,} tok  ·  ${cost:.4f}  ·  {elapsed:.1f}s{R}")
 
 def ask(prompt: str, default: str = "") -> str:
     hint = f" [{default}]" if default else ""

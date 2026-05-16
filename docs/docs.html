@@ -867,6 +867,8 @@ majestic stop researcher`}</CodeBlock>
                 ["majestic <name>",       "Launch named profile in foreground (e.g. majestic pain_hunter)"],
                 ["majestic <name> --tui", "Launch named profile with split-screen TUI"],
                 ["majestic setup",        "Interactive first-run wizard — API keys, model, preferences"],
+                ["majestic model",        "Change global LLM provider or model interactively"],
+                ["majestic model <name>", "Override model for a specific profile (or clear override)"],
                 ["majestic new <name>",   "Scaffold a new agent profile directory"],
                 ["majestic config [name]","Edit profile persona.yaml interactively (default: default)"],
                 ["majestic list",         "List all profiles"],
@@ -1280,10 +1282,19 @@ OPENROUTER_API_KEY=sk-or-...`}</CodeBlock>
           <h2 className="section-title" id="llm-switch">Switching models</h2>
           <div className="prose">
             <p>
-              Run <code>majestic setup</code> to pick a new model interactively,
-              or edit <code>MAJESTIC_MODEL_REASON</code> in <code>.env</code> directly.
+              Use <code>majestic model</code> to change the global provider or model interactively —
+              no need to re-enter an API key if the provider stays the same.
+              Use <code>majestic model &lt;name&gt;</code> to override the model for a specific profile
+              without touching the global config. Clearing the override reverts the profile to the global default.
             </p>
           </div>
+          <CodeBlock lang="bash">{`majestic model                # change global provider / model
+majestic model pain_hunter    # override model for one profile
+# Options shown interactively:
+#   Keep provider, change model only
+#   Switch provider
+#   Clear API key
+#   (profile) Clear overrides — revert to global`}</CodeBlock>
 
           <h2 className="section-title" id="llm-anthropic">Anthropic</h2>
           <CodeBlock lang="bash">{`MAJESTIC_MODEL_REASON=anthropic/claude-sonnet-4-6

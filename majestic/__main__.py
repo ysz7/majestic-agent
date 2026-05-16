@@ -16,7 +16,7 @@ import argparse
 import sys
 import traceback
 
-_SUBCOMMANDS = {"setup", "new", "list", "rm", "run", "ps", "stop", "config"}
+_SUBCOMMANDS = {"setup", "new", "list", "rm", "run", "ps", "stop", "config", "model"}
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -29,6 +29,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "  majestic setup             — interactive first-run wizard\n"
             "  majestic new mybot         — scaffold a new agent profile\n"
             "  majestic config [mybot]    — edit agent configuration\n"
+            "  majestic model             — change global LLM provider/model\n"
+            "  majestic model mybot       — change model for a specific agent\n"
             "  majestic list              — list all profiles\n"
             "  majestic run mybot         — start mybot in the background\n"
             "  majestic ps               — show running agents\n"
@@ -81,6 +83,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Profile name to configure (default: default).",
     )
 
+    p_model = sub.add_parser("model", help="Change LLM provider or model.")
+    p_model.add_argument(
+        "name",
+        nargs="?",
+        default=None,
+        help="Profile name to configure (omit for global settings).",
+    )
+
     return parser
 
 
@@ -117,6 +127,10 @@ def _dispatch(command: str | None, args: argparse.Namespace, profile: str, tui: 
     elif command == "config":
         from majestic.cli import config as _config
         _config.run(getattr(args, "name", None) or "default")
+
+    elif command == "model":
+        from majestic.cli import model as _model
+        _model.run(getattr(args, "name", None))
 
     else:
         from majestic.cli import foreground as _fg
