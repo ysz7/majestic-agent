@@ -1,14 +1,10 @@
 """
 majestic.tools.research
 ~~~~~~~~~~~~~~~~~~~~~~~
-Direct-fetch research tool — bypasses web search entirely.
+Fetch from curated verified sources, deduplicate, and store to SQLite.
 
-Connects straight to curated RSS feeds and APIs, filters by query relevance,
-and returns structured results sorted by date.  No search intermediary,
-no rate-limit failures.
-
-Sources are defined in sources.yaml next to this file — edit freely to add
-or remove outlets.  Categories: news, tech, science, finance, ai.
+/research  — fetch all sources → store new articles → agent narrates briefing
+/briefing  — analyze stored articles from last N days → investment signals
 """
 
 from __future__ import annotations
@@ -22,36 +18,29 @@ import httpx
 import yaml
 
 _SOURCES_FILE = Path(__file__).parent / "sources.yaml"
-
 _TIMEOUT = httpx.Timeout(8.0, connect=4.0)
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; Majestic-Research/1.0; RSS reader)"}
-
-# Atom namespace
-_ATOM_NS = "http://www.w3.org/2005/Atom"
+_ATOM_NS  = "http://www.w3.org/2005/Atom"
 
 
-# ── Source loader ─────────────────────────────────────────────────────────────
+# ── Sources ───────────────────────────────────────────────────────────────────
 
 def load_sources() -> list[dict]:
     if not _SOURCES_FILE.exists():
         return []
     with _SOURCES_FILE.open(encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-    return data.get("sources", [])
+        return (yaml.safe_load(f) or {}).get("sources", [])
 
 
-# ── Relevance ─────────────────────────────────────────────────────────────────
+# ── Relevance & date ─────────────────────────────────────────────────────────
 
 def _relevant(text: str, query: str) -> bool:
-    """True when any meaningful query word appears in text."""
-    words = [w.lower() for w in query.split() if len(w) > 2]
-    if not words:
+    if not query:
         return True
+    words = [w.lower() for w in query.split() if len(w) > 2]
     tl = text.lower()
-    return any(w in tl for w in words)
+    return any(w in tl for w in words) if words else True
 
-
-# ── Date parsing ──────────────────────────────────────────────────────────────
 
 _DATE_FMTS = (
     "%a, %d %b %Y %H:%M:%S %z",
@@ -72,12 +61,51 @@ def _parse_date(raw: str) -> str:
     return raw[:10] if raw else ""
 
 
-# ── RSS / Atom fetcher ────────────────────────────────────────────────────────
+def _t(el: ET.Element | None) -> str:
+    return (el.text or "").strip() if el is not None else ""
 
-def _text(el: ET.Element | None) -> str:
-    if el is None:
-        return ""
-    return (el.text or "").strip()
+
+# ── Fetchers ──────────────────────────────────────────────────────────────────
+
+async def _fetch_github_trending(client: httpx.AsyncClient, src: dict, query: str) -> list[dict]:
+    from datetime import datetime, timedelta
+    week_ago = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
+    try:
+        r = await client.get(
+            "https://api.github.com/search/repositories",
+            params={"q": f"created:>{week_ago}", "sort": "stars", "order": "desc", "per_page": 10},
+            headers={**_HEADERS, "Accept": "application/vnd.github.v3+json"},
+            timeout=_TIMEOUT,
+        )
+        r.raise_for_status()
+        data = r.json()
+    except Exception:
+        return []
+
+    items = []
+    for repo in data.get("items", []):
+        name  = repo.get("full_name", "")
+        desc  = (repo.get("description") or "")
+        stars = repo.get("stargazers_count", 0)
+        lang  = repo.get("language") or ""
+        url   = repo.get("html_url", "")
+        date  = (repo.get("created_at") or "")[:10]
+        if not name or not _relevant(name + " " + desc, query):
+            continue
+        summary = f"★ {stars:,} stars"
+        if lang:
+            summary += f"  ·  {lang}"
+        if desc:
+            summary += f"  ·  {desc[:140]}"
+        items.append({
+            "source": src["name"],
+            "title": name,
+            "summary": summary[:240],
+            "url": url,
+            "date": date,
+            "category": src.get("category", "tech"),
+        })
+    return items
 
 
 async def _fetch_rss(client: httpx.AsyncClient, src: dict, query: str) -> list[dict]:
@@ -89,51 +117,41 @@ async def _fetch_rss(client: httpx.AsyncClient, src: dict, query: str) -> list[d
     except Exception:
         return []
 
-    items: list[dict] = []
     name = src["name"]
     cat  = src.get("category", "general")
+    items: list[dict] = []
 
-    # ── RSS 2.0  (<item> elements anywhere in the tree) ──────────────────────
+    # RSS 2.0
     for item in root.findall(".//item"):
-        title   = _text(item.find("title"))
-        desc    = _text(item.find("description"))
-        link    = _text(item.find("link"))
-        pub     = _parse_date(_text(item.find("pubDate")))
-        if not title:
+        title = _t(item.find("title"))
+        desc  = _t(item.find("description"))
+        link  = _t(item.find("link"))
+        pub   = _parse_date(_t(item.find("pubDate")))
+        if not title or not _relevant(title + " " + desc, query):
             continue
-        if not _relevant(title + " " + desc, query):
-            continue
-        # Strip HTML tags from description
-        clean_desc = ET.fromstring(f"<x>{desc}</x>").itertext() if "<" in desc else iter([desc])
-        summary = " ".join(clean_desc)[:220].strip()
+        summary = desc[:240].replace("\n", " ").strip()
         items.append({"source": name, "title": title, "summary": summary,
                       "url": link, "date": pub, "category": cat})
 
-    # ── Atom  (<entry> elements) ──────────────────────────────────────────────
+    # Atom fallback
     if not items:
-        ns = _ATOM_NS
-        for entry in root.findall(f".//{{{ns}}}entry"):
-            title   = _text(entry.find(f"{{{ns}}}title"))
-            summary = _text(entry.find(f"{{{ns}}}summary"))
-            if not summary:
-                summary = _text(entry.find(f"{{{ns}}}content"))
-            link_el = entry.find(f"{{{ns}}}link")
-            link    = link_el.get("href", "") if link_el is not None else ""
-            pub_raw = (_text(entry.find(f"{{{ns}}}published"))
-                       or _text(entry.find(f"{{{ns}}}updated")))
-            pub = _parse_date(pub_raw)
-            if not title:
-                continue
-            if not _relevant(title + " " + summary, query):
+        for entry in root.findall(f".//{{{_ATOM_NS}}}entry"):
+            title   = _t(entry.find(f"{{{_ATOM_NS}}}title"))
+            summary = _t(entry.find(f"{{{_ATOM_NS}}}summary")) or \
+                      _t(entry.find(f"{{{_ATOM_NS}}}content"))
+            lel     = entry.find(f"{{{_ATOM_NS}}}link")
+            link    = lel.get("href", "") if lel is not None else ""
+            pub_raw = _t(entry.find(f"{{{_ATOM_NS}}}published")) or \
+                      _t(entry.find(f"{{{_ATOM_NS}}}updated"))
+            pub     = _parse_date(pub_raw)
+            if not title or not _relevant(title + " " + summary, query):
                 continue
             items.append({"source": name, "title": title,
-                          "summary": summary[:220].strip(),
+                          "summary": summary[:240].strip(),
                           "url": link, "date": pub, "category": cat})
 
-    return items[:6]
+    return items[:8]
 
-
-# ── Hacker News API ───────────────────────────────────────────────────────────
 
 async def _fetch_hn(client: httpx.AsyncClient, src: dict, query: str) -> list[dict]:
     try:
@@ -144,93 +162,99 @@ async def _fetch_hn(client: httpx.AsyncClient, src: dict, query: str) -> list[di
 
     async def _item(sid: int) -> dict | None:
         try:
-            resp = await client.get(
+            return (await client.get(
                 f"https://hacker-news.firebaseio.com/v0/item/{sid}.json",
-                timeout=_TIMEOUT,
-            )
-            return resp.json()
+                timeout=_TIMEOUT)).json()
         except Exception:
             return None
 
-    raw_items = await asyncio.gather(*[_item(i) for i in ids[:20]])
+    raw = await asyncio.gather(*[_item(i) for i in ids[:20]])
     results: list[dict] = []
-    for d in raw_items:
+    for d in raw:
         if not d or d.get("type") != "story":
             continue
         title = d.get("title", "")
         if not title or not _relevant(title, query):
             continue
-        url = d.get("url") or f"https://news.ycombinator.com/item?id={d['id']}"
-        ts  = d.get("time", 0)
+        url  = d.get("url") or f"https://news.ycombinator.com/item?id={d['id']}"
+        ts   = d.get("time", 0)
         date = datetime.fromtimestamp(ts).strftime("%Y-%m-%d") if ts else ""
-        results.append({
-            "source": "Hacker News",
-            "title":   title,
-            "summary": f"{d.get('score', 0)} pts · {d.get('descendants', 0)} comments",
-            "url":     url,
-            "date":    date,
-            "category": "tech",
-        })
-        if len(results) >= 6:
+        results.append({"source": "Hacker News", "title": title,
+                        "summary": f"{d.get('score',0)} pts · {d.get('descendants',0)} comments",
+                        "url": url, "date": date, "category": "tech"})
+        if len(results) >= 8:
             break
     return results
 
 
-# ── Main research function ────────────────────────────────────────────────────
+# ── Main fetch function ───────────────────────────────────────────────────────
 
-async def research(
-    query: str,
-    categories: str = "",
-    max_results: int = 10,
-) -> dict:
-    """
-    Research a topic by fetching directly from curated, verified sources.
+async def fetch_all(
+    query: str = "",
+    on_source=None,
+) -> tuple[list[dict], list[dict], list[str]]:
+    """Fetch all sources in parallel, reporting each as it completes.
 
-    Connects to RSS feeds, APIs and known outlets without a search engine.
-    Much faster and more reliable for current events, tech, science, finance.
-
-    Args:
-        query:       Topic or question to research.
-        categories:  Comma-separated filter: news, tech, science, finance, ai
-                     (empty = all categories).
-        max_results: Maximum items to return (default 10).
+    Returns (articles, ok_sources, failed_names).
+    ok_sources: list of {"name": str, "count": int}
+    on_source: optional sync callback(name: str, count: int, ok: bool)
+               called immediately when each source responds.
     """
     sources = load_sources()
-    if not sources:
-        return {"error": "No sources configured. Edit majestic/tools/research/sources.yaml",
-                "results": []}
 
-    cats = {c.strip().lower() for c in categories.split(",") if c.strip()}
-    if cats:
-        sources = [s for s in sources if s.get("category", "general") in cats]
+    async def _with_meta(client: httpx.AsyncClient, src: dict) -> tuple[dict, list]:
+        t = src.get("type")
+        if t == "hn_api":
+            fn = _fetch_hn
+        elif t == "github_trending":
+            fn = _fetch_github_trending
+        else:
+            fn = _fetch_rss
+        batch = await fn(client, src, query)
+        return src, batch
 
-    async with httpx.AsyncClient() as client:
-        tasks = [
-            _fetch_hn(client, src, query) if src.get("type") == "hn_api"
-            else _fetch_rss(client, src, query)
-            for src in sources
-        ]
-        batches = await asyncio.gather(*tasks, return_exceptions=True)
-
-    all_results: list[dict] = []
-    ok: list[str] = []
+    results: list[dict] = []
+    ok: list[dict] = []
     failed: list[str] = []
 
-    for src, batch in zip(sources, batches):
-        if isinstance(batch, Exception) or not isinstance(batch, list):
-            failed.append(src["name"])
-        elif batch:
-            all_results.extend(batch)
-            ok.append(src["name"])
-        else:
-            failed.append(src["name"])
+    async with httpx.AsyncClient() as client:
+        coros = [_with_meta(client, s) for s in sources]
+        for task in asyncio.as_completed(coros):
+            try:
+                src, batch = await task
+            except Exception:
+                continue
+            if isinstance(batch, list) and batch:
+                results.extend(batch)
+                ok.append({"name": src["name"], "count": len(batch)})
+                if on_source:
+                    on_source(src["name"], len(batch), True)
+            else:
+                failed.append(src["name"])
+                if on_source:
+                    on_source(src["name"], 0, False)
 
-    all_results.sort(key=lambda x: x.get("date", ""), reverse=True)
+    results.sort(key=lambda x: x.get("date", ""), reverse=True)
+    return results, ok, failed
 
+
+# ── Tool callable (for agent) ─────────────────────────────────────────────────
+
+async def research(query: str = "", max_results: int = 15) -> dict:
+    """
+    Fetch latest content from curated verified sources (RSS + APIs).
+
+    Use this instead of web_search for current news, tech, science, finance, AI.
+    Returns structured articles sorted by date — no search engine required.
+
+    Args:
+        query:       Optional topic filter (empty = all news).
+        max_results: Maximum items to return.
+    """
+    articles, ok, failed = await fetch_all(query)
     return {
-        "query":           query,
-        "sources_ok":      ok,
-        "sources_failed":  failed,
-        "total":           len(all_results),
-        "results":         all_results[:max_results],
+        "sources_ok":     [s["name"] for s in ok],
+        "sources_failed": failed,
+        "total":          len(articles),
+        "results":        articles[:max_results],
     }

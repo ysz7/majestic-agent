@@ -27,7 +27,9 @@ class ReflectionEngine:
         5. Run SelfEvolution: skill generation, script promotion, parameterization
         Returns: reflection text
         """
-        display.reflection_start()
+        step_count = len(steps)
+        display.tree_reset()
+        display.tree_step("reflecting", f"{step_count} step{'s' if step_count != 1 else ''}")
 
         prompt = self._build_reflection_prompt(task, result, steps)
         response = await self.llm.chat(
@@ -40,7 +42,8 @@ class ReflectionEngine:
         lesson = self._extract_lesson(reflection_text)
         if lesson:
             self.lessons.save(task_type=self._classify_task(task), lesson=lesson)
-            display.lesson_saved(lesson)
+            preview = (lesson[:54] + "…") if len(lesson) > 54 else lesson
+            display.tree_step("lesson", preview)
 
         # Save to episodic
         self.episodic.save_task(
@@ -53,6 +56,7 @@ class ReflectionEngine:
         )
 
         # Self-evolution: generate skills, promote scripts, fix failures
+        # (adds its own tree_step calls to this same tree)
         if self.evolution:
             try:
                 await self.evolution.run(
@@ -65,6 +69,7 @@ class ReflectionEngine:
             except Exception:
                 pass  # evolution is non-fatal
 
+        display.tree_close()
         return reflection_text
 
     def _build_reflection_prompt(self, task: str, result: str, steps: list[dict]) -> str:

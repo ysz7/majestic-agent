@@ -27,6 +27,11 @@ sources:
     type: hn_api
     url: https://hacker-news.firebaseio.com/v0/topstories.json
 
+  - name: GitHub Trending
+    category: tech
+    type: github_trending
+    url: https://api.github.com/search/repositories
+
   - name: TechCrunch
     category: tech
     type: rss
@@ -51,6 +56,16 @@ sources:
     category: tech
     type: rss
     url: https://www.technologyreview.com/stories.rss
+
+  - name: Lobste.rs
+    category: tech
+    type: rss
+    url: https://lobste.rs/rss
+
+  - name: Dev.to
+    category: tech
+    type: rss
+    url: https://dev.to/feed
 
   # ── Science ───────────────────────────────────────────────────────────────────
   - name: Science Daily
@@ -79,6 +94,16 @@ sources:
     type: rss
     url: https://www.investopedia.com/feedbuilder/feed/getfeed?feedName=rss_headline
 
+  - name: Reuters Business
+    category: finance
+    type: rss
+    url: https://feeds.reuters.com/reuters/businessNews
+
+  - name: CoinDesk
+    category: finance
+    type: rss
+    url: https://www.coindesk.com/arc/outboundfeeds/rss/
+
   # ── AI & Research ─────────────────────────────────────────────────────────────
   - name: DeepMind Blog
     category: ai
@@ -94,3 +119,13 @@ sources:
     category: ai
     type: rss
     url: https://www.anthropic.com/rss.xml
+
+  - name: ArXiv cs.AI
+    category: ai
+    type: rss
+    url: https://arxiv.org/rss/cs.AI
+
+  - name: Hugging Face Blog
+    category: ai
+    type: rss
+    url: https://huggingface.co/blog/feed.xml

@@ -349,14 +349,50 @@ def budget_exceeded(kind: str, used: str, limit: str) -> None:
     print(f"  {RED}✗{R} {kind} limit reached  {DIM}({used} / {limit}){R}  Task stopped.")
 
 
-# ── Tool-call tree display ────────────────────────────────────────────────────
+# ── Tree display (general-purpose step trace) ─────────────────────────────────
 
-_tool_step: int = 0
+_tree_step: int = 0
+
+
+def tree_reset() -> None:
+    """Reset the tree step counter. Call before starting a new trace."""
+    global _tree_step
+    _tree_step = 0
 
 
 def reset_tool_counter() -> None:
-    global _tool_step
-    _tool_step = 0
+    tree_reset()
+
+
+def tree_step(label: str, detail: str = "", status: str = "ok") -> None:
+    """Print one step in the running tree (┌ first, ├ subsequent)."""
+    global _tree_step
+    prefix = "┌" if _tree_step == 0 else "├"
+    _tree_step += 1
+    if status == "error":
+        label_str = f"{RED}{B}{label}{R}"
+    elif status == "warn":
+        label_str = f"{Y}{B}{label}{R}"
+    else:
+        label_str = f"{B}{label}{R}"
+    sep = f"  {DIM}·{R}  "
+    parts = [label_str]
+    if detail:
+        parts.append(f"{DIM}{detail}{R}")
+    print(f"  {C}{prefix}{R} " + sep.join(parts))
+
+
+def tree_close(label: str = "Done", detail: str = "") -> None:
+    """Close the active tree with └. Resets the counter."""
+    global _tree_step
+    if _tree_step > 0:
+        sep = f"  {DIM}·{R}  "
+        parts = [f"{DIM}{label}{R}"]
+        if detail:
+            parts.append(f"{DIM}{detail}{R}")
+        print(f"  {G}└{R} " + sep.join(parts))
+        print()
+    _tree_step = 0
 
 
 def _args_summary(name: str, args: dict) -> str:
@@ -411,18 +447,11 @@ def _result_summary(result: object) -> str:
 
 def tool_done(name: str, args: dict, result: object) -> None:
     """Print one completed tool-call line in the running tree display."""
-    global _tool_step
-    prefix = "┌" if _tool_step == 0 else "├"
-    _tool_step += 1
     arg_str = _args_summary(name, args)
     res_str = _result_summary(result)
-    sep = f"  {DIM}·{R}  "
-    parts = [f"{B}{name}{R}"]
-    if arg_str:
-        parts.append(f"{DIM}{arg_str}{R}")
-    if res_str:
-        parts.append(f"{DIM}{res_str}{R}")
-    print(f"  {C}{prefix}{R} " + sep.join(parts))
+    detail_parts = [p for p in [arg_str, res_str] if p]
+    detail = "  ·  ".join(detail_parts)
+    tree_step(name, detail)
 
 
 def agent_delegating(to: str, task_preview: str) -> None:
@@ -443,15 +472,13 @@ def lesson_saved(lesson: str) -> None:
 
 def task_report(steps: int, tokens: int, cost: float, elapsed: float) -> None:
     """Close the tool-call tree. Stats are shown below the next user prompt."""
-    global _tool_step
-    if _tool_step > 0:
-        print(f"  {G}└{R} {DIM}Done{R}")
-    _tool_step = 0
+    tree_close()
 
 
 def inline_stats(tokens: int, cost: float, elapsed: float) -> None:
     """Compact stats line printed right below the user's input."""
-    print(f"  {DIM}· {tokens:,} tok  ·  ${cost:.4f}  ·  {elapsed:.1f}s{R}")
+    print(f"  {DIM}↳  {tokens:,} tok  ·  ${cost:.4f}  ·  {elapsed:.1f}s{R}")
+    print()
 
 def ask(prompt: str, default: str = "") -> str:
     hint = f" [{default}]" if default else ""

@@ -3,6 +3,8 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
+from majestic import display
+
 
 class SelfEvolution:
     """
@@ -65,6 +67,10 @@ class SelfEvolution:
             return_exceptions=True,
         )
 
+        skill_name = results[0] if not isinstance(results[0], Exception) else None
+        if skill_name:
+            display.tree_step("skill", skill_name)
+
         # Trigger 2 runs synchronously (file ops only)
         self._trigger2_promote_scripts(steps)
 
@@ -75,7 +81,7 @@ class SelfEvolution:
         await self._fix_failed_scripts(steps)
 
         return {
-            "skill_generated": results[0] if not isinstance(results[0], Exception) else None,
+            "skill_generated": skill_name,
             "scripts_parameterized": results[1] if not isinstance(results[1], Exception) else 0,
         }
 
@@ -133,6 +139,7 @@ class SelfEvolution:
                 continue  # already promoted
 
             dest.write_text(code, encoding="utf-8")
+            display.tree_step("promoted", dest.name)
             self.lessons.save(
                 task_type="meta",
                 lesson=f"Promoted reusable script → {dest.name}",
@@ -169,6 +176,7 @@ class SelfEvolution:
 
             if not dest.exists():
                 dest.write_text(parameterized, encoding="utf-8")
+                display.tree_step("parameterized", f"{dest.name}  ·  {len(variations)} runs merged")
 
                 # Mark all runs in this group as promoted
                 for var in variations:
@@ -277,6 +285,7 @@ Return ONLY the code, no markdown fences."""
 
             if not dest.exists():
                 dest.write_text(fixed, encoding="utf-8")
+                display.tree_step("fixed", dest.name)
                 self.lessons.save(
                     task_type="coding",
                     lesson=f"Fixed {lang} script error: {error[:120]}. Fixed version saved as {dest.name}",

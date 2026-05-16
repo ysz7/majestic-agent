@@ -186,11 +186,15 @@ class Gateway:
 
         today = date.today().isoformat()
 
+        lang: str = self._get(s, "agent_language", "") or ""
+
         parts: list[str] = [
             f"You are {name}, {role}.",
             f"Tone: {tone}.",
             f"Today's date: {today}.",
         ]
+        if lang:
+            parts.append(f"Always respond in: {lang}. Never switch to another language unless the user explicitly asks.")
         if restrictions:
             parts.append("Restrictions: " + "; ".join(restrictions))
         if context.strip():

@@ -168,48 +168,115 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         return True
 
     if cmd == "/research":
-        words = text.strip().split(None, 1)
-        query = words[1].strip() if len(words) > 1 else ""
-        if not query:
-            out("[dim]Usage: /research <query>  e.g. /research AI news[/dim]")
-            return True
-        out(f"[dim]Fetching from curated sources…[/dim]")
+        from majestic import display as _display
+        out("[dim]Connecting to curated sources…[/dim]")
+        _display.tree_reset()
+
+        def _on_source(name: str, count: int, success: bool) -> None:
+            if success:
+                _display.tree_step(name, f"{count} article{'s' if count != 1 else ''}")
+            else:
+                _display.tree_step(name, "no response", status="warn")
+
         try:
-            from majestic.tools.research import research as _research
-            result = await _research(query)
+            from majestic.tools.research import fetch_all
+            from majestic.tools.research.db import ResearchDB
+            articles, ok_sources, failed = await fetch_all(on_source=_on_source)
         except Exception as e:
-            out(f"[red]Error: {e}[/red]")
+            out(f"[red]Fetch error: {e}[/red]")
             return True
-        items = result.get("results", [])
-        ok    = result.get("sources_ok", [])
-        failed = result.get("sources_failed", [])
-        if not items:
-            out(f"[dim]No results found for:[/dim] {query}")
-            if failed:
-                out(f"[dim]Failed sources: {', '.join(failed)}[/dim]")
+
+        # Store to profile DB
+        if settings is not None:
+            try:
+                db = ResearchDB(str(settings.data_dir / "research.db"))
+                new, skipped = db.insert_articles(articles)
+                stats = db.stats()
+                db.close()
+                _display.tree_step("saved", f"{new} new · {skipped} cached · {stats['total']} total")
+            except Exception as e:
+                out(f"[yellow]DB warning: {e}[/yellow]")
+
+        _display.tree_close("sending to agent…")
+
+        if not articles:
+            out("[dim]No articles fetched. Check your internet connection.[/dim]")
             return True
-        out(f"\n[bold]Research:[/bold] {query}  [dim]· {len(items)} results from {len(ok)} sources[/dim]\n")
-        _cat_seen: set[str] = set()
-        for item in items:
-            cat = item.get("category", "")
-            if cat not in _cat_seen:
-                out(f"[dim]── {cat.upper()} ──[/dim]")
-                _cat_seen.add(cat)
-            date    = f"[dim]{item['date']}[/dim]  " if item.get("date") else ""
-            source  = f"[dim]{item['source']}[/dim]"
-            title   = item.get("title", "")
-            summary = item.get("summary", "")
-            url     = item.get("url", "")
-            out(f"{date}{source}")
-            out(f"  [bold]{title}[/bold]")
-            if summary:
-                out(f"  [dim]{summary[:120]}[/dim]")
-            if url:
-                out(f"  [cyan]{url}[/cyan]")
-            out("")
-        if failed:
-            out(f"[dim]Unavailable: {', '.join(failed)}[/dim]")
-        return True
+
+        # Build prompt and pass to agent for narrated briefing
+        lines = [f"Here are the latest news articles fetched right now from {len(ok_sources)} verified sources:\n"]
+        for a in articles[:40]:
+            lines.append(f"[{a.get('category','?').upper()}] {a.get('source','?')} · {a.get('date','')}:")
+            lines.append(f"  {a.get('title','')}")
+            if a.get("summary"):
+                lines.append(f"  {a.get('summary','')[:180]}")
+            lines.append("")
+        lines.append(
+            "\nWrite a concise world briefing based on these articles. "
+            "Structure it as: 1) Top stories right now, 2) What's happening in Tech & AI, "
+            "3) Business & Finance trends, 4) Science & World events. "
+            "Be specific, mention real names and companies. "
+            "Keep the total response under 500 words."
+        )
+        return "\n".join(lines)
+
+    if cmd == "/briefing":
+        from majestic import display as _display
+        words = text.strip().split()
+        days = 30
+        if len(words) > 1:
+            try:
+                days = int(words[1])
+            except ValueError:
+                pass
+
+        if settings is None:
+            out("[red]No settings — briefing requires a profile.[/red]")
+            return True
+
+        try:
+            from majestic.tools.research.db import ResearchDB
+            db = ResearchDB(str(settings.data_dir / "research.db"))
+            articles = db.get_articles(days=days)
+            stats = db.stats()
+            db.close()
+        except Exception as e:
+            out(f"[red]DB error: {e}[/red]")
+            return True
+
+        if not articles:
+            out(f"[dim]No articles in database for the last {days} days. Run /research first.[/dim]")
+            return True
+
+        # Group by category for the prompt
+        from collections import defaultdict
+        by_cat: dict[str, list] = defaultdict(list)
+        for a in articles:
+            by_cat[a.get("category", "general")].append(a)
+
+        _display.tree_reset()
+        _display.tree_step("Research DB", f"{stats['total']} total · last {days}d: {len(articles)} articles")
+        for cat, items in by_cat.items():
+            _display.tree_step(cat.title(), f"{len(items)} articles")
+        _display.tree_close("analyzing…")
+
+        lines = [f"Analyze the following {len(articles)} news articles collected over the last {days} days.\n"]
+        for cat, items in by_cat.items():
+            lines.append(f"=== {cat.upper()} ({len(items)} articles) ===")
+            for a in items[:25]:
+                lines.append(f"· [{a.get('date','')}] {a.get('source','')}: {a.get('title','')}")
+            lines.append("")
+
+        lines.append(
+            f"\nProvide a comprehensive strategic briefing for an entrepreneur/investor. Include:\n"
+            f"1. MAJOR EVENTS — the most important things that happened in the last {days} days\n"
+            f"2. TECH & AI TRENDS — what's emerging, what companies are shipping\n"
+            f"3. BUSINESS & INVESTMENT SIGNALS — where money is flowing, what sectors are growing\n"
+            f"4. RECOMMENDATIONS — top 3-5 niches/projects worth building or investing in right now, with reasoning\n"
+            f"5. RISKS — what to avoid or watch out for\n"
+            f"\nBe specific and actionable. Mention real companies, products, and numbers where available."
+        )
+        return "\n".join(lines)
 
     if cmd == "/agents":
         try:
@@ -282,7 +349,8 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                     lines.extend(f"  - {s}" for s in steps)
                 if user_input:
                     lines.append(f"\nUser input: {user_input}")
-                out(f"[dim]Running skill:[/dim] [bold]{cmd_name}[/bold]")
+                print()
+                out(f"  [dim]Running skill:[/dim] [bold]{cmd_name}[/bold]")
                 return "\n".join(lines)
         except Exception:
             pass

@@ -32,6 +32,7 @@ try:
     from prompt_toolkit import PromptSession as _PromptSession
     from prompt_toolkit.completion import Completer as _Completer, Completion as _Completion
     from prompt_toolkit.styles import Style as _Style
+    from prompt_toolkit.formatted_text import ANSI as _ANSI
     _PROMPT_TOOLKIT = True
 except ImportError:
     _PROMPT_TOOLKIT = False
@@ -48,9 +49,11 @@ _ATTACHMENT_EXTENSIONS = {
     ".zip", ".tar", ".gz",
 }
 
-_PROMPT = "> "
+_ACCENT  = "\033[38;2;217;87;103m"
+_RESET   = "\033[0m"
+_PROMPT  = f"{_ACCENT}>{_RESET} "
 
-_SYSTEM_COMPLETIONS = ["/help", "/skills", "/tools", "/research", "/agents", "/memory", "/budget", "/new", "/quit"]
+_SYSTEM_COMPLETIONS = ["/help", "/skills", "/tools", "/research", "/briefing", "/agents", "/memory", "/budget", "/new", "/quit"]
 
 if _PROMPT_TOOLKIT:
     class _SlashCompleter(_Completer):
@@ -143,7 +146,10 @@ class CLIChannel(BaseChannel):
         """Register profile skill names as /skill-name completions."""
         self._completions.clear()
         self._completions.extend(_SYSTEM_COMPLETIONS)
-        self._completions.extend(f"/{n}" for n in skill_names if n)
+        existing = set(_SYSTEM_COMPLETIONS)
+        self._completions.extend(
+            f"/{n}" for n in skill_names if n and f"/{n}" not in existing
+        )
 
     # ------------------------------------------------------------------
     # BaseChannel interface
@@ -162,7 +168,7 @@ class CLIChannel(BaseChannel):
                 pass  # no console — fall back to plain readline
 
         if self._pt_session is not None:
-            raw = await self._pt_session.prompt_async(_PROMPT)
+            raw = await self._pt_session.prompt_async(_ANSI(_PROMPT))
         else:
             sys.stdout.write(_PROMPT)
             sys.stdout.flush()
@@ -185,10 +191,14 @@ class CLIChannel(BaseChannel):
     async def send(self, message: str) -> None:
         """Print *message* to stdout using Rich Markdown when available."""
         if _RICH_AVAILABLE and _rich_console is not None:
-            # Render Markdown so headings, code blocks, and emphasis look nice.
-            _rich_console.print(_Markdown(message))
+            try:
+                from rich.padding import Padding
+                _rich_console.print(Padding(_Markdown(message.strip()), (0, 0, 1, 2)))
+            except Exception:
+                _rich_console.print(_Markdown(message))
         else:
-            print(message)
+            indented = "\n".join("  " + ln for ln in message.splitlines())
+            print(indented)
 
     async def send_stream(self, token: str) -> None:
         """Write *token* directly to stdout without buffering a newline."""
