@@ -101,6 +101,7 @@ profiles/*/workspace/output/
 profiles/*/workspace/temp/
 profiles/*/workspace/.venv/
 profiles/*/workspace/node_modules/
+profiles/*/workspace/briefings/
 
 # Stale / misplaced venv at profile root (pain_hunter legacy)
 profiles/*/.venv/
