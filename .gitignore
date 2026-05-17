@@ -102,12 +102,22 @@ profiles/*/workspace/temp/
 profiles/*/workspace/.venv/
 profiles/*/workspace/node_modules/
 profiles/*/workspace/briefings/
+profiles/*/workspace/cache/
+profiles/*/workspace/downloads/
+profiles/*/workspace/exports/
+profiles/*/workspace/reports/
+profiles/*/workspace/articles/
+profiles/*/workspace/news/
+profiles/*/workspace/data/
 
 # Stale / misplaced venv at profile root (pain_hunter legacy)
 profiles/*/.venv/
 
 # Stale registry folder accidentally created by agent
 profiles/data/
+
+# Root data dir — runtime machine-specific (agent registry, logs, tokens)
+data/
 
 # Secrets and keys
 *.pem
