@@ -312,7 +312,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _display.tree_step("Research DB", f"{stats['total']} total · last {days}d: {len(articles)} articles (deduped)")
         for cat, items in by_cat.items():
             _display.tree_step(cat.title(), f"{len(items)} articles")
-        _display.tree_close("analyzing…")
 
         # ── 4. Build corpus, capping at ~60K chars to stay within token budget
         _MAX_CORPUS_CHARS = 60_000
@@ -343,91 +342,115 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         lines = [f"INTELLIGENCE CORPUS — {article_count_note}, last {days} days\n"]
         lines.extend(corpus_lines)
 
-        lines.append(
-            f"\nYou are a world-class intelligence analyst. Your job: transform raw news into actionable insight. "
-            f"Use ONLY facts from the articles above. Never hallucinate names, companies, or data. "
-            f"For every factual claim, you must be able to trace it to a specific article above.\n\n"
-
-            f"STEP 0 — CROSS-SIGNAL ANALYSIS (internal reasoning, do not output this step)\n"
-            f"Before writing any section: scan all articles and identify which themes, actors, or events appear "
-            f"across MULTIPLE categories simultaneously. These cross-category signals are the most significant. "
-            f"Note which actors (companies, governments, funds) appear in 2+ categories. "
-            f"Use this internal analysis as the foundation for all 4 sections below.\n\n"
-
-            f"---\n\n"
+        instructions = (
+            f"Produce the 4-section intelligence briefing below. "
+            f"Rules: (1) use ONLY facts from the corpus above; (2) cite source + date for every claim; "
+            f"(3) actors/themes appearing in multiple categories are strongest signals — prioritize them.\n\n"
 
             f"## SECTION 1 — WORLD PICTURE\n\n"
             f"Write a macro synthesis — NOT a list of headlines. Identify 3–4 underlying structural forces "
-            f"that explain MOST of what you see across all articles. Connect geopolitics, technology, economy, "
-            f"and society into one coherent narrative. What historical moment is this? "
-            f"What is quietly shifting that most people aren't noticing? "
-            f"Ground every claim in specific evidence from the corpus.\n\n"
+            f"that explain MOST of what you see across ALL categories together. Connect geopolitics, technology, "
+            f"economy, and society into one coherent narrative. What is quietly shifting that most people "
+            f"aren't noticing? Ground every claim in specific evidence from the corpus.\n\n"
 
             f"---\n\n"
 
             f"## SECTION 2 — MONEY FLOWS\n\n"
-            f"Map where capital is moving. For each significant flow:\n\n"
-            f"**ENTERING** [sector/asset class]\n"
-            f"- Actor: [exact company/fund/government name from articles] — what they are doing\n"
-            f"- Evidence: cite article (source, date)\n"
-            f"- Scale: mention dollar amounts or scale signals from the articles if available\n\n"
-            f"**LEAVING** [sector/asset class]\n"
+            f"Map where capital is moving. For each significant flow use this format:\n\n"
+            f"**ENTERING [sector/asset class]**\n"
+            f"- Actor: [exact name from articles] — what they are doing\n"
+            f"- Evidence: (source, date)\n"
+            f"- Scale: dollar amounts or size signals if mentioned in articles\n\n"
+            f"**LEAVING [sector/asset class]**\n"
             f"- Actor: [exact name from articles] — why they are exiting\n"
-            f"- Evidence: cite article (source, date)\n\n"
-            f"Then give explicit market signals:\n\n"
-            f"**BUY** — [specific asset, sector, or position] | Evidence: [article]\n"
-            f"**HOLD** — [asset] | Rationale from news\n"
-            f"**SELL / AVOID** — [asset] | Risk signal from articles\n\n"
-            f"Cover: equities, crypto, commodities, bonds where articles provide signal. "
-            f"Do not include assets that have no signal in the corpus.\n\n"
+            f"- Evidence: (source, date)\n\n"
+            f"Then give market signals:\n\n"
+            f"**BUY** [asset/sector] — evidence: (source)\n"
+            f"**HOLD** [asset] — rationale from corpus\n"
+            f"**SELL / AVOID** [asset] — risk signal from corpus\n\n"
+            f"Cover equities, crypto, commodities, bonds — only where articles give a signal. "
+            f"Do not include assets with no corpus evidence.\n\n"
 
             f"---\n\n"
 
             f"## SECTION 3 — PREDICTIONS & PROBABILITIES\n\n"
-            f"Use Bayesian cross-correlation: identify independent signals pointing the same direction. "
-            f"Probability calibration rule: 1 signal = 30–50%, 2 independent signals = 50–65%, "
-            f"3 signals = 65–80%, 4+ independent signals = 80–88% (never exceed 88% — markets surprise).\n\n"
+            f"Cross-correlate independent signals pointing the same direction. "
+            f"Calibration: 1 signal = 30–50%, 2 independent = 50–65%, 3 = 65–80%, 4+ = 80–88% max.\n\n"
             f"For each prediction:\n\n"
-            f"**[EVENT]** — [probability]%\n"
-            f"- Time horizon: near-term (1–4 weeks) / medium (1–3 months) / long-term (6–12 months)\n"
-            f"- Contributing signals: list each supporting article signal with source name\n"
-            f"- If this happens: [who wins] / [who loses]\n"
-            f"- Invalidation trigger: what single event would make this prediction wrong\n\n"
-            f"Generate 5–7 predictions, ranked highest probability first. "
+            f"**[EVENT STATEMENT]** — **XX%**\n"
+            f"- Horizon: near-term (1–4 wks) / medium (1–3 mo) / long-term (6–12 mo)\n"
+            f"- Signals: list each supporting article (source, date)\n"
+            f"- Winners / Losers if this happens\n"
+            f"- Invalidation: what single event would kill this prediction\n\n"
+            f"Generate 5–7 predictions ranked highest to lowest probability. "
             f"Only include predictions directly traceable to articles above.\n\n"
 
             f"---\n\n"
 
             f"## SECTION 4 — TOP 3 HIGH-CONVICTION IDEAS\n\n"
-            f"Find ideas at the intersection of multiple trends visible in the corpus — "
-            f"timing arbitrage opportunities that exist BECAUSE OF what just happened in the news. "
-            f"For each idea:\n\n"
-            f"**[IDEA NAME]** — [one-sentence concept]\n\n"
-            f"- **News trigger**: the specific event(s) that open this window RIGHT NOW (cite article + date)\n"
+            f"Find ideas at the intersection of 2+ trends in different categories — "
+            f"timing arbitrage opportunities created by specific news events. For each:\n\n"
+            f"**#N — [IDEA NAME]** — [one-sentence concept]\n\n"
+            f"- **News trigger**: specific event(s) opening this window right now (source, date)\n"
             f"- **Why this timing is unique**: what changes in 3–6 months that closes the window\n"
-            f"- **Market signal from corpus**: what the news tells us about demand size\n"
-            f"- **Key risk**: the one thing most likely to kill this (cite any warning signals in articles)\n"
-            f"- **Kill check**: what would have to be true in 30 days for this to be dead on arrival\n"
-            f"- **Success probability**: XX% — reasoning chain from signals\n\n"
-            f"Rank ideas #1 (highest probability) to #3. "
-            f"Prefer ideas at the intersection of 2+ trends from different categories.\n\n"
+            f"- **Market signal**: what the corpus tells us about size and demand\n"
+            f"- **Key risk**: main threat — cite any warning signal from corpus\n"
+            f"- **Kill check**: what must be true in 30 days or this is dead on arrival\n"
+            f"- **Success probability**: XX% — reasoning chain from corpus signals\n\n"
+            f"Rank #1 highest → #3 lowest probability.\n\n"
             f"---\n\n"
-            f"Close with one sentence: the single most underappreciated insight hidden in this corpus."
+            f"End with one sentence: the single most underappreciated insight in this corpus."
         )
+        lines.append(instructions)
         prompt = "\n".join(lines)
 
-        # ── 5. Run the agent directly so we can intercept and save the result
+        # ── 5. Direct LLM call — no ReAct loop, no tool injection (all data is in the corpus)
         import time as _time
         from datetime import date as _date
         _t0 = _time.monotonic()
+
+        _system = (
+            "You are a world-class intelligence analyst. "
+            "Your response MUST begin with the exact text '## SECTION 1 — WORLD PICTURE' "
+            "as your very first characters — nothing before it. "
+            "No preamble. No meta-commentary. No reasoning narration. No 'Let me', 'We need', 'First I will'. "
+            "Use ONLY facts from the corpus. Cite (source, date) for every claim."
+        )
+        _messages = [
+            {"role": "system", "content": _system},
+            {"role": "user",   "content": prompt},
+        ]
+
         try:
-            _sys_prompt = gateway._build_enriched_system_prompt(prompt) if gateway else ""
-            result = await runtime.run(task=prompt, system_prompt=_sys_prompt)
+            with _display.TreePending("analyzing…"):
+                _response = await runtime.llm.chat(_messages, step_type="reason")
+            _display.tree_close()
+            result = _response.get("content", "")
+            _in  = _response.get("input_tokens", 0)
+            _out = _response.get("output_tokens", 0)
+            runtime._tokens_used = _in + _out
+            # Cost: use router value or estimate from tokens
+            _cost = _response.get("cost") or 0.0
+            if not _cost and (_in or _out):
+                try:
+                    from majestic.llm.base import BaseLLM
+                    _cost = BaseLLM._estimate_cost(_in, _out)
+                except Exception:
+                    pass
+            runtime._cost_used = _cost
         except Exception as exc:
+            _display.tree_close("error")
             result = f"Error: {exc}"
+            _cost = 0.0
         _elapsed = _time.monotonic() - _t0
 
-        # ── 6. Save briefing to workspace/briefings/YYYY-MM-DD.md
+        # ── 6. Strip any preamble — keep from first "## SECTION" header
+        import re as _re
+        _section_match = _re.search(r'##\s*SECTION\s*1', result, _re.IGNORECASE)
+        if _section_match:
+            result = result[_section_match.start():]
+
+        # ── 7. Save briefing to workspace/briefings/YYYY-MM-DD.md
         try:
             briefings_dir = settings.workspace_dir / "briefings"
             briefings_dir.mkdir(parents=True, exist_ok=True)
