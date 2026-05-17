@@ -53,7 +53,7 @@ _ACCENT  = "\033[38;2;217;87;103m"
 _RESET   = "\033[0m"
 _PROMPT  = f"{_ACCENT}>{_RESET} "
 
-_SYSTEM_COMPLETIONS = ["/help", "/skills", "/tools", "/research", "/briefing", "/agents", "/memory", "/budget", "/new", "/quit"]
+_SYSTEM_COMPLETIONS = ["/help", "/skills", "/tools", "/research", "/news", "/briefing", "/agents", "/memory", "/budget", "/new", "/quit"]
 
 if _PROMPT_TOOLKIT:
     class _SlashCompleter(_Completer):

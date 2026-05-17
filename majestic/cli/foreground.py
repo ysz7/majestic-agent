@@ -86,7 +86,7 @@ async def _run_plain(profile_name: str):
         if text.startswith("/"):
             slash_result = await _handle_slash_plain(
                 text, profile_name, working_memory, runtime, settings,
-                semantic=_semantic,
+                semantic=_semantic, channel=channel, gateway=gateway,
             )
             if slash_result is True:
                 continue
@@ -123,7 +123,7 @@ async def _run_plain(profile_name: str):
         working_memory.add_message("assistant", result)
 
 
-async def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime, settings=None, semantic=None):
+async def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime, settings=None, semantic=None, channel=None, gateway=None):
     """Handle a slash command in plain CLI.
 
     Returns:
@@ -283,35 +283,226 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             out(f"[dim]No articles in database for the last {days} days. Run /research first.[/dim]")
             return True
 
-        # Group by category for the prompt
         from collections import defaultdict
+
+        # ── 1. Sort newest-first within each article (iso dates sort lexicographically)
+        articles.sort(key=lambda a: a.get("date", ""), reverse=True)
+
+        # ── 2. Deduplicate near-identical titles (keep first/newest occurrence)
+        def _title_key(title: str) -> str:
+            import re as _re
+            words_t = _re.sub(r"[^a-z0-9 ]", "", title.lower()).split()
+            return " ".join(words_t[:8])  # first 8 normalized words as fingerprint
+
+        seen_keys: set[str] = set()
+        deduped: list[dict] = []
+        for a in articles:
+            key = _title_key(a.get("title", ""))
+            if key and key not in seen_keys:
+                seen_keys.add(key)
+                deduped.append(a)
+        articles = deduped
+
+        # ── 3. Group by category
         by_cat: dict[str, list] = defaultdict(list)
         for a in articles:
             by_cat[a.get("category", "general")].append(a)
 
         _display.tree_reset()
-        _display.tree_step("Research DB", f"{stats['total']} total · last {days}d: {len(articles)} articles")
+        _display.tree_step("Research DB", f"{stats['total']} total · last {days}d: {len(articles)} articles (deduped)")
         for cat, items in by_cat.items():
             _display.tree_step(cat.title(), f"{len(items)} articles")
         _display.tree_close("analyzing…")
 
-        lines = [f"Analyze the following {len(articles)} news articles collected over the last {days} days.\n"]
+        # ── 4. Build corpus, capping at ~60K chars to stay within token budget
+        _MAX_CORPUS_CHARS = 60_000
+        corpus_lines: list[str] = []
+        corpus_chars = 0
+        capped = False
+
         for cat, items in by_cat.items():
-            lines.append(f"=== {cat.upper()} ({len(items)} articles) ===")
-            for a in items[:25]:
-                lines.append(f"· [{a.get('date','')}] {a.get('source','')}: {a.get('title','')}")
-            lines.append("")
+            corpus_lines.append(f"=== {cat.upper()} ({len(items)} articles) ===")
+            corpus_chars += len(corpus_lines[-1])
+            for a in items[:30]:
+                entry = f"· [{a.get('date','')}] {a.get('source','')}: {a.get('title','')}"
+                corpus_lines.append(entry)
+                corpus_chars += len(entry)
+                if a.get("summary"):
+                    summary_line = f"  {a.get('summary','')[:300]}"
+                    corpus_lines.append(summary_line)
+                    corpus_chars += len(summary_line)
+                if corpus_chars >= _MAX_CORPUS_CHARS:
+                    corpus_lines.append("  [corpus truncated — token budget limit]")
+                    capped = True
+                    break
+            corpus_lines.append("")
+            if capped:
+                break
+
+        article_count_note = f"{len(articles)} articles" + (" (truncated for token budget)" if capped else "")
+        lines = [f"INTELLIGENCE CORPUS — {article_count_note}, last {days} days\n"]
+        lines.extend(corpus_lines)
 
         lines.append(
-            f"\nProvide a comprehensive strategic briefing for an entrepreneur/investor. Include:\n"
-            f"1. MAJOR EVENTS — the most important things that happened in the last {days} days\n"
-            f"2. TECH & AI TRENDS — what's emerging, what companies are shipping\n"
-            f"3. BUSINESS & INVESTMENT SIGNALS — where money is flowing, what sectors are growing\n"
-            f"4. RECOMMENDATIONS — top 3-5 niches/projects worth building or investing in right now, with reasoning\n"
-            f"5. RISKS — what to avoid or watch out for\n"
-            f"\nBe specific and actionable. Mention real companies, products, and numbers where available."
+            f"\nYou are a world-class intelligence analyst. Your job: transform raw news into actionable insight. "
+            f"Use ONLY facts from the articles above. Never hallucinate names, companies, or data. "
+            f"For every factual claim, you must be able to trace it to a specific article above.\n\n"
+
+            f"STEP 0 — CROSS-SIGNAL ANALYSIS (internal reasoning, do not output this step)\n"
+            f"Before writing any section: scan all articles and identify which themes, actors, or events appear "
+            f"across MULTIPLE categories simultaneously. These cross-category signals are the most significant. "
+            f"Note which actors (companies, governments, funds) appear in 2+ categories. "
+            f"Use this internal analysis as the foundation for all 4 sections below.\n\n"
+
+            f"---\n\n"
+
+            f"## SECTION 1 — WORLD PICTURE\n\n"
+            f"Write a macro synthesis — NOT a list of headlines. Identify 3–4 underlying structural forces "
+            f"that explain MOST of what you see across all articles. Connect geopolitics, technology, economy, "
+            f"and society into one coherent narrative. What historical moment is this? "
+            f"What is quietly shifting that most people aren't noticing? "
+            f"Ground every claim in specific evidence from the corpus.\n\n"
+
+            f"---\n\n"
+
+            f"## SECTION 2 — MONEY FLOWS\n\n"
+            f"Map where capital is moving. For each significant flow:\n\n"
+            f"**ENTERING** [sector/asset class]\n"
+            f"- Actor: [exact company/fund/government name from articles] — what they are doing\n"
+            f"- Evidence: cite article (source, date)\n"
+            f"- Scale: mention dollar amounts or scale signals from the articles if available\n\n"
+            f"**LEAVING** [sector/asset class]\n"
+            f"- Actor: [exact name from articles] — why they are exiting\n"
+            f"- Evidence: cite article (source, date)\n\n"
+            f"Then give explicit market signals:\n\n"
+            f"**BUY** — [specific asset, sector, or position] | Evidence: [article]\n"
+            f"**HOLD** — [asset] | Rationale from news\n"
+            f"**SELL / AVOID** — [asset] | Risk signal from articles\n\n"
+            f"Cover: equities, crypto, commodities, bonds where articles provide signal. "
+            f"Do not include assets that have no signal in the corpus.\n\n"
+
+            f"---\n\n"
+
+            f"## SECTION 3 — PREDICTIONS & PROBABILITIES\n\n"
+            f"Use Bayesian cross-correlation: identify independent signals pointing the same direction. "
+            f"Probability calibration rule: 1 signal = 30–50%, 2 independent signals = 50–65%, "
+            f"3 signals = 65–80%, 4+ independent signals = 80–88% (never exceed 88% — markets surprise).\n\n"
+            f"For each prediction:\n\n"
+            f"**[EVENT]** — [probability]%\n"
+            f"- Time horizon: near-term (1–4 weeks) / medium (1–3 months) / long-term (6–12 months)\n"
+            f"- Contributing signals: list each supporting article signal with source name\n"
+            f"- If this happens: [who wins] / [who loses]\n"
+            f"- Invalidation trigger: what single event would make this prediction wrong\n\n"
+            f"Generate 5–7 predictions, ranked highest probability first. "
+            f"Only include predictions directly traceable to articles above.\n\n"
+
+            f"---\n\n"
+
+            f"## SECTION 4 — TOP 3 HIGH-CONVICTION IDEAS\n\n"
+            f"Find ideas at the intersection of multiple trends visible in the corpus — "
+            f"timing arbitrage opportunities that exist BECAUSE OF what just happened in the news. "
+            f"For each idea:\n\n"
+            f"**[IDEA NAME]** — [one-sentence concept]\n\n"
+            f"- **News trigger**: the specific event(s) that open this window RIGHT NOW (cite article + date)\n"
+            f"- **Why this timing is unique**: what changes in 3–6 months that closes the window\n"
+            f"- **Market signal from corpus**: what the news tells us about demand size\n"
+            f"- **Key risk**: the one thing most likely to kill this (cite any warning signals in articles)\n"
+            f"- **Kill check**: what would have to be true in 30 days for this to be dead on arrival\n"
+            f"- **Success probability**: XX% — reasoning chain from signals\n\n"
+            f"Rank ideas #1 (highest probability) to #3. "
+            f"Prefer ideas at the intersection of 2+ trends from different categories.\n\n"
+            f"---\n\n"
+            f"Close with one sentence: the single most underappreciated insight hidden in this corpus."
         )
-        return "\n".join(lines)
+        prompt = "\n".join(lines)
+
+        # ── 5. Run the agent directly so we can intercept and save the result
+        import time as _time
+        from datetime import date as _date
+        _t0 = _time.monotonic()
+        try:
+            _sys_prompt = gateway._build_enriched_system_prompt(prompt) if gateway else ""
+            result = await runtime.run(task=prompt, system_prompt=_sys_prompt)
+        except Exception as exc:
+            result = f"Error: {exc}"
+        _elapsed = _time.monotonic() - _t0
+
+        # ── 6. Save briefing to workspace/briefings/YYYY-MM-DD.md
+        try:
+            briefings_dir = settings.workspace_dir / "briefings"
+            briefings_dir.mkdir(parents=True, exist_ok=True)
+            fname = briefings_dir / f"{_date.today().isoformat()}.md"
+            fname.write_text(result, encoding="utf-8")
+            _display.tree_reset()
+            _display.tree_step("saved", f"{fname.name}")
+            _display.tree_close()
+        except Exception:
+            pass
+
+        # Display result and stats
+        if channel is not None:
+            await channel.send(f"\n{result}\n")
+        else:
+            out(result)
+
+        from majestic import display as _d
+        _d.inline_stats(
+            tokens=getattr(runtime, "_tokens_used", 0),
+            cost=getattr(runtime, "_cost_used", 0.0),
+            elapsed=_elapsed,
+        )
+        return True
+
+    if cmd == "/news":
+        words = text.strip().split()
+        days = 7
+        if len(words) > 1:
+            try:
+                days = int(words[1])
+            except ValueError:
+                pass
+
+        if settings is None:
+            out("[dim]News requires a profile with a research DB. Run /research first.[/dim]")
+            return True
+
+        try:
+            from majestic.tools.research.db import ResearchDB
+            db = ResearchDB(str(settings.data_dir / "research.db"))
+            articles = db.get_articles(days=days)
+            db.close()
+        except Exception as e:
+            out(f"[red]DB error: {e}[/red]")
+            return True
+
+        if not articles:
+            out(f"[dim]No articles for the last {days} days. Run /research first.[/dim]")
+            return True
+
+        from collections import defaultdict
+        by_cat: dict[str, list] = defaultdict(list)
+        for a in articles:
+            by_cat[a.get("category", "general")].append(a)
+
+        out(f"\n[bold]NEWS[/bold]  [dim]· last {days} days · {len(articles)} articles[/dim]\n")
+        for cat in sorted(by_cat):
+            items = by_cat[cat]
+            dashes = "─" * max(0, 48 - len(cat))
+            out(f"  [bold cyan]{cat.upper()}[/bold cyan]  [dim]{dashes}[/dim]")
+            for a in items[:25]:
+                date   = a.get("date", "")
+                title  = (a.get("title", "")[:68] + "…") if len(a.get("title","")) > 68 else a.get("title","")
+                source = a.get("source", "")
+                url    = a.get("url", "")
+                url_d  = url.replace("https://","").replace("http://","")
+                url_d  = (url_d[:66] + "…") if len(url_d) > 66 else url_d
+                out(f"  [dim]{date}[/dim]  {title}  [dim]· {source}[/dim]")
+                if url_d:
+                    out(f"  [dim]          {url_d}[/dim]")
+            if len(items) > 25:
+                out(f"  [dim]          … and {len(items) - 25} more[/dim]")
+            out("")
+        return True
 
     if cmd == "/agents":
         try:
