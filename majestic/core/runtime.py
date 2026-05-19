@@ -309,7 +309,8 @@ class AgentRuntime:
                 "After seeing the tool result, continue reasoning and call more tools or give the final answer.\n\n"
                 "When you have enough information, output ONLY:\n"
                 "FINAL_ANSWER: your complete answer here\n\n"
-                "CRITICAL: Write TOOL_CALL and FINAL_ANSWER in English exactly as shown above."
+                "CRITICAL: The keywords TOOL_CALL and FINAL_ANSWER must be written exactly as shown above (English, no translation). "
+                "Your answer content must follow any language instruction in the system prompt."
             )
             enhanced = list(messages)
             if enhanced and enhanced[0]["role"] == "system":

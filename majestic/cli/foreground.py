@@ -247,8 +247,13 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             if a.get("summary"):
                 lines.append(f"  {a.get('summary','')[:180]}")
             lines.append("")
+        _lang = getattr(settings, "agent_language", "") or "en"
+        _lang_note = (
+            f" Respond in {_lang}. Article titles may stay in original language."
+            if _lang and _lang.lower() not in ("en", "english") else ""
+        )
         lines.append(
-            "\nWrite a concise briefing of these NEW articles only. "
+            f"\nWrite a concise briefing of these NEW articles only.{_lang_note} "
             "Structure it as: 1) Top stories right now, 2) Tech & AI, "
             "3) Business & Finance, 4) Science & World. "
             "Be specific, mention real names and numbers. Under 400 words."
@@ -409,12 +414,17 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         from datetime import date as _date
         _t0 = _time.monotonic()
 
+        _lang = getattr(settings, "agent_language", "") or "en"
+        _lang_instruction = (
+            f" Always respond in: {_lang}. Article titles may remain in their original language."
+            if _lang and _lang.lower() not in ("en", "english") else ""
+        )
         _system = (
             "You are a world-class intelligence analyst. "
             "Your response MUST begin with the exact text '## SECTION 1 — WORLD PICTURE' "
             "as your very first characters — nothing before it. "
             "No preamble. No meta-commentary. No reasoning narration. No 'Let me', 'We need', 'First I will'. "
-            "Use ONLY facts from the corpus. Cite (source, date) for every claim."
+            f"Use ONLY facts from the corpus. Cite (source, date) for every claim.{_lang_instruction}"
         )
         _messages = [
             {"role": "system", "content": _system},

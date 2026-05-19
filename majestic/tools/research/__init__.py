@@ -150,7 +150,7 @@ async def _fetch_rss(client: httpx.AsyncClient, src: dict, query: str) -> list[d
                           "summary": summary[:240].strip(),
                           "url": link, "date": pub, "category": cat})
 
-    return items[:8]
+    return items[:20]
 
 
 async def _fetch_hn(client: httpx.AsyncClient, src: dict, query: str) -> list[dict]:
@@ -182,7 +182,7 @@ async def _fetch_hn(client: httpx.AsyncClient, src: dict, query: str) -> list[di
         results.append({"source": "Hacker News", "title": title,
                         "summary": f"{d.get('score',0)} pts · {d.get('descendants',0)} comments",
                         "url": url, "date": date, "category": "tech"})
-        if len(results) >= 8:
+        if len(results) >= 20:
             break
     return results
 
