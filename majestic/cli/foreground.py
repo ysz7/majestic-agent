@@ -747,6 +747,235 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         )
         return True
 
+    if cmd == "/predict":
+        from majestic import display as _display
+        words = text.strip().split()
+        days = 30
+        if len(words) > 1:
+            try:
+                days = int(words[1])
+            except ValueError:
+                pass
+
+        if settings is None:
+            out("[red]No settings — /predict requires a profile.[/red]")
+            return True
+
+        # Load research articles
+        _pred_articles: list[dict] = []
+        try:
+            from majestic.tools.research.db import ResearchDB as _RDB3
+            _rdb3 = _RDB3(str(settings.data_dir / "research.db"))
+            _pred_articles = _rdb3.get_articles(days=days)
+            _rdb3.close()
+        except Exception:
+            pass
+
+        # Load pain points
+        _pred_pains: list[dict] = []
+        try:
+            from majestic.tools.pains.db import PainsDB as _PDB3
+            _pdb3 = _PDB3(str(settings.data_dir / "pains.db"))
+            _pred_pains = _pdb3.get_pains(days=days)
+            _pdb3.close()
+        except Exception:
+            pass
+
+        if not _pred_articles and not _pred_pains:
+            out(f"[dim]No data for the last {days} days. Run /research and /pains first.[/dim]")
+            return True
+
+        _display.tree_reset()
+        if _pred_articles:
+            _display.tree_step("Research DB", f"{len(_pred_articles)} articles")
+        if _pred_pains:
+            _display.tree_step("Pains DB", f"{len(_pred_pains)} pain points")
+
+        # ── Build combined corpus ────────────────────────────────────────────
+        from collections import defaultdict as _ddict4
+        import re as _re3
+
+        _pred_lines: list[str] = [
+            f"INTELLIGENCE CORPUS — last {days} days\n"
+        ]
+
+        # News section (capped at 50K chars)
+        if _pred_articles:
+            _pred_articles.sort(key=lambda a: a.get("date", ""), reverse=True)
+
+            # Deduplicate
+            _seen: set[str] = set()
+            _deduped_pred: list[dict] = []
+            for _a in _pred_articles:
+                _k = " ".join(_re3.sub(r"[^a-z0-9 ]", "", _a.get("title", "").lower()).split()[:8])
+                if _k and _k not in _seen:
+                    _seen.add(_k)
+                    _deduped_pred.append(_a)
+
+            _by_cat4: dict = _ddict4(list)
+            for _a in _deduped_pred:
+                _by_cat4[_a.get("category", "general")].append(_a)
+
+            _pred_lines.append(f"=== NEWS & MARKET SIGNALS ({len(_deduped_pred)} articles) ===\n")
+            _nc = 0
+            for _cat4, _citems in _by_cat4.items():
+                _pred_lines.append(f"[{_cat4.upper()}]")
+                for _ca in _citems[:25]:
+                    _e = f"· [{_ca.get('date','')}] {_ca.get('source','')}: {_ca.get('title','')}"
+                    _pred_lines.append(_e)
+                    _nc += len(_e)
+                    if _ca.get("summary"):
+                        _s = f"  {_ca.get('summary','')[:200]}"
+                        _pred_lines.append(_s)
+                        _nc += len(_s)
+                    if _nc >= 50_000:
+                        break
+                _pred_lines.append("")
+                if _nc >= 50_000:
+                    break
+
+        # Pains section (capped at 15K chars)
+        if _pred_pains:
+            _by_dom4: dict = _ddict4(list)
+            for _pp in _pred_pains:
+                _by_dom4[_pp.get("domain", "other")].append(_pp)
+
+            _pred_lines.append(f"=== DEMAND & PAIN SIGNALS ({len(_pred_pains)} pain points) ===\n")
+            _pc = 0
+            for _dom4, _domitems in sorted(_by_dom4.items(), key=lambda x: -len(x[1])):
+                _pred_lines.append(f"[{_dom4.upper()} — {len(_domitems)} mentions]")
+                for _pi4 in _domitems[:15]:
+                    _pe = f"· [{_pi4.get('source','')}] {_pi4.get('pain_text','')}"
+                    _pred_lines.append(_pe)
+                    _pc += len(_pe)
+                    if _pc >= 15_000:
+                        break
+                _pred_lines.append("")
+                if _pc >= 15_000:
+                    break
+
+        _pred_instructions = (
+            "Produce a professional predictive intelligence report with 5 sections.\n"
+            "Rules: (1) use ONLY facts from the corpus; (2) every claim cites (source, date) or (pain source); "
+            "(3) calibrate probabilities from base rates, not just signal count — explain your reasoning.\n\n"
+
+            "## SECTION 1 — CONVERGENCE RADAR\n\n"
+            "Identify signals where NEWS + PAIN data point in the same direction. "
+            "These are the highest-confidence predictions. Format:\n\n"
+            "**[CONVERGENCE THEME]**\n"
+            "- News signal: (source, date)\n"
+            "- Pain signal: (pain source)\n"
+            "- What this convergence predicts\n\n"
+            "List 3–5 strongest convergence themes. If only one data type is present, list strongest signals instead.\n\n"
+            "---\n\n"
+
+            "## SECTION 2 — SHORT-TERM (1–4 weeks)\n\n"
+            "Predictions already in motion — events that are likely to resolve within a month.\n\n"
+            "For each:\n"
+            "**[PREDICTION STATEMENT]** — **XX%**\n"
+            "- Base rate: reference class that grounds this probability\n"
+            "- Supporting signals: (source, date) for each\n"
+            "- Opposing signals: what in the corpus argues against\n"
+            "- Invalidation: one event that kills this prediction\n"
+            "- Winners / Losers if it materialises\n\n"
+            "Generate 3–5 predictions, ranked highest → lowest probability.\n\n"
+            "---\n\n"
+
+            "## SECTION 3 — MEDIUM-TERM (1–3 months)\n\n"
+            "Trends forming now that will resolve in 1–3 months.\n"
+            "Same format as SECTION 2. Generate 3–5 predictions.\n\n"
+            "---\n\n"
+
+            "## SECTION 4 — LONG-TERM (6–12 months)\n\n"
+            "Structural shifts visible in the corpus that will manifest over 6–12 months. "
+            "Fewer but higher-conviction. Same format. Generate 2–4 predictions.\n\n"
+            "---\n\n"
+
+            "## SECTION 5 — TAIL RISKS\n\n"
+            "2–3 low-probability (under 20%) but high-impact events the corpus hints at. "
+            "For each:\n"
+            "**[RISK EVENT]** — **XX%**\n"
+            "- Signal: weak evidence from corpus (source)\n"
+            "- Impact: what breaks if this happens\n"
+            "- Early warning: what to watch for in the next 30 days\n\n"
+            "---\n\n"
+            "End with one sentence: the single prediction you are most confident in and why."
+        )
+
+        _lang = getattr(settings, "agent_language", "") or "en"
+        _lang_note = (
+            f" Always respond in: {_lang}."
+            if _lang and _lang.lower() not in ("en", "english") else ""
+        )
+        _pred_system = (
+            "You are a professional intelligence analyst trained in Superforecasting methodology. "
+            "Your response MUST begin with the exact text '## SECTION 1 — CONVERGENCE RADAR' "
+            "as your very first characters — nothing before it. "
+            f"No preamble. No meta-commentary. Calibrated probabilities only.{_lang_note}"
+        )
+        _pred_prompt = "\n".join(_pred_lines) + "\n" + _pred_instructions
+        _pred_messages = [
+            {"role": "system", "content": _pred_system},
+            {"role": "user",   "content": _pred_prompt},
+        ]
+
+        import time as _time3
+        from datetime import date as _date3
+        _t0_p = _time3.monotonic()
+
+        try:
+            with _display.TreePending("analyzing signals…"):
+                _pred_resp = await runtime.llm.chat(_pred_messages, step_type="reason")
+            _display.tree_close()
+            _pred_result = _pred_resp.get("content", "")
+            _in_p  = _pred_resp.get("input_tokens", 0)
+            _out_p = _pred_resp.get("output_tokens", 0)
+            runtime._tokens_used = _in_p + _out_p
+            _cost_p = _pred_resp.get("cost") or 0.0
+            if not _cost_p and (_in_p or _out_p):
+                try:
+                    from majestic.llm.base import BaseLLM as _BLLM2
+                    _cost_p = _BLLM2._estimate_cost(_in_p, _out_p)
+                except Exception:
+                    pass
+            runtime._cost_used = _cost_p
+        except Exception as exc:
+            _display.tree_close("error")
+            _pred_result = f"Error: {exc}"
+            _cost_p = 0.0
+        _elapsed_p = _time3.monotonic() - _t0_p
+
+        # Strip preamble
+        import re as _re4
+        _pm = _re4.search(r'##\s*SECTION\s*1', _pred_result, _re4.IGNORECASE)
+        if _pm:
+            _pred_result = _pred_result[_pm.start():]
+
+        # Save to workspace/predictions/YYYY-MM-DD.md
+        try:
+            _pred_dir = settings.workspace_dir / "predictions"
+            _pred_dir.mkdir(parents=True, exist_ok=True)
+            _pfname = _pred_dir / f"{_date3.today().isoformat()}.md"
+            _pfname.write_text(_pred_result, encoding="utf-8")
+            _display.tree_reset()
+            _display.tree_step("saved", f"{_pfname.name}")
+            _display.tree_close()
+        except Exception:
+            pass
+
+        if channel is not None:
+            await channel.send(f"\n{_pred_result}\n")
+        else:
+            out(_pred_result)
+
+        from majestic import display as _d3
+        _d3.inline_stats(
+            tokens=getattr(runtime, "_tokens_used", 0),
+            cost=getattr(runtime, "_cost_used", 0.0),
+            elapsed=_elapsed_p,
+        )
+        return True
+
     if cmd == "/news":
         words = text.strip().split()
         days = 7

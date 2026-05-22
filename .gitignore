@@ -102,6 +102,8 @@ profiles/*/workspace/temp/
 profiles/*/workspace/.venv/
 profiles/*/workspace/node_modules/
 profiles/*/workspace/briefings/
+profiles/*/workspace/ideas/
+profiles/*/workspace/predictions/
 profiles/*/workspace/cache/
 profiles/*/workspace/downloads/
 profiles/*/workspace/exports/
