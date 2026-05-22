@@ -167,17 +167,22 @@ async def fetch_all(on_source=None) -> tuple[list[dict], list[dict], list[str]]:
     return results, ok, failed
 
 
-async def extract_pains(posts: list[dict], llm) -> list[dict]:
+async def extract_pains(posts: list[dict], llm, lang: str = "en") -> list[dict]:
     """
     One LLM call over up to 60 posts. Returns [{pain_text, domain, source, url, date}].
     domain values: b2b, devtools, marketing, productivity, design, finance, hr, other
+    lang: language code for pain_text output (e.g. "ru", "en")
     """
     if not posts:
         return []
 
+    _lang_rule = (
+        f"Write each 'pain' value in {lang}. "
+        if lang and lang.lower() not in ("en", "english") else ""
+    )
     lines = [
         "Extract real user pain points from these community posts.\n"
-        "Rules: only genuine expressed frustrations or unsolved problems. Skip promotions.\n"
+        f"Rules: only genuine expressed frustrations or unsolved problems. Skip promotions. {_lang_rule}\n"
         "Domain values: b2b, devtools, marketing, productivity, design, finance, hr, other\n\n"
         "Return ONLY a JSON array — no commentary, no markdown fences:\n"
         '[{"pain": "concise pain description", "domain": "...", "idx": N}, ...]\n\n'

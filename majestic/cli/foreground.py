@@ -123,6 +123,72 @@ async def _run_plain(profile_name: str):
         working_memory.add_message("assistant", result)
 
 
+def _build_news_corpus(
+    articles: list[dict],
+    max_chars: int = 50_000,
+    include_summaries: bool = True,
+) -> tuple[list[str], bool]:
+    """Deduplicate, group by category, build a token-budget-aware corpus. Returns (lines, capped)."""
+    import re as _re
+    from collections import defaultdict as _dd
+
+    articles = sorted(articles, key=lambda a: a.get("date", ""), reverse=True)
+
+    seen: set[str] = set()
+    deduped: list[dict] = []
+    for a in articles:
+        k = " ".join(_re.sub(r"[^a-z0-9 ]", "", a.get("title", "").lower()).split()[:8])
+        if k and k not in seen:
+            seen.add(k)
+            deduped.append(a)
+
+    by_cat: dict = _dd(list)
+    for a in deduped:
+        by_cat[a.get("category", "general")].append(a)
+
+    lines: list[str] = []
+    chars = 0
+    capped = False
+    for cat, items in by_cat.items():
+        header = f"=== {cat.upper()} ({len(items)} articles) ==="
+        lines.append(header)
+        chars += len(header)
+        for a in items[:30]:
+            entry = f"· [{a.get('date','')}] {a.get('source','')}: {a.get('title','')}"
+            lines.append(entry)
+            chars += len(entry)
+            if include_summaries and a.get("summary"):
+                s = f"  {a.get('summary','')[:300]}"
+                lines.append(s)
+                chars += len(s)
+            if chars >= max_chars:
+                capped = True
+                break
+        lines.append("")
+        if capped:
+            break
+    return lines, capped
+
+
+def _load_recent_briefing(settings, max_days: int = 3) -> str | None:
+    """Return the most recent saved briefing within max_days, or None."""
+    from datetime import date as _d, timedelta as _td
+    try:
+        bd = settings.workspace_dir / "briefings"
+        if not bd.exists():
+            return None
+        today = _d.today()
+        for delta in range(max_days + 1):
+            f = bd / f"{(today - _td(days=delta)).isoformat()}.md"
+            if f.exists():
+                content = f.read_text(encoding="utf-8")
+                if content.strip():
+                    return content
+    except Exception:
+        pass
+    return None
+
+
 async def _handle_slash_plain(text: str, profile_name: str, working_memory, runtime, settings=None, semantic=None, channel=None, gateway=None):
     """Handle a slash command in plain CLI.
 
@@ -304,10 +370,11 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             return True
 
         # Batch LLM extraction — one call for all new posts
+        _pains_lang = getattr(settings, "agent_language", "en") or "en"
         pains: list[dict] = []
         try:
             with _display.TreePending(f"extracting pains from {min(len(new_posts), 60)} posts…"):
-                pains = await _extract_pains(new_posts, runtime.llm)
+                pains = await _extract_pains(new_posts, runtime.llm, lang=_pains_lang)
         except Exception as e:
             out(f"[yellow]Extraction warning: {e}[/yellow]")
 
@@ -380,60 +447,11 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             out(f"[dim]No articles in database for the last {days} days. Run /research first.[/dim]")
             return True
 
-        from collections import defaultdict
-
-        # ── 1. Sort newest-first within each article (iso dates sort lexicographically)
-        articles.sort(key=lambda a: a.get("date", ""), reverse=True)
-
-        # ── 2. Deduplicate near-identical titles (keep first/newest occurrence)
-        def _title_key(title: str) -> str:
-            import re as _re
-            words_t = _re.sub(r"[^a-z0-9 ]", "", title.lower()).split()
-            return " ".join(words_t[:8])  # first 8 normalized words as fingerprint
-
-        seen_keys: set[str] = set()
-        deduped: list[dict] = []
-        for a in articles:
-            key = _title_key(a.get("title", ""))
-            if key and key not in seen_keys:
-                seen_keys.add(key)
-                deduped.append(a)
-        articles = deduped
-
-        # ── 3. Group by category
-        by_cat: dict[str, list] = defaultdict(list)
-        for a in articles:
-            by_cat[a.get("category", "general")].append(a)
+        # ── 2–4. Deduplicate, group by category, build token-bounded corpus
+        corpus_lines, capped = _build_news_corpus(articles, max_chars=60_000, include_summaries=True)
 
         _display.tree_reset()
-        _display.tree_step("Research DB", f"{stats['total']} total · last {days}d: {len(articles)} articles (deduped)")
-        for cat, items in by_cat.items():
-            _display.tree_step(cat.title(), f"{len(items)} articles")
-
-        # ── 4. Build corpus, capping at ~60K chars to stay within token budget
-        _MAX_CORPUS_CHARS = 60_000
-        corpus_lines: list[str] = []
-        corpus_chars = 0
-        capped = False
-
-        for cat, items in by_cat.items():
-            corpus_lines.append(f"=== {cat.upper()} ({len(items)} articles) ===")
-            corpus_chars += len(corpus_lines[-1])
-            for a in items[:30]:
-                entry = f"· [{a.get('date','')}] {a.get('source','')}: {a.get('title','')}"
-                corpus_lines.append(entry)
-                corpus_chars += len(entry)
-                if a.get("summary"):
-                    summary_line = f"  {a.get('summary','')[:300]}"
-                    corpus_lines.append(summary_line)
-                    corpus_chars += len(summary_line)
-                if corpus_chars >= _MAX_CORPUS_CHARS:
-                    corpus_lines.append("  [corpus truncated — token budget limit]")
-                    capped = True
-                    break
-            corpus_lines.append("")
-            if capped:
-                break
+        _display.tree_step("Research DB", f"{stats['total']} total · last {days}d: {len(articles)} articles")
 
         article_count_note = f"{len(articles)} articles" + (" (truncated for token budget)" if capped else "")
         lines = [f"INTELLIGENCE CORPUS — {article_count_note}, last {days} days\n"]
@@ -592,7 +610,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             out("[red]No settings — /ideas requires a profile.[/red]")
             return True
 
-        # Load pains (required)
+        # LAYER 2: Pain signals (required)
         try:
             from majestic.tools.pains.db import PainsDB as _PainsDB2
             _idb = _PainsDB2(str(settings.data_dir / "pains.db"))
@@ -606,7 +624,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             out(f"[dim]No pain points for the last {days} days. Run /pains first.[/dim]")
             return True
 
-        # Load recent news for market context (optional)
+        # LAYER 3: Market signals — news with full summaries (optional)
         _ideas_articles: list[dict] = []
         try:
             from majestic.tools.research.db import ResearchDB as _RDB2
@@ -616,75 +634,94 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         except Exception:
             pass
 
+        # LAYER 1: Macro briefing (optional, enriches with world context)
+        _ideas_briefing = _load_recent_briefing(settings, max_days=3)
+
         _display.tree_reset()
+        if _ideas_briefing:
+            _display.tree_step("Briefing", "macro context loaded")
+        else:
+            _display.tree_step("Briefing", "not found — run /briefing for richer analysis", status="warn")
         _display.tree_step("Pains DB", f"{len(_ideas_pains)} pain points · last {days}d")
         if _ideas_articles:
-            _display.tree_step("Research DB", f"{len(_ideas_articles)} articles (market context)")
+            _display.tree_step("Research DB", f"{len(_ideas_articles)} articles")
 
-        # Build pains corpus grouped by domain
+        # ── Build 3-layer corpus ──────────────────────────────────────────────
+        _corpus_lines: list[str] = [f"INTELLIGENCE CORPUS — last {days} days\n"]
+
+        # LAYER 1: Macro briefing capped at 8K chars
+        if _ideas_briefing:
+            _b_cap = _ideas_briefing[:8_000]
+            if len(_ideas_briefing) > 8_000:
+                _b_cap += "\n[... truncated ...]"
+            _corpus_lines.append("=== MACRO INTELLIGENCE (from /briefing) ===\n")
+            _corpus_lines.append(_b_cap)
+            _corpus_lines.append("")
+
+        # LAYER 2: Pain signals grouped by domain
         from collections import defaultdict as _ddict3
         _ip_by_domain: dict = _ddict3(list)
         for _ip in _ideas_pains:
             _ip_by_domain[_ip.get("domain", "other")].append(_ip)
 
-        _corpus_lines: list[str] = [
-            f"PAIN CORPUS — {len(_ideas_pains)} pain points, last {days} days\n"
-        ]
+        _corpus_lines.append(f"=== DEMAND & PAIN SIGNALS ({len(_ideas_pains)} pain points) ===\n")
         for _dom, _pitems in sorted(_ip_by_domain.items(), key=lambda x: -len(x[1])):
-            _corpus_lines.append(f"=== {_dom.upper()} ({len(_pitems)} mentions) ===")
+            _corpus_lines.append(f"[{_dom.upper()} — {len(_pitems)} mentions]")
             for _pi in _pitems[:20]:
                 _corpus_lines.append(f"· [{_pi.get('source', '')}] {_pi.get('pain_text', '')}")
             _corpus_lines.append("")
 
-        # Append compact market context (top 30 articles, no summaries)
+        # LAYER 3: Market & news signals with full summaries, capped at 30K chars
         if _ideas_articles:
-            _corpus_lines.append(f"=== MARKET CONTEXT ({len(_ideas_articles)} recent articles) ===")
-            for _ia in _ideas_articles[:30]:
-                _corpus_lines.append(
-                    f"· [{_ia.get('date', '')}] {_ia.get('source', '')}: {_ia.get('title', '')}"
-                )
-            _corpus_lines.append("")
-
-        _ideas_instructions = (
-            f"You are a world-class product strategist. "
-            f"Analyze the pain corpus and produce exactly 2 sections.\n\n"
-            f"Rules: cite (source) for every pain claim. No filler. No generic advice.\n\n"
-
-            f"## SECTION 1 — PAIN RADAR\n\n"
-            f"For each domain in the corpus list the 2–3 most recurring pain themes:\n\n"
-            f"**[DOMAIN]** (N mentions)\n"
-            f"- Theme: what users say and the unmet need it reveals\n\n"
-            f"End this section with: **Cross-domain pains** — identify 1–2 pains that appear "
-            f"across multiple domains. These are the highest-signal opportunities.\n\n"
-            f"---\n\n"
-
-            f"## SECTION 2 — 5 IDEAS FROM PAIN\n\n"
-            f"Generate exactly 5 business ideas, each solving a validated pain from SECTION 1. "
-            f"Use MARKET CONTEXT to strengthen timing and size signals where available.\n\n"
-            f"For each:\n\n"
-            f"**#N — [IDEA NAME]** — [one-sentence concept]\n\n"
-            f"- **Pain solved**: domain + exact pain description from SECTION 1\n"
-            f"- **Target user**: exact persona (job title, company size, context)\n"
-            f"- **Solution**: what the product/service does in 2 sentences\n"
-            f"- **Market signal**: size or timing evidence from corpus or market context\n"
-            f"- **Revenue model**: how it makes money\n"
-            f"- **Timing edge**: why this window exists now and closes in 6–12 months\n"
-            f"- **Viability**: XX% — reasoning from pain frequency × market signals\n\n"
-            f"Rank #1 most promising → #5 least."
-        )
+            _news_lines, _ = _build_news_corpus(_ideas_articles, max_chars=30_000, include_summaries=True)
+            _corpus_lines.append(f"=== MARKET & NEWS SIGNALS ({len(_ideas_articles)} articles) ===\n")
+            _corpus_lines.extend(_news_lines)
 
         _lang = getattr(settings, "agent_language", "") or "en"
         _lang_note = (
-            f" Always respond in: {_lang}."
+            f" Always respond in: {_lang}. Source titles may remain in their original language."
             if _lang and _lang.lower() not in ("en", "english") else ""
         )
+
+        _ideas_instructions = (
+            "TASK: Identify 7 realistic business opportunities by synthesizing ALL THREE corpus layers: "
+            "macro structural shifts (LAYER 1), expressed user pains (LAYER 2), market capital flows (LAYER 3).\n"
+            "RULE: Every idea must connect at least 2 different layers. Single-layer ideas are invalid.\n\n"
+
+            "## SECTION 1 — WORLD BOTTLENECK MAP\n\n"
+            "Scan the entire corpus. Identify 5–7 structural gaps where:\n"
+            "- demand is surging (pain signals) but supply hasn't caught up (market signals)\n"
+            "- macro forces are creating new urgency (briefing) that existing solutions don't address\n"
+            "- a timing window is opening that will close or commoditize within 3–12 months\n\n"
+            "**→ [BOTTLENECK NAME]** (layers: macro / pain / market)\n"
+            "- Gap: what's missing or broken\n"
+            "- Urgency: what makes this critical NOW (cite source)\n"
+            "- Window: when does this opportunity close?\n\n"
+            "---\n\n"
+
+            "## SECTION 2 — 7 IDEAS\n\n"
+            "Each idea addresses a bottleneck above. Rank #1 highest conviction → #7 lowest.\n\n"
+            "**#N — [IDEA NAME]** — [one sentence]\n\n"
+            "- **Bottleneck**: which gap from Section 1 this solves\n"
+            "- **Signal convergence**: [Layer 1 signal] + [Layer 2 signal] + [Layer 3 signal if available] "
+            "→ what the intersection reveals\n"
+            "- **Why now**: specific recent event that opened this window (cite corpus)\n"
+            "- **Target**: exact persona — role, context, company size\n"
+            "- **Solution**: what it does in 2 sentences\n"
+            "- **Revenue model**: how it makes money\n"
+            "- **Moat**: what makes it defensible in 12 months\n"
+            "- **Kill check**: what must be true in 30 days or this is dead\n"
+            "- **Conviction**: XX% — pain frequency × market signal strength × timing clarity\n\n"
+            "No filler ideas. If fewer than 7 strong bottlenecks exist, say so explicitly."
+        )
+
         _ideas_system = (
-            "You are a world-class product strategist. "
-            "Your response MUST begin with the exact text '## SECTION 1 — PAIN RADAR' "
+            "You are a world-class product strategist and venture analyst. "
+            "Your response MUST begin with the exact text '## SECTION 1 — WORLD BOTTLENECK MAP' "
             "as your very first characters — nothing before it. "
             f"No preamble. No meta-commentary.{_lang_note}"
         )
-        _ideas_prompt = "\n".join(_corpus_lines) + "\n" + _ideas_instructions
+        _ideas_prompt = "\n".join(_corpus_lines) + "\n\n" + _ideas_instructions
         _ideas_messages = [
             {"role": "system", "content": _ideas_system},
             {"role": "user",   "content": _ideas_prompt},
@@ -785,56 +822,38 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             out(f"[dim]No data for the last {days} days. Run /research and /pains first.[/dim]")
             return True
 
+        # Load recent briefing as macro layer (optional)
+        _pred_briefing = _load_recent_briefing(settings, max_days=3)
+
         _display.tree_reset()
+        if _pred_briefing:
+            _display.tree_step("Briefing", "macro context loaded")
         if _pred_articles:
             _display.tree_step("Research DB", f"{len(_pred_articles)} articles")
         if _pred_pains:
             _display.tree_step("Pains DB", f"{len(_pred_pains)} pain points")
 
-        # ── Build combined corpus ────────────────────────────────────────────
+        # ── Build combined corpus ─────────────────────────────────────────────
         from collections import defaultdict as _ddict4
-        import re as _re3
 
-        _pred_lines: list[str] = [
-            f"INTELLIGENCE CORPUS — last {days} days\n"
-        ]
+        _pred_lines: list[str] = [f"INTELLIGENCE CORPUS — last {days} days\n"]
 
-        # News section (capped at 50K chars)
+        # LAYER 1: Macro briefing capped at 8K chars
+        if _pred_briefing:
+            _b_cap = _pred_briefing[:8_000]
+            if len(_pred_briefing) > 8_000:
+                _b_cap += "\n[... truncated ...]"
+            _pred_lines.append("=== MACRO SYNTHESIS (from /briefing) ===\n")
+            _pred_lines.append(_b_cap)
+            _pred_lines.append("")
+
+        # LAYER 2: News & market signals with full summaries, capped at 45K chars
         if _pred_articles:
-            _pred_articles.sort(key=lambda a: a.get("date", ""), reverse=True)
+            _news_lines, _ = _build_news_corpus(_pred_articles, max_chars=45_000, include_summaries=True)
+            _pred_lines.append(f"=== NEWS & MARKET SIGNALS ({len(_pred_articles)} articles) ===\n")
+            _pred_lines.extend(_news_lines)
 
-            # Deduplicate
-            _seen: set[str] = set()
-            _deduped_pred: list[dict] = []
-            for _a in _pred_articles:
-                _k = " ".join(_re3.sub(r"[^a-z0-9 ]", "", _a.get("title", "").lower()).split()[:8])
-                if _k and _k not in _seen:
-                    _seen.add(_k)
-                    _deduped_pred.append(_a)
-
-            _by_cat4: dict = _ddict4(list)
-            for _a in _deduped_pred:
-                _by_cat4[_a.get("category", "general")].append(_a)
-
-            _pred_lines.append(f"=== NEWS & MARKET SIGNALS ({len(_deduped_pred)} articles) ===\n")
-            _nc = 0
-            for _cat4, _citems in _by_cat4.items():
-                _pred_lines.append(f"[{_cat4.upper()}]")
-                for _ca in _citems[:25]:
-                    _e = f"· [{_ca.get('date','')}] {_ca.get('source','')}: {_ca.get('title','')}"
-                    _pred_lines.append(_e)
-                    _nc += len(_e)
-                    if _ca.get("summary"):
-                        _s = f"  {_ca.get('summary','')[:200]}"
-                        _pred_lines.append(_s)
-                        _nc += len(_s)
-                    if _nc >= 50_000:
-                        break
-                _pred_lines.append("")
-                if _nc >= 50_000:
-                    break
-
-        # Pains section (capped at 15K chars)
+        # LAYER 3: Pain signals capped at 15K chars
         if _pred_pains:
             _by_dom4: dict = _ddict4(list)
             for _pp in _pred_pains:
@@ -855,61 +874,71 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                     break
 
         _pred_instructions = (
-            "Produce a professional predictive intelligence report with 5 sections.\n"
-            "Rules: (1) use ONLY facts from the corpus; (2) every claim cites (source, date) or (pain source); "
-            "(3) calibrate probabilities from base rates, not just signal count — explain your reasoning.\n\n"
+            "CRITICAL SYNTHESIS RULE: Every prediction in SECTIONS 2–4 MUST be grounded in "
+            "signals from at least 2 DIFFERENT corpus sections (e.g. a NEWS signal + a PAIN signal, "
+            "or two independent news categories). Single-source observations belong ONLY in SECTION 5.\n\n"
+            "Rules: (1) use ONLY facts from the corpus; (2) build causal chains, not lists of citations; "
+            "(3) calibrate probabilities against reference classes — explain the base rate; "
+            "(4) when the corpus contains financial signals, add a FINANCIAL MARKETS block inside SECTIONS 2–4: "
+            "equities (specific tickers or sectors mentioned in corpus), crypto (BTC, ETH, major alts), "
+            "commodities, forex — ONLY where the corpus provides direct evidence. "
+            "Format: **[BUY/HOLD/SELL/AVOID] [asset]** — XX% — causal chain from corpus.\n\n"
 
-            "## SECTION 1 — CONVERGENCE RADAR\n\n"
-            "Identify signals where NEWS + PAIN data point in the same direction. "
-            "These are the highest-confidence predictions. Format:\n\n"
-            "**[CONVERGENCE THEME]**\n"
-            "- News signal: (source, date)\n"
-            "- Pain signal: (pain source)\n"
-            "- What this convergence predicts\n\n"
-            "List 3–5 strongest convergence themes. If only one data type is present, list strongest signals instead.\n\n"
+            "## SECTION 1 — SIGNAL MAP\n\n"
+            "Before predicting, scan the ENTIRE corpus and map 8–12 directional forces — "
+            "things actively pushing in a specific direction. Group signals pointing the same way.\n\n"
+            "**→ [DIRECTION/THEME]** (N signals)\n"
+            "- [Signal]: what's happening — (source, date or pain source)\n"
+            "- [Signal]: ...\n\n"
+            "This map is the foundation for all predictions below. "
+            "Themes with 3+ independent signals = highest conviction.\n\n"
             "---\n\n"
 
             "## SECTION 2 — SHORT-TERM (1–4 weeks)\n\n"
-            "Predictions already in motion — events that are likely to resolve within a month.\n\n"
-            "For each:\n"
+            "Events already in motion, likely to resolve within a month. "
+            "Each prediction MUST connect 2+ signals from SECTION 1 via a causal chain.\n\n"
             "**[PREDICTION STATEMENT]** — **XX%**\n"
-            "- Base rate: reference class that grounds this probability\n"
-            "- Supporting signals: (source, date) for each\n"
-            "- Opposing signals: what in the corpus argues against\n"
+            "- Causal chain: [Signal A (source)] → [mechanism] → [Signal B (source)] → [outcome]\n"
+            "- Base rate: reference class grounding this probability\n"
+            "- Counter-signals: what in the corpus argues against\n"
             "- Invalidation: one event that kills this prediction\n"
-            "- Winners / Losers if it materialises\n\n"
-            "Generate 3–5 predictions, ranked highest → lowest probability.\n\n"
+            "- Winners / Losers\n\n"
+            "3–5 predictions, ranked highest → lowest. Omit if fewer than 2 signals support it.\n\n"
             "---\n\n"
 
             "## SECTION 3 — MEDIUM-TERM (1–3 months)\n\n"
-            "Trends forming now that will resolve in 1–3 months.\n"
-            "Same format as SECTION 2. Generate 3–5 predictions.\n\n"
+            "Trends forming now, directional but not yet resolved. "
+            "Prioritize themes where NEWS and PAIN signals both point the same way — "
+            "that cross-validation significantly raises confidence. Same format. 3–5 predictions.\n\n"
             "---\n\n"
 
             "## SECTION 4 — LONG-TERM (6–12 months)\n\n"
-            "Structural shifts visible in the corpus that will manifest over 6–12 months. "
-            "Fewer but higher-conviction. Same format. Generate 2–4 predictions.\n\n"
+            "Structural shifts: focus on themes where signals from multiple corpus sections "
+            "have been building consistently. These carry the highest cross-validation. "
+            "Same format. 2–4 predictions.\n\n"
             "---\n\n"
 
             "## SECTION 5 — TAIL RISKS\n\n"
-            "2–3 low-probability (under 20%) but high-impact events the corpus hints at. "
-            "For each:\n"
+            "2–3 events under 20% probability but catastrophic impact. "
+            "Single-signal observations and weak hints belong here.\n"
             "**[RISK EVENT]** — **XX%**\n"
-            "- Signal: weak evidence from corpus (source)\n"
-            "- Impact: what breaks if this happens\n"
-            "- Early warning: what to watch for in the next 30 days\n\n"
+            "- Weak signal: (source)\n"
+            "- Impact if it materialises\n"
+            "- Early warning to watch in next 30 days\n\n"
             "---\n\n"
-            "End with one sentence: the single prediction you are most confident in and why."
+            "End: the single highest-confidence prediction and the exact signal combination that drives it."
         )
 
         _lang = getattr(settings, "agent_language", "") or "en"
         _lang_note = (
-            f" Always respond in: {_lang}."
+            f" Always respond in: {_lang}. Source titles may remain in their original language."
             if _lang and _lang.lower() not in ("en", "english") else ""
         )
         _pred_system = (
             "You are a professional intelligence analyst trained in Superforecasting methodology. "
-            "Your response MUST begin with the exact text '## SECTION 1 — CONVERGENCE RADAR' "
+            "Your task is SYNTHESIS — find patterns that emerge from MULTIPLE independent signals, "
+            "not summaries of individual items. Build causal chains across signal types. "
+            "Your response MUST begin with the exact text '## SECTION 1 — SIGNAL MAP' "
             "as your very first characters — nothing before it. "
             f"No preamble. No meta-commentary. Calibrated probabilities only.{_lang_note}"
         )
@@ -974,6 +1003,54 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             cost=getattr(runtime, "_cost_used", 0.0),
             elapsed=_elapsed_p,
         )
+        return True
+
+    if cmd == "/goodmorning":
+        from majestic import display as _display
+        words = text.strip().split()
+        days = 30
+        if len(words) > 1:
+            try:
+                days = int(words[1])
+            except ValueError:
+                pass
+
+        out(f"\n[bold]Good Morning[/bold] [dim]— full intelligence pipeline · last {days}d[/dim]\n")
+
+        # Step 1 — collect news
+        out("[dim]━━ 1/5  /research — fetching news…[/dim]\n")
+        _gm_research = await _handle_slash_plain(
+            "/research", profile_name, working_memory, runtime, settings, semantic, channel, gateway
+        )
+        if isinstance(_gm_research, str):
+            # New articles fetched — data is in DB; briefing will do the deep analysis
+            out("[dim]  News data collected. /briefing will analyze below.[/dim]\n")
+
+        # Step 2 — collect pain signals
+        out("[dim]━━ 2/5  /pains — scanning community signals…[/dim]\n")
+        await _handle_slash_plain(
+            "/pains", profile_name, working_memory, runtime, settings, semantic, channel, gateway
+        )
+
+        # Step 3 — intelligence briefing
+        out(f"\n[dim]━━ 3/5  /briefing {days} — analyzing all news…[/dim]\n")
+        await _handle_slash_plain(
+            f"/briefing {days}", profile_name, working_memory, runtime, settings, semantic, channel, gateway
+        )
+
+        # Step 4 — predictions
+        out(f"\n[dim]━━ 4/5  /predict {days} — generating predictions…[/dim]\n")
+        await _handle_slash_plain(
+            f"/predict {days}", profile_name, working_memory, runtime, settings, semantic, channel, gateway
+        )
+
+        # Step 5 — ideas
+        out(f"\n[dim]━━ 5/5  /ideas {days} — generating ideas…[/dim]\n")
+        await _handle_slash_plain(
+            f"/ideas {days}", profile_name, working_memory, runtime, settings, semantic, channel, gateway
+        )
+
+        out("\n[green]✓[/green] [dim]Pipeline complete.[/dim]")
         return True
 
     if cmd == "/news":

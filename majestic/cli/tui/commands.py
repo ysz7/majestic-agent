@@ -6,12 +6,13 @@ if TYPE_CHECKING:
     from .app import MajesticApp
 
 SLASH_COMMANDS = {
+    "/goodmorning": "Full pipeline: /research → /pains → /briefing → /predict → /ideas",
     "/help":     "Show available commands",
     "/skills":   "List loaded skills with descriptions",
     "/tools":    "List available tools",
     "/research": "Fetch latest news from curated sources and get a world briefing",
     "/pains":    "Scan community sources for user pain points — /pains [days]",
-    "/ideas":    "Pain Radar + 5 business ideas from pains — /ideas [days, default 30]",
+    "/ideas":    "World bottleneck analysis + 7 business ideas — /ideas [days, default 30]",
     "/predict":  "Predictive intelligence report (news + pains) — /predict [days, default 30]",
     "/news":     "Show saved articles with links — /news [days, default 7]",
     "/briefing": "Analyze stored news — /briefing [days, default 30] — investment signals",
