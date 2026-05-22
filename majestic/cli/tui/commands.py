@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
 SLASH_COMMANDS = {
     "/goodmorning": "Full pipeline: /research → /pains → /briefing → /predict → /ideas",
+    "/ask":         "Ask a question against all stored data — /ask <question>",
     "/help":     "Show available commands",
     "/skills":   "List loaded skills with descriptions",
     "/tools":    "List available tools",

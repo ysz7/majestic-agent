@@ -525,16 +525,17 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _t0 = _time.monotonic()
 
         _lang = getattr(settings, "agent_language", "") or "en"
-        _lang_instruction = (
-            f" Always respond in: {_lang}. Article titles may remain in their original language."
-            if _lang and _lang.lower() not in ("en", "english") else ""
-        )
+        _is_non_en = _lang and _lang.lower() not in ("en", "english")
+        _lang_rule = (
+            f"LANGUAGE: Write the ENTIRE response in {_lang}, including all section headings and labels. "
+            "Source/article titles may remain in their original language. "
+        ) if _is_non_en else ""
         _system = (
+            f"{_lang_rule}"
             "You are a world-class intelligence analyst. "
-            "Your response MUST begin with the exact text '## SECTION 1 — WORLD PICTURE' "
-            "as your very first characters — nothing before it. "
+            "Your response MUST begin with a '##' section header — nothing before it. "
             "No preamble. No meta-commentary. No reasoning narration. No 'Let me', 'We need', 'First I will'. "
-            f"Use ONLY facts from the corpus. Cite (source, date) for every claim.{_lang_instruction}"
+            "Use ONLY facts from the corpus. Cite (source, date) for every claim."
         )
         _messages = [
             {"role": "system", "content": _system},
@@ -564,9 +565,9 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             _cost = 0.0
         _elapsed = _time.monotonic() - _t0
 
-        # ── 6. Strip any preamble — keep from first "## SECTION" header
+        # ── 6. Strip any preamble — keep from first '##' heading
         import re as _re
-        _section_match = _re.search(r'##\s*SECTION\s*1', result, _re.IGNORECASE)
+        _section_match = _re.search(r'^##', result, _re.MULTILINE)
         if _section_match:
             result = result[_section_match.start():]
 
@@ -678,10 +679,11 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             _corpus_lines.extend(_news_lines)
 
         _lang = getattr(settings, "agent_language", "") or "en"
-        _lang_note = (
-            f" Always respond in: {_lang}. Source titles may remain in their original language."
-            if _lang and _lang.lower() not in ("en", "english") else ""
-        )
+        _is_non_en_i = _lang and _lang.lower() not in ("en", "english")
+        _lang_rule_i = (
+            f"LANGUAGE: Write the ENTIRE response in {_lang}, including all section headings and labels. "
+            "Source/article titles may remain in their original language. "
+        ) if _is_non_en_i else ""
 
         _ideas_instructions = (
             "TASK: Identify 7 realistic business opportunities by synthesizing ALL THREE corpus layers: "
@@ -716,10 +718,10 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         )
 
         _ideas_system = (
+            f"{_lang_rule_i}"
             "You are a world-class product strategist and venture analyst. "
-            "Your response MUST begin with the exact text '## SECTION 1 — WORLD BOTTLENECK MAP' "
-            "as your very first characters — nothing before it. "
-            f"No preamble. No meta-commentary.{_lang_note}"
+            "Your response MUST begin with a '##' section header — nothing before it. "
+            "No preamble. No meta-commentary."
         )
         _ideas_prompt = "\n".join(_corpus_lines) + "\n\n" + _ideas_instructions
         _ideas_messages = [
@@ -753,9 +755,9 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             _cost_i = 0.0
         _elapsed_i = _time2.monotonic() - _t0_i
 
-        # Strip preamble
+        # Strip preamble — keep from first '##' heading
         import re as _re2
-        _im = _re2.search(r'##\s*SECTION\s*1', _ideas_result, _re2.IGNORECASE)
+        _im = _re2.search(r'^##', _ideas_result, _re2.MULTILINE)
         if _im:
             _ideas_result = _ideas_result[_im.start():]
 
@@ -930,17 +932,18 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         )
 
         _lang = getattr(settings, "agent_language", "") or "en"
-        _lang_note = (
-            f" Always respond in: {_lang}. Source titles may remain in their original language."
-            if _lang and _lang.lower() not in ("en", "english") else ""
-        )
+        _is_non_en_p = _lang and _lang.lower() not in ("en", "english")
+        _lang_rule_p = (
+            f"LANGUAGE: Write the ENTIRE response in {_lang}, including all section headings and labels. "
+            "Source/article titles may remain in their original language. "
+        ) if _is_non_en_p else ""
         _pred_system = (
+            f"{_lang_rule_p}"
             "You are a professional intelligence analyst trained in Superforecasting methodology. "
             "Your task is SYNTHESIS — find patterns that emerge from MULTIPLE independent signals, "
             "not summaries of individual items. Build causal chains across signal types. "
-            "Your response MUST begin with the exact text '## SECTION 1 — SIGNAL MAP' "
-            "as your very first characters — nothing before it. "
-            f"No preamble. No meta-commentary. Calibrated probabilities only.{_lang_note}"
+            "Your response MUST begin with a '##' section header — nothing before it. "
+            "No preamble. No meta-commentary. Calibrated probabilities only."
         )
         _pred_prompt = "\n".join(_pred_lines) + "\n" + _pred_instructions
         _pred_messages = [
@@ -974,9 +977,9 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             _cost_p = 0.0
         _elapsed_p = _time3.monotonic() - _t0_p
 
-        # Strip preamble
+        # Strip preamble — keep from first '##' heading
         import re as _re4
-        _pm = _re4.search(r'##\s*SECTION\s*1', _pred_result, _re4.IGNORECASE)
+        _pm = _re4.search(r'^##', _pred_result, _re4.MULTILINE)
         if _pm:
             _pred_result = _pred_result[_pm.start():]
 
@@ -1002,6 +1005,215 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             tokens=getattr(runtime, "_tokens_used", 0),
             cost=getattr(runtime, "_cost_used", 0.0),
             elapsed=_elapsed_p,
+        )
+        return True
+
+    if cmd == "/ask":
+        import re as _re_ask
+        from majestic import display as _display
+
+        question = text.strip()[len("/ask"):].strip()
+        if not question:
+            out("[dim]Usage: /ask <question>  e.g.: /ask how will falling oil prices affect Bitcoin?[/dim]")
+            return True
+
+        if settings is None:
+            out("[red]No settings — /ask requires a profile.[/red]")
+            return True
+
+        _display.tree_reset()
+
+        # ── Layer 1: Recent briefing (macro context) ─────────────────────────
+        _ask_briefing = _load_recent_briefing(settings, max_days=3)
+        if _ask_briefing:
+            _display.tree_step("Briefing", "macro context loaded")
+
+        # ── Layer 2: Recent prediction ────────────────────────────────────────
+        _ask_prediction: str | None = None
+        try:
+            from datetime import date as _date_ask, timedelta as _td_ask
+            _pd = settings.workspace_dir / "predictions"
+            if _pd.exists():
+                _today_a = _date_ask.today()
+                for _delta in range(4):
+                    _f = _pd / f"{(_today_a - _td_ask(days=_delta)).isoformat()}.md"
+                    if _f.exists():
+                        _c = _f.read_text(encoding="utf-8").strip()
+                        if _c:
+                            _ask_prediction = _c
+                            break
+        except Exception:
+            pass
+        if _ask_prediction:
+            _display.tree_step("Predictions", "context loaded")
+
+        # ── Keyword extraction (shared across layers 3–4) ─────────────────────
+        _kw = [w.lower() for w in _re_ask.sub(r"[^\w\s]", " ", question).split() if len(w) > 3]
+
+        # ── Layer 3: Semantic search ──────────────────────────────────────────
+        _sem_results: list[dict] = []
+        if semantic is not None:
+            try:
+                _safe_q = " ".join(_re_ask.sub(r"[^\w\s]", " ", question).split()[:10])
+                if _safe_q.strip():
+                    _sem_results = semantic.search(_safe_q, limit=25)
+                _display.tree_step("Semantic", f"{len(_sem_results)} relevant chunks")
+            except Exception:
+                pass
+
+        # ── Layer 4: Keyword-matched articles ────────────────────────────────
+        _ask_articles: list[dict] = []
+        try:
+            from majestic.tools.research.db import ResearchDB as _RDB_ask
+            _rdb_ask = _RDB_ask(str(settings.data_dir / "research.db"))
+            _all_art = _rdb_ask.get_articles(days=60)
+            _rdb_ask.close()
+            if _kw:
+                for _a in _all_art:
+                    _txt = f"{_a.get('title','')} {_a.get('summary','')}".lower()
+                    if any(k in _txt for k in _kw):
+                        _ask_articles.append(_a)
+            if _ask_articles:
+                _display.tree_step("Research DB", f"{len(_ask_articles)} matching articles")
+        except Exception:
+            pass
+
+        # ── Layer 5: Keyword-matched pain signals ─────────────────────────────
+        _ask_pains: list[dict] = []
+        try:
+            from majestic.tools.pains.db import PainsDB as _PDB_ask
+            _pdb_ask = _PDB_ask(str(settings.data_dir / "pains.db"))
+            _all_pains = _pdb_ask.get_pains(days=60)
+            _pdb_ask.close()
+            if _kw:
+                for _p in _all_pains:
+                    if any(k in _p.get("pain_text", "").lower() for k in _kw):
+                        _ask_pains.append(_p)
+            if _ask_pains:
+                _display.tree_step("Pains DB", f"{len(_ask_pains)} matching signals")
+        except Exception:
+            pass
+
+        if not any([_ask_briefing, _ask_prediction, _sem_results, _ask_articles, _ask_pains]):
+            out("[dim]No context found. Run /research, /pains, /briefing, /predict first.[/dim]")
+            return True
+
+        # ── Build focused corpus ──────────────────────────────────────────────
+        _ask_corpus: list[str] = [f"ANALYSIS CORPUS — question: {question}\n"]
+
+        if _ask_briefing:
+            _ask_corpus.append("=== MACRO INTELLIGENCE (recent /briefing) ===\n")
+            _ask_corpus.append(_ask_briefing[:5_000])
+            if len(_ask_briefing) > 5_000:
+                _ask_corpus.append("\n[... truncated ...]")
+            _ask_corpus.append("")
+
+        if _ask_prediction:
+            _ask_corpus.append("=== PREDICTIONS (recent /predict) ===\n")
+            _ask_corpus.append(_ask_prediction[:5_000])
+            if len(_ask_prediction) > 5_000:
+                _ask_corpus.append("\n[... truncated ...]")
+            _ask_corpus.append("")
+
+        if _sem_results:
+            _ask_corpus.append(f"=== SEMANTIC HITS ({len(_sem_results)}) ===\n")
+            for _sr in _sem_results:
+                _ask_corpus.append(f"[{_sr.get('source','')}]: {_sr.get('content','')[:300]}")
+            _ask_corpus.append("")
+
+        if _ask_articles:
+            _ask_corpus.append(f"=== MATCHING ARTICLES ({len(_ask_articles)}) ===\n")
+            for _aa in _ask_articles[:30]:
+                _ask_corpus.append(
+                    f"· [{_aa.get('date','')}] {_aa.get('source','')}: {_aa.get('title','')}"
+                )
+                if _aa.get("summary"):
+                    _ask_corpus.append(f"  {_aa.get('summary','')[:200]}")
+            _ask_corpus.append("")
+
+        if _ask_pains:
+            _ask_corpus.append(f"=== MATCHING PAIN SIGNALS ({len(_ask_pains)}) ===\n")
+            for _ap in _ask_pains[:15]:
+                _ask_corpus.append(f"· [{_ap.get('source','')}] {_ap.get('pain_text','')}")
+            _ask_corpus.append("")
+
+        _lang = getattr(settings, "agent_language", "") or "en"
+        _is_non_en_a = _lang and _lang.lower() not in ("en", "english")
+        _lang_rule_a = (
+            f"LANGUAGE: Write the ENTIRE response in {_lang}, including section headings. "
+            "Source/article titles may remain in their original language. "
+        ) if _is_non_en_a else ""
+
+        _ask_instructions = (
+            f"QUESTION: {question}\n\n"
+            "Answer using ONLY the corpus above. Format exactly:\n\n"
+            "## Direct Answer\n"
+            "[1–2 sentences. State the conclusion directly.]\n\n"
+            "## Evidence Chain\n"
+            "[Each signal: what it shows → mechanism → consequence. Cite (source, date). "
+            "Show HOW signals connect to answer the question.]\n\n"
+            "## Confidence\n"
+            "[XX% — how many independent signals? Are they convergent or contradictory?]\n\n"
+            "## Counter-signals\n"
+            "[What in the corpus argues against? If none — state why.]\n\n"
+            "## Watch For\n"
+            "[2–3 specific events in next 30 days that confirm or deny this.]\n\n"
+            "RULE: use ONLY corpus facts. Cite every claim. "
+            "If corpus has insufficient data, say so explicitly — do not fill gaps with assumptions."
+        )
+
+        _ask_system = (
+            f"{_lang_rule_a}"
+            "You are a professional intelligence analyst. "
+            "Your response MUST begin with a '##' heading — nothing before it. "
+            "No preamble. No meta-commentary. Answer the specific question using only corpus evidence."
+        )
+        _ask_prompt = "\n".join(_ask_corpus) + "\n\n" + _ask_instructions
+        _ask_messages = [
+            {"role": "system", "content": _ask_system},
+            {"role": "user",   "content": _ask_prompt},
+        ]
+
+        import time as _time_ask
+        _t0_ask = _time_ask.monotonic()
+
+        try:
+            with _display.TreePending("analyzing…"):
+                _ask_resp = await runtime.llm.chat(_ask_messages, step_type="reason")
+            _display.tree_close()
+            _ask_result = _ask_resp.get("content", "")
+            _in_a  = _ask_resp.get("input_tokens", 0)
+            _out_a = _ask_resp.get("output_tokens", 0)
+            runtime._tokens_used = _in_a + _out_a
+            _cost_a = _ask_resp.get("cost") or 0.0
+            if not _cost_a and (_in_a or _out_a):
+                try:
+                    from majestic.llm.base import BaseLLM as _BLLM_a
+                    _cost_a = _BLLM_a._estimate_cost(_in_a, _out_a)
+                except Exception:
+                    pass
+            runtime._cost_used = _cost_a
+        except Exception as exc:
+            _display.tree_close("error")
+            _ask_result = f"Error: {exc}"
+            _cost_a = 0.0
+        _elapsed_ask = _time_ask.monotonic() - _t0_ask
+
+        # Strip preamble
+        _am = _re_ask.search(r"^##", _ask_result, _re_ask.MULTILINE)
+        if _am:
+            _ask_result = _ask_result[_am.start():]
+
+        if channel is not None:
+            await channel.send(f"\n{_ask_result}\n")
+        else:
+            out(_ask_result)
+
+        from majestic import display as _d_ask
+        _d_ask.inline_stats(
+            tokens=getattr(runtime, "_tokens_used", 0),
+            cost=getattr(runtime, "_cost_used", 0.0),
+            elapsed=_elapsed_ask,
         )
         return True
 
