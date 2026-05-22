@@ -260,6 +260,98 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         )
         return "\n".join(lines)
 
+    if cmd == "/pains":
+        from majestic import display as _display
+        out("[dim]Scanning pain-signal sources…[/dim]")
+        _display.tree_reset()
+
+        def _on_pain_source(name: str, count: int, success: bool) -> None:
+            if success:
+                _display.tree_step(name, f"{count} post{'s' if count != 1 else ''}")
+            else:
+                _display.tree_step(name, "no response", status="warn")
+
+        try:
+            from majestic.tools.pains import fetch_all as _pains_fetch_all, extract_pains as _extract_pains
+            from majestic.tools.pains.db import PainsDB
+            posts, ok_sources, failed = await _pains_fetch_all(on_source=_on_pain_source)
+        except Exception as e:
+            out(f"[red]Fetch error: {e}[/red]")
+            return True
+
+        if not posts:
+            out("[dim]No posts fetched. Check your internet connection.[/dim]")
+            return True
+
+        # Store to DB — only new (unseen) posts go to LLM extraction
+        new_posts: list[dict] = posts
+        _pdb = None
+        if settings is not None:
+            try:
+                _pdb = PainsDB(str(settings.data_dir / "pains.db"))
+                new_posts, skipped = _pdb.insert_posts(posts)
+                _display.tree_step(
+                    "saved",
+                    f"{len(new_posts)} new · {skipped} cached",
+                )
+            except Exception as e:
+                out(f"[yellow]DB warning: {e}[/yellow]")
+
+        if not new_posts:
+            out("[dim]No new posts since last /pains. Run /briefing to see pain analysis.[/dim]")
+            if _pdb:
+                _pdb.close()
+            return True
+
+        # Batch LLM extraction — one call for all new posts
+        pains: list[dict] = []
+        try:
+            with _display.TreePending(f"extracting pains from {min(len(new_posts), 60)} posts…"):
+                pains = await _extract_pains(new_posts, runtime.llm)
+        except Exception as e:
+            out(f"[yellow]Extraction warning: {e}[/yellow]")
+
+        if _pdb and pains:
+            try:
+                n = _pdb.insert_pains(pains)
+                stats = _pdb.stats()
+                _display.tree_step(
+                    "pains",
+                    f"{n} extracted · {stats['total_pains']} total in DB",
+                )
+            except Exception as e:
+                out(f"[yellow]Pain save warning: {e}[/yellow]")
+
+        if _pdb:
+            _pdb.close()
+
+        _display.tree_close()
+
+        if not pains:
+            out("[dim]No pain points extracted from new posts.[/dim]")
+            return True
+
+        # Immediate summary grouped by domain
+        from collections import defaultdict as _ddict
+        by_domain: dict = _ddict(list)
+        for p in pains:
+            by_domain[p.get("domain", "other")].append(p)
+
+        summary_lines = [f"\n## Pain Radar — {len(pains)} pain points · {len(ok_sources)} sources\n"]
+        for domain, items in sorted(by_domain.items(), key=lambda x: -len(x[1])):
+            summary_lines.append(f"### {domain.upper()} ({len(items)})")
+            for p in items[:6]:
+                src_tag = f"[{p.get('source', '')}] " if p.get("source") else ""
+                summary_lines.append(f"- {src_tag}{p.get('pain_text', '')}")
+            summary_lines.append("")
+
+        result_text = "\n".join(summary_lines)
+        if channel is not None:
+            await channel.send(result_text)
+        else:
+            out(result_text)
+        return True
+
     if cmd == "/briefing":
         from majestic import display as _display
         words = text.strip().split()
@@ -483,6 +575,175 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             tokens=getattr(runtime, "_tokens_used", 0),
             cost=getattr(runtime, "_cost_used", 0.0),
             elapsed=_elapsed,
+        )
+        return True
+
+    if cmd == "/ideas":
+        from majestic import display as _display
+        words = text.strip().split()
+        days = 30
+        if len(words) > 1:
+            try:
+                days = int(words[1])
+            except ValueError:
+                pass
+
+        if settings is None:
+            out("[red]No settings — /ideas requires a profile.[/red]")
+            return True
+
+        # Load pains (required)
+        try:
+            from majestic.tools.pains.db import PainsDB as _PainsDB2
+            _idb = _PainsDB2(str(settings.data_dir / "pains.db"))
+            _ideas_pains = _idb.get_pains(days=days)
+            _idb.close()
+        except Exception as e:
+            out(f"[red]Pains DB error: {e}[/red]")
+            return True
+
+        if not _ideas_pains:
+            out(f"[dim]No pain points for the last {days} days. Run /pains first.[/dim]")
+            return True
+
+        # Load recent news for market context (optional)
+        _ideas_articles: list[dict] = []
+        try:
+            from majestic.tools.research.db import ResearchDB as _RDB2
+            _rdb2 = _RDB2(str(settings.data_dir / "research.db"))
+            _ideas_articles = _rdb2.get_articles(days=days)
+            _rdb2.close()
+        except Exception:
+            pass
+
+        _display.tree_reset()
+        _display.tree_step("Pains DB", f"{len(_ideas_pains)} pain points · last {days}d")
+        if _ideas_articles:
+            _display.tree_step("Research DB", f"{len(_ideas_articles)} articles (market context)")
+
+        # Build pains corpus grouped by domain
+        from collections import defaultdict as _ddict3
+        _ip_by_domain: dict = _ddict3(list)
+        for _ip in _ideas_pains:
+            _ip_by_domain[_ip.get("domain", "other")].append(_ip)
+
+        _corpus_lines: list[str] = [
+            f"PAIN CORPUS — {len(_ideas_pains)} pain points, last {days} days\n"
+        ]
+        for _dom, _pitems in sorted(_ip_by_domain.items(), key=lambda x: -len(x[1])):
+            _corpus_lines.append(f"=== {_dom.upper()} ({len(_pitems)} mentions) ===")
+            for _pi in _pitems[:20]:
+                _corpus_lines.append(f"· [{_pi.get('source', '')}] {_pi.get('pain_text', '')}")
+            _corpus_lines.append("")
+
+        # Append compact market context (top 30 articles, no summaries)
+        if _ideas_articles:
+            _corpus_lines.append(f"=== MARKET CONTEXT ({len(_ideas_articles)} recent articles) ===")
+            for _ia in _ideas_articles[:30]:
+                _corpus_lines.append(
+                    f"· [{_ia.get('date', '')}] {_ia.get('source', '')}: {_ia.get('title', '')}"
+                )
+            _corpus_lines.append("")
+
+        _ideas_instructions = (
+            f"You are a world-class product strategist. "
+            f"Analyze the pain corpus and produce exactly 2 sections.\n\n"
+            f"Rules: cite (source) for every pain claim. No filler. No generic advice.\n\n"
+
+            f"## SECTION 1 — PAIN RADAR\n\n"
+            f"For each domain in the corpus list the 2–3 most recurring pain themes:\n\n"
+            f"**[DOMAIN]** (N mentions)\n"
+            f"- Theme: what users say and the unmet need it reveals\n\n"
+            f"End this section with: **Cross-domain pains** — identify 1–2 pains that appear "
+            f"across multiple domains. These are the highest-signal opportunities.\n\n"
+            f"---\n\n"
+
+            f"## SECTION 2 — 5 IDEAS FROM PAIN\n\n"
+            f"Generate exactly 5 business ideas, each solving a validated pain from SECTION 1. "
+            f"Use MARKET CONTEXT to strengthen timing and size signals where available.\n\n"
+            f"For each:\n\n"
+            f"**#N — [IDEA NAME]** — [one-sentence concept]\n\n"
+            f"- **Pain solved**: domain + exact pain description from SECTION 1\n"
+            f"- **Target user**: exact persona (job title, company size, context)\n"
+            f"- **Solution**: what the product/service does in 2 sentences\n"
+            f"- **Market signal**: size or timing evidence from corpus or market context\n"
+            f"- **Revenue model**: how it makes money\n"
+            f"- **Timing edge**: why this window exists now and closes in 6–12 months\n"
+            f"- **Viability**: XX% — reasoning from pain frequency × market signals\n\n"
+            f"Rank #1 most promising → #5 least."
+        )
+
+        _lang = getattr(settings, "agent_language", "") or "en"
+        _lang_note = (
+            f" Always respond in: {_lang}."
+            if _lang and _lang.lower() not in ("en", "english") else ""
+        )
+        _ideas_system = (
+            "You are a world-class product strategist. "
+            "Your response MUST begin with the exact text '## SECTION 1 — PAIN RADAR' "
+            "as your very first characters — nothing before it. "
+            f"No preamble. No meta-commentary.{_lang_note}"
+        )
+        _ideas_prompt = "\n".join(_corpus_lines) + "\n" + _ideas_instructions
+        _ideas_messages = [
+            {"role": "system", "content": _ideas_system},
+            {"role": "user",   "content": _ideas_prompt},
+        ]
+
+        import time as _time2
+        from datetime import date as _date2
+        _t0_i = _time2.monotonic()
+
+        try:
+            with _display.TreePending("generating ideas…"):
+                _ideas_resp = await runtime.llm.chat(_ideas_messages, step_type="reason")
+            _display.tree_close()
+            _ideas_result = _ideas_resp.get("content", "")
+            _in_i  = _ideas_resp.get("input_tokens", 0)
+            _out_i = _ideas_resp.get("output_tokens", 0)
+            runtime._tokens_used = _in_i + _out_i
+            _cost_i = _ideas_resp.get("cost") or 0.0
+            if not _cost_i and (_in_i or _out_i):
+                try:
+                    from majestic.llm.base import BaseLLM as _BLLM
+                    _cost_i = _BLLM._estimate_cost(_in_i, _out_i)
+                except Exception:
+                    pass
+            runtime._cost_used = _cost_i
+        except Exception as exc:
+            _display.tree_close("error")
+            _ideas_result = f"Error: {exc}"
+            _cost_i = 0.0
+        _elapsed_i = _time2.monotonic() - _t0_i
+
+        # Strip preamble
+        import re as _re2
+        _im = _re2.search(r'##\s*SECTION\s*1', _ideas_result, _re2.IGNORECASE)
+        if _im:
+            _ideas_result = _ideas_result[_im.start():]
+
+        # Save to workspace/ideas/YYYY-MM-DD.md
+        try:
+            _ideas_dir = settings.workspace_dir / "ideas"
+            _ideas_dir.mkdir(parents=True, exist_ok=True)
+            _ifname = _ideas_dir / f"{_date2.today().isoformat()}.md"
+            _ifname.write_text(_ideas_result, encoding="utf-8")
+            _display.tree_reset()
+            _display.tree_step("saved", f"{_ifname.name}")
+            _display.tree_close()
+        except Exception:
+            pass
+
+        if channel is not None:
+            await channel.send(f"\n{_ideas_result}\n")
+        else:
+            out(_ideas_result)
+
+        from majestic import display as _d2
+        _d2.inline_stats(
+            tokens=getattr(runtime, "_tokens_used", 0),
+            cost=getattr(runtime, "_cost_used", 0.0),
+            elapsed=_elapsed_i,
         )
         return True
 

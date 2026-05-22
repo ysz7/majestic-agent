@@ -1,0 +1,54 @@
+sources:
+
+  # ── Hacker News Ask ───────────────────────────────────────────────────────────
+  # "Ask HN: ..." posts are the highest-signal pain source — founders asking about real problems
+  - name: HN Ask
+    type: hn_ask
+    url: https://hacker-news.firebaseio.com/v0/askstories.json
+
+  # ── Reddit — Entrepreneur & Business ──────────────────────────────────────────
+  - name: r/entrepreneur
+    type: rss
+    url: https://old.reddit.com/r/entrepreneur/.rss
+
+  - name: r/SaaS
+    type: rss
+    url: https://old.reddit.com/r/SaaS/.rss
+
+  - name: r/smallbusiness
+    type: rss
+    url: https://old.reddit.com/r/smallbusiness/.rss
+
+  - name: r/startups
+    type: rss
+    url: https://old.reddit.com/r/startups/.rss
+
+  # ── Reddit — Builders & Makers ────────────────────────────────────────────────
+  - name: r/webdev
+    type: rss
+    url: https://old.reddit.com/r/webdev/.rss
+
+  - name: r/freelance
+    type: rss
+    url: https://old.reddit.com/r/freelance/.rss
+
+  - name: r/marketing
+    type: rss
+    url: https://old.reddit.com/r/marketing/.rss
+
+  - name: r/productivity
+    type: rss
+    url: https://old.reddit.com/r/productivity/.rss
+
+  - name: r/nocode
+    type: rss
+    url: https://old.reddit.com/r/nocode/.rss
+
+  # ── Indie Builders ────────────────────────────────────────────────────────────
+  - name: IndieHackers
+    type: rss
+    url: https://www.indiehackers.com/feed.xml
+
+  - name: ProductHunt
+    type: rss
+    url: https://www.producthunt.com/feed

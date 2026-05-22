@@ -10,6 +10,8 @@ SLASH_COMMANDS = {
     "/skills":   "List loaded skills with descriptions",
     "/tools":    "List available tools",
     "/research": "Fetch latest news from curated sources and get a world briefing",
+    "/pains":    "Scan community sources for user pain points — /pains [days]",
+    "/ideas":    "Pain Radar + 5 business ideas from pains — /ideas [days, default 30]",
     "/news":     "Show saved articles with links — /news [days, default 7]",
     "/briefing": "Analyze stored news — /briefing [days, default 30] — investment signals",
     "/agents":   "Show running agents (like majestic ps)",
