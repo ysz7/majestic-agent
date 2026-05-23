@@ -129,3 +129,9 @@ sources:
     category: ai
     type: rss
     url: https://huggingface.co/blog/feed.xml
+
+  # ── Product Launches ──────────────────────────────────────────────────────────
+  - name: ProductHunt
+    category: launches
+    type: rss
+    url: https://www.producthunt.com/feed

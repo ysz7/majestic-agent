@@ -638,16 +638,24 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         # LAYER 1: Macro briefing (optional, enriches with world context)
         _ideas_briefing = _load_recent_briefing(settings, max_days=3)
 
+        # Split articles: product launches vs market news
+        _launches   = [a for a in _ideas_articles if a.get("category") == "launches"]
+        _mkt_news   = [a for a in _ideas_articles if a.get("category") != "launches"]
+
         _display.tree_reset()
         if _ideas_briefing:
             _display.tree_step("Briefing", "macro context loaded")
         else:
             _display.tree_step("Briefing", "not found — run /briefing for richer analysis", status="warn")
         _display.tree_step("Pains DB", f"{len(_ideas_pains)} pain points · last {days}d")
-        if _ideas_articles:
-            _display.tree_step("Research DB", f"{len(_ideas_articles)} articles")
+        if _mkt_news:
+            _display.tree_step("Research DB", f"{len(_mkt_news)} articles")
+        if _launches:
+            _display.tree_step("ProductHunt", f"{len(_launches)} launches")
+        else:
+            _display.tree_step("ProductHunt", "no launches — run /research to fetch", status="warn")
 
-        # ── Build 3-layer corpus ──────────────────────────────────────────────
+        # ── Build 4-layer corpus ──────────────────────────────────────────────
         _corpus_lines: list[str] = [f"INTELLIGENCE CORPUS — last {days} days\n"]
 
         # LAYER 1: Macro briefing capped at 8K chars
@@ -672,11 +680,23 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                 _corpus_lines.append(f"· [{_pi.get('source', '')}] {_pi.get('pain_text', '')}")
             _corpus_lines.append("")
 
-        # LAYER 3: Market & news signals with full summaries, capped at 30K chars
-        if _ideas_articles:
-            _news_lines, _ = _build_news_corpus(_ideas_articles, max_chars=30_000, include_summaries=True)
-            _corpus_lines.append(f"=== MARKET & NEWS SIGNALS ({len(_ideas_articles)} articles) ===\n")
+        # LAYER 3: Market & news signals with full summaries, capped at 25K chars
+        if _mkt_news:
+            _news_lines, _ = _build_news_corpus(_mkt_news, max_chars=25_000, include_summaries=True)
+            _corpus_lines.append(f"=== MARKET & NEWS SIGNALS ({len(_mkt_news)} articles) ===\n")
             _corpus_lines.extend(_news_lines)
+
+        # LAYER 4: ProductHunt launches — what's being built RIGHT NOW
+        if _launches:
+            _corpus_lines.append(
+                f"=== MARKET LAUNCHES — {len(_launches)} products trending on ProductHunt ===\n"
+                "Use this to assess competition: are pain points already being solved? What gap remains?\n"
+            )
+            for _l in _launches[:30]:
+                _corpus_lines.append(f"· [{_l.get('date','')}] {_l.get('title','')}")
+                if _l.get("summary"):
+                    _corpus_lines.append(f"  {_l.get('summary','')[:200]}")
+            _corpus_lines.append("")
 
         _lang = getattr(settings, "agent_language", "") or "en"
         _is_non_en_i = _lang and _lang.lower() not in ("en", "english")
@@ -686,18 +706,23 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         ) if _is_non_en_i else ""
 
         _ideas_instructions = (
-            "TASK: Identify 7 realistic business opportunities by synthesizing ALL THREE corpus layers: "
-            "macro structural shifts (LAYER 1), expressed user pains (LAYER 2), market capital flows (LAYER 3).\n"
-            "RULE: Every idea must connect at least 2 different layers. Single-layer ideas are invalid.\n\n"
+            "TASK: Identify 7 realistic business opportunities by synthesizing ALL FOUR corpus layers: "
+            "macro structural shifts (LAYER 1), expressed user pains (LAYER 2), "
+            "market capital flows (LAYER 3), and what's already being built on ProductHunt (LAYER 4).\n"
+            "RULE: Every idea must connect at least 2 different layers. "
+            "CRITICAL: Before finalizing each idea, check MARKET LAUNCHES — "
+            "if the gap is already filled, either find the remaining niche or drop the idea.\n\n"
 
             "## SECTION 1 — WORLD BOTTLENECK MAP\n\n"
             "Scan the entire corpus. Identify 5–7 structural gaps where:\n"
             "- demand is surging (pain signals) but supply hasn't caught up (market signals)\n"
             "- macro forces are creating new urgency (briefing) that existing solutions don't address\n"
             "- a timing window is opening that will close or commoditize within 3–12 months\n\n"
-            "**→ [BOTTLENECK NAME]** (layers: macro / pain / market)\n"
+            "For each bottleneck note: is it being addressed in MARKET LAUNCHES? If yes — what gap remains?\n\n"
+            "**→ [BOTTLENECK NAME]** (layers: macro / pain / market / launches)\n"
             "- Gap: what's missing or broken\n"
             "- Urgency: what makes this critical NOW (cite source)\n"
+            "- Competition status: already built / partial solutions / open field\n"
             "- Window: when does this opportunity close?\n\n"
             "---\n\n"
 
@@ -705,15 +730,17 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             "Each idea addresses a bottleneck above. Rank #1 highest conviction → #7 lowest.\n\n"
             "**#N — [IDEA NAME]** — [one sentence]\n\n"
             "- **Bottleneck**: which gap from Section 1 this solves\n"
-            "- **Signal convergence**: [Layer 1 signal] + [Layer 2 signal] + [Layer 3 signal if available] "
+            "- **Signal convergence**: [Layer 1 signal] + [Layer 2 signal] + [Layer 3 signal] "
             "→ what the intersection reveals\n"
+            "- **Competition**: what exists on ProductHunt in this space — "
+            "and what specific gap remains that makes this viable\n"
             "- **Why now**: specific recent event that opened this window (cite corpus)\n"
             "- **Target**: exact persona — role, context, company size\n"
             "- **Solution**: what it does in 2 sentences\n"
             "- **Revenue model**: how it makes money\n"
             "- **Moat**: what makes it defensible in 12 months\n"
             "- **Kill check**: what must be true in 30 days or this is dead\n"
-            "- **Conviction**: XX% — pain frequency × market signal strength × timing clarity\n\n"
+            "- **Conviction**: XX% — pain frequency × market signal strength × timing clarity × competition gap\n\n"
             "No filler ideas. If fewer than 7 strong bottlenecks exist, say so explicitly."
         )
 
