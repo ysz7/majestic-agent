@@ -133,6 +133,11 @@ class Settings:
         return d
 
     @property
+    def shared_skills_dir(self) -> Path:
+        """Global shared skills library at profiles/shared/skills/ — available to all profiles."""
+        return _profiles_root() / "shared" / "skills"
+
+    @property
     def output_dir(self) -> Path:
         d = self._profile_dir / "workspace" / "output"
         d.mkdir(parents=True, exist_ok=True)

@@ -26,6 +26,14 @@ class LessonsStore:
                 CREATE VIRTUAL TABLE IF NOT EXISTS lessons_fts
                 USING fts5(lesson, content='lessons', content_rowid='id')
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS skill_scores (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    skill_name TEXT NOT NULL,
+                    score REAL NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+            """)
 
     def _get_conn(self):
         return self._conn
@@ -67,6 +75,24 @@ class LessonsStore:
                 {"id": r[0], "task_type": r[1], "lesson": r[2], "usage_count": r[3]}
                 for r in rows
             ]
+
+    def save_skill_score(self, skill_name: str, score: float) -> None:
+        """Persist a quality score for a skill execution."""
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute(
+                    "INSERT INTO skill_scores (skill_name, score, created_at) VALUES (?, ?, ?)",
+                    (skill_name, score, datetime.utcnow().isoformat()),
+                )
+
+    def get_skill_scores(self, skill_name: str, limit: int = 10) -> list[float]:
+        """Return recent quality scores for a skill, newest first."""
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT score FROM skill_scores WHERE skill_name = ? ORDER BY id DESC LIMIT ?",
+                (skill_name, limit),
+            ).fetchall()
+        return [r[0] for r in rows]
 
     def get_top(self, task_type: str = None, limit: int = 3) -> list[dict]:
         """Get most-used lessons, optionally filtered by task_type."""

@@ -34,11 +34,13 @@ class SelfEvolution:
         script_tracker,
         lessons_store,
         workspace_dir: str,
+        procedural_memory=None,
     ):
         self.llm = llm_router
         self.skill_writer = skill_writer
         self.tracker = script_tracker
         self.lessons = lessons_store
+        self.procedural = procedural_memory
         self.workspace = Path(workspace_dir)
         self.tools_dir = self.workspace / "tools"
         self.temp_dir = self.workspace / "temp"
@@ -56,6 +58,7 @@ class SelfEvolution:
         reflection: str,
         skill_quality_ok: bool = True,
         used_skill: str | None = None,
+        result: str = "",
     ):
         """
         Run all three triggers after task completion.
@@ -74,11 +77,15 @@ class SelfEvolution:
         # Trigger 2 runs synchronously (file ops only)
         self._trigger2_promote_scripts(steps)
 
-        # Artifact improvement
+        # Artifact improvement from explicit quality flag
         if not skill_quality_ok and used_skill:
             await self._improve_skill(used_skill, task, reflection)
 
         await self._fix_failed_scripts(steps)
+
+        # Judge pattern: score skill result, improve or boost based on history
+        if used_skill and result:
+            await self._run_judge(task, result, used_skill)
 
         return {
             "skill_generated": skill_name,
@@ -326,6 +333,55 @@ Return ONLY the fixed code, no explanation, no markdown fences."""
             return fixed if len(fixed) > 10 else None
         except Exception:
             return None
+
+    # ------------------------------------------------------------------ #
+    # Judge pattern — skill quality evaluation                            #
+    # ------------------------------------------------------------------ #
+
+    async def _run_judge(self, task: str, result: str, skill_name: str) -> None:
+        """Score a skill's output and trigger improvement or priority boost."""
+        score = await self._judge_skill_result(task, result, skill_name)
+        self.lessons.save_skill_score(skill_name, score)
+        recent = self.lessons.get_skill_scores(skill_name, limit=3)
+        label = f"{skill_name}  {score:.2f}"
+        if len(recent) >= 3:
+            avg = sum(recent[:3]) / 3
+            if avg < 0.4:
+                display.tree_step("skill-judge", f"{label}  → improving")
+                await self._improve_skill(skill_name, task, result)
+            elif avg > 0.8:
+                if self.procedural:
+                    self.procedural.boost_priority(skill_name)
+                display.tree_step("skill-judge", f"{label}  → top-rated")
+                self.lessons.save(
+                    task_type="meta",
+                    lesson=f"Skill '{skill_name}' consistently delivers excellent results — prefer it",
+                )
+            else:
+                display.tree_step("skill-judge", label)
+        else:
+            display.tree_step("skill-judge", label)
+
+    async def _judge_skill_result(self, task: str, result: str, skill_name: str) -> float:
+        """Ask LLM to score result quality 0.0 (failed) → 1.0 (perfect)."""
+        prompt = (
+            f"Rate the quality of this task result from 0.0 (failed/useless) to 1.0 (perfect/complete).\n\n"
+            f"Skill used: {skill_name}\n"
+            f"Task: {task[:200]}\n"
+            f"Result: {result[:300]}\n\n"
+            f"Return ONLY a single decimal number between 0.0 and 1.0 (e.g. 0.8):"
+        )
+        try:
+            import re
+            resp = await self.llm.chat(
+                [{"role": "user", "content": prompt}],
+                step_type="simple",
+            )
+            m = re.search(r"[01]?\.\d+|^[01]$", resp["content"].strip())
+            score = float(m.group()) if m else 0.5
+            return max(0.0, min(1.0, score))
+        except Exception:
+            return 0.5
 
     # ------------------------------------------------------------------ #
     # Helpers                                                              #

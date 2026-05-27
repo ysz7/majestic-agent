@@ -15,3 +15,5 @@ def run(name: str):
     display.ok(f"Profile '{name}' created at profiles/{name}/")
     display.info(f"  Role: {role} · Tone: {tone}")
     display.info("Edit profiles/" + name + "/persona.yaml to customize further.")
+    display.info("Skills: add YAML files to profiles/" + name + "/skills/")
+    display.info("Shared skills: profiles/shared/skills/ — available to all profiles")

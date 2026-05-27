@@ -31,7 +31,6 @@ async def _run_plain(profile_name: str):
     from majestic.llm.router import LLMRouter
     from majestic.system.startup import StartupManager
     from majestic import display
-    import uuid
 
     settings = Settings(profile_name)
     settings.validate()
@@ -45,9 +44,13 @@ async def _run_plain(profile_name: str):
     channel = CLIChannel(session_id=session_id)
     llm_router = LLMRouter(settings)
 
+    from majestic.memory.user_profile import UserProfile
+    from majestic.memory.procedural import ProceduralMemory
+
     # Memory systems wired into gateway for per-request RAG
     _semantic = SemanticMemory(str(settings.data_dir / "semantic.db"))
     _episodic = EpisodicMemory(str(settings.data_dir / "episodic.db"))
+    _user_profile = UserProfile(str(settings.data_dir / "user_profile.db"))
 
     startup = StartupManager(settings)
     incomplete = await startup.run()
@@ -58,23 +61,31 @@ async def _run_plain(profile_name: str):
     display.print_startup(profile_name, "foreground")
 
     # Register profile skills as slash-command completions
+    _pm = None
     try:
-        from majestic.memory.procedural import ProceduralMemory
-        pm = ProceduralMemory(str(settings.skills_dir))
-        channel.set_skill_completions([s.get("name", "") for s in pm.get_all()])
+        _shared = str(settings.shared_skills_dir)
+        _pm = ProceduralMemory(str(settings.skills_dir), shared_dir=_shared)
+        channel.set_skill_completions([s.get("name", "") for s in _pm.get_all()])
     except Exception:
         pass
 
     gateway = Gateway(settings, working_memory, channel,
                       episodic_memory=_episodic,
-                      semantic_memory=_semantic)
+                      semantic_memory=_semantic,
+                      user_profile=_user_profile)
 
     def _stream_cb(token: str) -> None:
         sys.stdout.write(token)
         sys.stdout.flush()
 
     _stream_callback = _stream_cb if settings.streaming else None
-    runtime = _build_runtime(settings, working_memory, llm_router, stream_callback=_stream_callback)
+    runtime = _build_runtime(
+        settings, working_memory, llm_router,
+        stream_callback=_stream_callback,
+        semantic=_semantic,
+        user_profile=_user_profile,
+        procedural_memory=_pm,
+    )
     runtime = _register_tools(runtime, settings, semantic=_semantic)
 
     _last_stats: dict | None = None
@@ -1447,7 +1458,8 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
     if settings is not None:
         try:
             from majestic.memory.procedural import ProceduralMemory
-            pm = ProceduralMemory(str(settings.skills_dir))
+            _shared_dir = str(settings.shared_skills_dir)
+            pm = ProceduralMemory(str(settings.skills_dir), shared_dir=_shared_dir)
             skill_map = {s.get("name", ""): s for s in pm.get_all()}
             cmd_name = cmd.lstrip("/")
             if cmd_name in skill_map:
@@ -1458,7 +1470,8 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                 steps = skill.get("steps", [])
                 if steps:
                     lines.append("\nFollow these steps:")
-                    lines.extend(f"  - {s}" for s in steps)
+                    expanded = pm.expand_steps(steps)
+                    lines.extend(f"  - {s}" for s in expanded)
                 if user_input:
                     lines.append(f"\nUser input: {user_input}")
                 print()
@@ -1470,7 +1483,15 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
     return False
 
 
-def _build_runtime(settings, working_memory, llm_router, stream_callback=None) -> "AgentRuntime":
+def _build_runtime(
+    settings,
+    working_memory,
+    llm_router,
+    stream_callback=None,
+    semantic=None,
+    user_profile=None,
+    procedural_memory=None,
+) -> "AgentRuntime":
     """Instantiate AgentRuntime with the full self-evolution stack wired up."""
     from majestic.core.runtime import AgentRuntime
     from majestic.core.context_manager import ContextManager
@@ -1499,12 +1520,25 @@ def _build_runtime(settings, working_memory, llm_router, stream_callback=None) -
         script_tracker=script_tracker,
         lessons_store=lessons_store,
         workspace_dir=str(workspace),
+        procedural_memory=procedural_memory,
     )
+
+    consolidator = None
+    if semantic is not None and user_profile is not None:
+        from majestic.memory.consolidator import MemoryConsolidator
+        consolidator = MemoryConsolidator(
+            episodic=episodic_memory,
+            semantic=semantic,
+            user_profile=user_profile,
+            llm_router=llm_router,
+        )
+
     reflection_engine = ReflectionEngine(
         llm_router=llm_router,
         lessons_store=lessons_store,
         episodic_memory=episodic_memory,
         self_evolution=evolution,
+        consolidator=consolidator,
     )
     planner = Planner(settings, llm_router, lessons_store)
     context_manager = ContextManager(llm_router=llm_router)

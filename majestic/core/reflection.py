@@ -2,11 +2,12 @@ from majestic import display
 
 
 class ReflectionEngine:
-    def __init__(self, llm_router, lessons_store, episodic_memory, self_evolution=None):
+    def __init__(self, llm_router, lessons_store, episodic_memory, self_evolution=None, consolidator=None):
         self.llm = llm_router
         self.lessons = lessons_store
         self.episodic = episodic_memory
-        self.evolution = self_evolution  # SelfEvolution | None
+        self.evolution = self_evolution      # SelfEvolution | None
+        self.consolidator = consolidator     # MemoryConsolidator | None
 
     async def reflect(
         self,
@@ -68,10 +69,21 @@ class ReflectionEngine:
                         reflection=reflection_text,
                         skill_quality_ok=skill_quality_ok,
                         used_skill=used_skill,
+                        result=result,
                     )
             except Exception as _evo_exc:
                 import logging as _log
                 _log.getLogger(__name__).warning("Self-evolution error (non-fatal): %s", _evo_exc)
+
+        # Memory consolidation: episodic → semantic patterns (every 50 tasks)
+        if self.consolidator:
+            try:
+                n = await self.consolidator.maybe_consolidate()
+                if n:
+                    display.tree_step("consolidated", f"{n} pattern{'s' if n != 1 else ''} → semantic")
+            except Exception as _con_exc:
+                import logging as _log
+                _log.getLogger(__name__).warning("Memory consolidation failed (non-fatal): %s", _con_exc)
 
         display.tree_close()
         return reflection_text
