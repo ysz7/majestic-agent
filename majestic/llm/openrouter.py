@@ -230,6 +230,72 @@ class OpenRouterLLM(BaseLLM):
             result["native_tool_call"] = native_tool_call
         return result
 
+    async def stream(
+        self,
+        messages: list[dict],
+        model: str,
+        **kwargs: Any,
+    ):
+        """Stream text tokens via OpenRouter SSE (OpenAI-compatible format)."""
+        if not self._api_key:
+            raise LLMError("OPENROUTER_API_KEY is not set", provider=self.provider_name)
+
+        import json as _json
+
+        kwargs.pop("tools", None)      # native tool calling not supported in stream mode
+        kwargs.pop("use_cache", None)  # not applicable to OpenRouter
+
+        payload: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": kwargs.pop("max_tokens", _DEFAULT_MAX_TOKENS),
+            "stream": True,
+            **kwargs,
+        }
+
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            try:
+                async with client.stream(
+                    "POST",
+                    f"{_BASE_URL}/chat/completions",
+                    headers=self._headers(),
+                    json=payload,
+                ) as response:
+                    if response.status_code != 200:
+                        body = await response.aread()
+                        raise LLMError(
+                            f"HTTP {response.status_code}: {body[:500].decode('utf-8', errors='replace')}",
+                            provider=self.provider_name,
+                            status_code=response.status_code,
+                        )
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data = line[6:].strip()
+                        if not data or data == "[DONE]":
+                            continue
+                        try:
+                            event = _json.loads(data)
+                            choices = event.get("choices") or []
+                            if not choices:
+                                continue
+                            delta = choices[0].get("delta", {})
+                            content = delta.get("content")
+                            if content:
+                                yield content
+                        except (_json.JSONDecodeError, KeyError, IndexError):
+                            continue
+            except httpx.TimeoutException as exc:
+                raise LLMError(
+                    f"Stream timed out after {self._timeout}s: {exc}",
+                    provider=self.provider_name,
+                ) from exc
+            except httpx.RequestError as exc:
+                raise LLMError(
+                    f"Network error during stream: {exc}",
+                    provider=self.provider_name,
+                ) from exc
+
     async def is_available(self) -> bool:
         """
         Ping OpenRouter with a minimal request.

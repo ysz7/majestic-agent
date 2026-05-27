@@ -4,6 +4,8 @@ Base abstractions for LLM providers.
 
 from __future__ import annotations
 
+from typing import AsyncGenerator
+
 
 class LLMError(Exception):
     """Raised when an LLM provider call fails and all fallbacks are exhausted."""
@@ -64,6 +66,24 @@ class BaseLLM:
         raise NotImplementedError(
             f"{self.__class__.__name__} must implement `chat()`"
         )
+
+    async def stream(
+        self,
+        messages: list[dict],
+        model: str,
+        **kwargs,
+    ) -> AsyncGenerator[str, None]:
+        """
+        Yield text tokens as they arrive from the LLM.
+
+        Default implementation falls back to a single non-streaming chat() call
+        and yields the full content as one chunk.  Override in subclasses to
+        enable true token-by-token streaming.
+        """
+        response = await self.chat(messages=messages, model=model, **kwargs)
+        content = response.get("content", "")
+        if content:
+            yield content
 
     async def is_available(self) -> bool:
         """

@@ -1,4 +1,5 @@
 import asyncio
+import sys
 import time
 
 
@@ -36,7 +37,11 @@ async def _run_plain(profile_name: str):
     settings.validate()
 
     session_id = str(uuid.uuid4())[:8]
-    working_memory = WorkingMemory()
+
+    # Persistent working memory when enabled in persona.yaml
+    _wm_db = str(settings.data_dir / "working.db") if settings.working_persistent else None
+    working_memory = WorkingMemory(db_path=_wm_db, session_id=session_id)
+
     channel = CLIChannel(session_id=session_id)
     llm_router = LLMRouter(settings)
 
@@ -64,7 +69,12 @@ async def _run_plain(profile_name: str):
                       episodic_memory=_episodic,
                       semantic_memory=_semantic)
 
-    runtime = _build_runtime(settings, working_memory, llm_router)
+    def _stream_cb(token: str) -> None:
+        sys.stdout.write(token)
+        sys.stdout.flush()
+
+    _stream_callback = _stream_cb if settings.streaming else None
+    runtime = _build_runtime(settings, working_memory, llm_router, stream_callback=_stream_callback)
     runtime = _register_tools(runtime, settings, semantic=_semantic)
 
     _last_stats: dict | None = None
@@ -1460,7 +1470,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
     return False
 
 
-def _build_runtime(settings, working_memory, llm_router) -> "AgentRuntime":
+def _build_runtime(settings, working_memory, llm_router, stream_callback=None) -> "AgentRuntime":
     """Instantiate AgentRuntime with the full self-evolution stack wired up."""
     from majestic.core.runtime import AgentRuntime
     from majestic.memory.lessons import LessonsStore
@@ -1505,6 +1515,7 @@ def _build_runtime(settings, working_memory, llm_router) -> "AgentRuntime":
         reflection_engine=reflection_engine,
         planner=planner,
         hitl_enabled=False,
+        stream_callback=stream_callback,
     )
 
 

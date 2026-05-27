@@ -259,6 +259,87 @@ class AnthropicLLM(BaseLLM):
             result["native_tool_call"] = native_tool_call
         return result
 
+    async def stream(
+        self,
+        messages: list[dict],
+        model: str,
+        **kwargs: Any,
+    ):
+        """Stream text tokens via Anthropic SSE. Drops tools/cache kwargs gracefully."""
+        if not self._api_key:
+            raise LLMError("ANTHROPIC_API_KEY is not set", provider=self.provider_name)
+
+        import json as _json
+
+        use_cache: bool = kwargs.pop("use_cache", False)
+        kwargs.pop("tools", None)  # native tool calling not supported in stream mode
+
+        system_prompt, converted_messages = self._convert_messages(messages)
+
+        if not converted_messages or converted_messages[0]["role"] != "user":
+            raise LLMError(
+                "Anthropic requires at least one user message to start",
+                provider=self.provider_name,
+            )
+
+        payload: dict[str, Any] = {
+            "model": model,
+            "max_tokens": kwargs.pop("max_tokens", _DEFAULT_MAX_TOKENS),
+            "messages": converted_messages,
+            "stream": True,
+        }
+        if system_prompt:
+            if use_cache:
+                payload["system"] = [
+                    {"type": "text", "text": system_prompt,
+                     "cache_control": {"type": "ephemeral"}}
+                ]
+            else:
+                payload["system"] = system_prompt
+        payload.update(kwargs)
+
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            try:
+                async with client.stream(
+                    "POST",
+                    f"{_BASE_URL}/messages",
+                    headers=self._headers(cache=use_cache),
+                    json=payload,
+                ) as response:
+                    if response.status_code != 200:
+                        body = await response.aread()
+                        raise LLMError(
+                            f"HTTP {response.status_code}: {body[:500].decode('utf-8', errors='replace')}",
+                            provider=self.provider_name,
+                            status_code=response.status_code,
+                        )
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data = line[6:].strip()
+                        if not data or data == "[DONE]":
+                            continue
+                        try:
+                            event = _json.loads(data)
+                        except _json.JSONDecodeError:
+                            continue
+                        if event.get("type") == "content_block_delta":
+                            delta = event.get("delta", {})
+                            if delta.get("type") == "text_delta":
+                                text = delta.get("text", "")
+                                if text:
+                                    yield text
+            except httpx.TimeoutException as exc:
+                raise LLMError(
+                    f"Stream timed out after {self._timeout}s: {exc}",
+                    provider=self.provider_name,
+                ) from exc
+            except httpx.RequestError as exc:
+                raise LLMError(
+                    f"Network error during stream: {exc}",
+                    provider=self.provider_name,
+                ) from exc
+
     async def is_available(self) -> bool:
         """
         Probe the Anthropic API.

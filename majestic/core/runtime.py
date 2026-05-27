@@ -33,6 +33,10 @@ class AgentRuntime:
     TIMEOUT_SECONDS = 300
     MAX_DELEGATIONS = 4  # cap fire-and-forget delegate_to_agent calls per task
 
+    # Tools whose results are safe to cache (read-only, deterministic enough)
+    _CACHEABLE_TOOLS = frozenset({"web_search", "web_fetch"})
+    _TOOL_CACHE_TTL = 300.0  # seconds — matches ReAct loop timeout
+
     def __init__(
         self,
         settings,
@@ -43,6 +47,7 @@ class AgentRuntime:
         reflection_engine=None,
         planner=None,
         hitl_enabled: bool = False,
+        stream_callback=None,
     ):
         self.settings = settings
         self.memory = working_memory
@@ -52,9 +57,11 @@ class AgentRuntime:
         self._reflection = reflection_engine   # ReflectionEngine | None
         self._planner = planner                # Planner | None
         self._hitl_enabled = hitl_enabled
+        self._stream_callback = stream_callback  # callable(token: str) | None
         self._tokens_used = 0
         self._cost_used = 0.0
         self._delegation_count = 0
+        self._tool_cache: dict[str, tuple[Any, float]] = {}
 
     async def run(
         self,
@@ -134,9 +141,13 @@ class AgentRuntime:
                     # Pre-check budget before spending tokens on this step
                     self._check_budget()
 
-                    # REASON
-                    with display.Spinner("Thinking..."):
+                    # REASON — stream only on first response (no tools used yet);
+                    # subsequent iterations use the spinner so tree display stays clean
+                    if self._stream_callback and not steps:
                         response = await self._reason(messages, steps)
+                    else:
+                        with display.Spinner("Thinking..."):
+                            response = await self._reason(messages, steps)
                     self._track_usage(response)
                     self._check_budget()
 
@@ -358,7 +369,10 @@ class AgentRuntime:
                 f"\n\nToday's date: {today}.\n"
                 f"Search rule: ALWAYS use {year} in web_search queries — never use past years like 2024 or 2023.\n"
                 "Knowledge-base rule: if the system prompt contains a [KNOWLEDGE BASE] section with relevant context, "
-                "use it to answer directly and skip web_search entirely.\n\n"
+                "use it to answer directly and skip web_search entirely.\n"
+                "Research rule: for news, trends, AI, tech, finance, science — ALWAYS call `research` first "
+                "(it queries curated sources and is faster than web_search). "
+                "Use web_search only for specific factual look-ups or when `research` returns nothing relevant.\n\n"
                 f"Available tools:\n{tool_list}\n\n"
                 "=== RESPONSE FORMAT — follow exactly, never translate these keywords ===\n\n"
                 "To call a tool, output ONLY this (nothing before or after on the same line):\n"
@@ -386,7 +400,109 @@ class AgentRuntime:
             tool_schemas = []
 
         kwargs = {"tools": tool_schemas} if tool_schemas else {}
+        if self._stream_callback:
+            return await self._reason_streamed(enhanced, kwargs)
         return await self.llm.chat(enhanced, step_type="reason", **kwargs)
+
+    async def _reason_streamed(self, messages: list, chat_kwargs: dict) -> dict:
+        """
+        Stream reasoning tokens to the callback.
+
+        Shows only text that appears BEFORE the first FINAL_ANSWER: / TOOL_CALL:
+        marker, so those keywords never leak to the user and the final answer
+        can be rendered cleanly by the channel without duplication.
+
+        Uses a lookahead buffer (_LOOKAHEAD chars) to prevent partial marker
+        tokens from leaking when a BPE token straddles the marker boundary.
+        """
+        import sys as _sys
+        from majestic.llm.base import BaseLLM as _BaseLLM
+
+        _LOOKAHEAD = 15  # > len("FINAL_ANSWER:") = 13; holds partial markers
+
+        buffer: list[str] = []
+        shown_chars = 0        # chars of full content already sent to callback
+        stop_streaming = False
+
+        # Drop native tool schemas — streaming uses the text-based protocol
+        stream_kwargs = {k: v for k, v in chat_kwargs.items() if k != "tools"}
+
+        try:
+            async for token in self.llm.stream(messages, step_type="reason", **stream_kwargs):
+                buffer.append(token)
+                if stop_streaming:
+                    continue
+
+                full = "".join(buffer)
+
+                # Find the earliest FINAL_ANSWER: or TOOL_CALL: marker
+                safe_end = len(full)
+                for pat in (self._RE_FINAL, self._RE_TOOLPFX):
+                    m = pat.search(full)
+                    if m and m.start() < safe_end:
+                        safe_end = m.start()
+
+                if safe_end < len(full):
+                    # Complete marker found — show only text before it
+                    to_show = full[shown_chars:safe_end]
+                    if to_show.strip():
+                        if shown_chars == 0:
+                            _sys.stdout.write("\n")
+                        self._stream_callback(to_show)
+                        shown_chars = safe_end
+                    stop_streaming = True
+                    if shown_chars > 0:
+                        _sys.stdout.write("\n")
+                        _sys.stdout.flush()
+                else:
+                    # No complete marker yet — emit all except the last LOOKAHEAD
+                    # chars so we never accidentally show the start of a marker
+                    safe_emit = max(shown_chars, len(full) - _LOOKAHEAD)
+                    to_show = full[shown_chars:safe_emit]
+                    if to_show:
+                        if shown_chars == 0:
+                            _sys.stdout.write("\n")
+                        self._stream_callback(to_show)
+                        shown_chars = safe_emit
+
+        except Exception as exc:
+            logger.warning("Streaming failed, using buffered content: %s", exc)
+            if not buffer:
+                return await self.llm.chat(messages, step_type="reason", **chat_kwargs)
+
+        content = "".join(buffer)
+        if not content:
+            return await self.llm.chat(messages, step_type="reason", **chat_kwargs)
+
+        # After stream ends: emit any chars still in the lookahead buffer,
+        # stopping before any marker found in the remaining portion.
+        if not stop_streaming and shown_chars < len(content):
+            safe_end = len(content)
+            for pat in (self._RE_FINAL, self._RE_TOOLPFX):
+                m = pat.search(content, shown_chars)
+                if m and m.start() < safe_end:
+                    safe_end = m.start()
+            to_show = content[shown_chars:safe_end]
+            if to_show.strip():
+                if shown_chars == 0:
+                    _sys.stdout.write("\n")
+                self._stream_callback(to_show)
+                shown_chars = safe_end
+            if shown_chars > 0:
+                _sys.stdout.write("\n")
+                _sys.stdout.flush()
+
+        input_chars = sum(len(str(m.get("content", ""))) for m in messages)
+        input_tokens = input_chars // 4
+        output_tokens = len(content) // 4
+        cost = _BaseLLM._estimate_cost(input_tokens, output_tokens)
+
+        return {
+            "content": content,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cost": cost,
+        }
 
     # ------------------------------------------------------------------
     # Parsing helpers
@@ -449,13 +565,31 @@ class AgentRuntime:
     async def _execute_tool(self, name: str, args: dict) -> Any:
         if name not in self.tools:
             return f"Error: tool '{name}' not found"
+
+        # Check TTL cache for read-only tools
+        cache_key: str | None = None
+        if name in self._CACHEABLE_TOOLS:
+            cache_key = f"{name}:{json.dumps(args, sort_keys=True)}"
+            now = time.time()
+            if cache_key in self._tool_cache:
+                cached_result, cached_at = self._tool_cache[cache_key]
+                if now - cached_at < self._TOOL_CACHE_TTL:
+                    logger.debug("Tool cache hit: %s", name)
+                    return cached_result
+
         try:
             fn = self.tools[name]
             if asyncio.iscoroutinefunction(fn):
-                return await fn(**args)
-            return fn(**args)
+                result = await fn(**args)
+            else:
+                result = fn(**args)
         except Exception as e:
             return f"Tool error: {e}"
+
+        if cache_key is not None:
+            self._tool_cache[cache_key] = (result, time.time())
+
+        return result
 
     # ------------------------------------------------------------------
     # Budget tracking

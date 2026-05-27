@@ -202,6 +202,50 @@ class LLMRouter:
             f"Last error: {last_error}"
         )
 
+    async def stream(
+        self,
+        messages: list[dict],
+        step_type: str = "reason",
+        **kwargs: Any,
+    ):
+        """
+        Stream text tokens from the best available provider.
+
+        Tries providers in priority order.  Falls back to the next provider
+        only if the current one raises before yielding any tokens.
+        """
+        model: str = self._settings.get_model(step_type)
+
+        # Enable prompt caching for Anthropic on stable prompts
+        if step_type in ("reason", "reflection"):
+            kwargs.setdefault("use_cache", True)
+
+        last_error: LLMError | None = None
+
+        for provider in self._providers:
+            buffer: list[str] = []
+            try:
+                async for token in provider.stream(messages=messages, model=model, **kwargs):
+                    buffer.append(token)
+                    yield token
+                return  # provider succeeded
+            except LLMError as exc:
+                if buffer:
+                    # Already started streaming — cannot fallback, propagate
+                    raise
+                logger.warning(
+                    "LLMRouter stream: provider %s failed before first token: %s",
+                    provider.provider_name,
+                    exc,
+                )
+                last_error = exc
+                continue
+
+        raise LLMError(
+            f"All LLM providers failed during streaming for step_type='{step_type}'. "
+            f"Last error: {last_error}"
+        )
+
     async def is_any_available(self) -> bool:
         """
         Return True if at least one configured provider is reachable.

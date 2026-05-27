@@ -260,6 +260,19 @@ class Settings:
             return dict(raw)
         return {}
 
+    @property
+    def streaming(self) -> bool:
+        """False by default. Enable via persona.yaml: `streaming: true`."""
+        return bool(self._persona.get("streaming", False))
+
+    @property
+    def working_persistent(self) -> bool:
+        """True if persona.yaml has `memory.working_persistent: true`."""
+        memory_cfg = self._persona.get("memory", {})
+        if isinstance(memory_cfg, dict):
+            return bool(memory_cfg.get("working_persistent", True))
+        return True
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
