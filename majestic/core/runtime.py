@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import logging
 import re
@@ -284,6 +285,64 @@ class AgentRuntime:
     # LLM reasoning
     # ------------------------------------------------------------------
 
+    def _build_tool_schemas(self) -> list[dict]:
+        """
+        Build a list of tool schemas for native function calling.
+
+        Prefers ``tool_schema()`` on the bound method's owner object;
+        falls back to building a minimal schema from the function's
+        docstring and ``inspect.signature``.
+        """
+        schemas: list[dict] = []
+        for name, fn in self.tools.items():
+            # 1. Try tool_schema() on the owning object (e.g. PythonExecutor)
+            obj = getattr(fn, "__self__", None)
+            if obj is not None and hasattr(obj, "tool_schema"):
+                schemas.append(obj.tool_schema())
+                continue
+
+            # 2. Build from docstring + signature
+            doc = (getattr(fn, "__doc__", "") or "").strip()
+            description = doc.splitlines()[0][:200] if doc else name
+
+            properties: dict = {}
+            required: list[str] = []
+            try:
+                sig = inspect.signature(fn)
+                for pname, param in sig.parameters.items():
+                    if pname == "self":
+                        continue
+                    ann = param.annotation
+                    if ann is int or ann is inspect.Parameter.empty and "count" in pname.lower():
+                        ptype = "integer"
+                    elif ann is float:
+                        ptype = "number"
+                    elif ann is bool:
+                        ptype = "boolean"
+                    elif ann is list or (hasattr(ann, "__origin__") and ann.__origin__ is list):
+                        properties[pname] = {"type": "array", "items": {"type": "string"}}
+                        if param.default is inspect.Parameter.empty:
+                            required.append(pname)
+                        continue
+                    else:
+                        ptype = "string"
+                    properties[pname] = {"type": ptype}
+                    if param.default is inspect.Parameter.empty:
+                        required.append(pname)
+            except (ValueError, TypeError):
+                pass
+
+            schemas.append({
+                "name": name,
+                "description": description,
+                "parameters": {
+                    "type": "object",
+                    "properties": properties,
+                    "required": required,
+                },
+            })
+        return schemas
+
     async def _reason(self, messages: list, steps: list) -> dict:
         """Call LLM for reasoning step."""
         if self.tools:
@@ -320,10 +379,14 @@ class AgentRuntime:
                 }
             else:
                 enhanced.insert(0, {"role": "system", "content": tool_msg.strip()})
+
+            tool_schemas = self._build_tool_schemas()
         else:
             enhanced = messages
+            tool_schemas = []
 
-        return await self.llm.chat(enhanced, step_type="reason")
+        kwargs = {"tools": tool_schemas} if tool_schemas else {}
+        return await self.llm.chat(enhanced, step_type="reason", **kwargs)
 
     # ------------------------------------------------------------------
     # Parsing helpers

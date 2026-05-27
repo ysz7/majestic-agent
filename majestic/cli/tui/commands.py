@@ -12,7 +12,7 @@ SLASH_COMMANDS = {
     "/skills":   "List loaded skills with descriptions",
     "/tools":    "List available tools",
     "/research": "Fetch latest news from curated sources and get a world briefing",
-    "/pains":    "Scan community sources for user pain points — /pains [days]",
+    "/pains":    "Scan sources (no args) or show stored pains — /pains [days]",
     "/ideas":    "World bottleneck analysis + 7 business ideas — /ideas [days, default 30]",
     "/predict":  "Predictive intelligence report (news + pains) — /predict [days, default 30]",
     "/news":     "Show saved articles with links — /news [days, default 7]",

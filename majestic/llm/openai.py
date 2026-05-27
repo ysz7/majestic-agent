@@ -70,6 +70,25 @@ class OpenAILLM(BaseLLM):
     # Public interface
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _to_openai_tools(tools: list[dict]) -> list[dict]:
+        """Convert generic tool schemas to OpenAI ``tools`` format."""
+        result = []
+        for t in tools:
+            result.append({
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t.get("description", ""),
+                    "parameters": (
+                        t.get("parameters")
+                        or t.get("input_schema")
+                        or {"type": "object", "properties": {}}
+                    ),
+                },
+            })
+        return result
+
     async def chat(
         self,
         messages: list[dict],
@@ -80,11 +99,16 @@ class OpenAILLM(BaseLLM):
         if not self._api_key:
             raise LLMError("OPENAI_API_KEY is not set", provider=self.provider_name)
 
+        tools_raw: list[dict] | None = kwargs.pop("tools", None)
+
         payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
             **kwargs,
         }
+        if tools_raw:
+            payload["tools"] = self._to_openai_tools(tools_raw)
+            payload["tool_choice"] = "auto"
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             try:
@@ -121,12 +145,34 @@ class OpenAILLM(BaseLLM):
             ) from exc
 
         try:
-            content: str = data["choices"][0]["message"]["content"]
+            message = data["choices"][0]["message"]
         except (KeyError, IndexError, TypeError) as exc:
             raise LLMError(
                 f"Unexpected response structure: {exc} — body: {str(data)[:300]}",
                 provider=self.provider_name,
             ) from exc
+
+        content: str = message.get("content") or ""
+        native_tool_call: dict | None = None
+
+        tool_calls = message.get("tool_calls")
+        if tool_calls:
+            import json as _json
+            tc = tool_calls[0]  # use first tool call
+            try:
+                args = _json.loads(tc["function"]["arguments"])
+            except (KeyError, ValueError):
+                args = {}
+            tc_json = _json.dumps(
+                {"name": tc["function"]["name"], "args": args},
+                ensure_ascii=False,
+            )
+            content = f"TOOL_CALL: {tc_json}"
+            native_tool_call = {
+                "id": tc.get("id", ""),
+                "name": tc["function"]["name"],
+                "input": args,
+            }
 
         usage = data.get("usage") or {}
         input_tokens: int = int(usage.get("prompt_tokens", 0))
@@ -134,19 +180,23 @@ class OpenAILLM(BaseLLM):
         cost: float = self._parse_cost(usage, input_tokens, output_tokens)
 
         logger.debug(
-            "OpenAI chat | model=%s | in=%d out=%d cost=$%.6f",
+            "OpenAI chat | model=%s | in=%d out=%d cost=$%.6f native_tool=%s",
             model,
             input_tokens,
             output_tokens,
             cost,
+            native_tool_call["name"] if native_tool_call else None,
         )
 
-        return {
+        result = {
             "content": content,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "cost": cost,
         }
+        if native_tool_call:
+            result["native_tool_call"] = native_tool_call
+        return result
 
     async def is_available(self) -> bool:
         """

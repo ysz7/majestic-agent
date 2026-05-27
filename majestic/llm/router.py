@@ -160,6 +160,7 @@ class LLMRouter:
                 # Enable prompt caching for stable system prompts on Anthropic
                 if step_type in ("reason", "reflection") and provider.provider_name == "anthropic":
                     provider_kwargs.setdefault("use_cache", True)
+                # tools kwarg is forwarded as-is; providers convert to their own format
                 result = await provider.chat(messages=messages, model=model, **provider_kwargs)
                 result["model"] = model
                 result["provider"] = provider.provider_name

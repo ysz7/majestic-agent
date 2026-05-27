@@ -69,8 +69,9 @@ class ReflectionEngine:
                         skill_quality_ok=skill_quality_ok,
                         used_skill=used_skill,
                     )
-            except Exception:
-                pass  # evolution is non-fatal
+            except Exception as _evo_exc:
+                import logging as _log
+                _log.getLogger(__name__).warning("Self-evolution error (non-fatal): %s", _evo_exc)
 
         display.tree_close()
         return reflection_text

@@ -125,8 +125,9 @@ class SelfEvolution:
             if not is_success:
                 continue
 
+            # code may be nested in args (runtime format) or at top level (test/legacy)
             args = step.get("args", {})
-            code = args.get("code", "")
+            code = args.get("code") or step.get("code", "")
             if not code or len(code) < 30:
                 continue
 
@@ -144,6 +145,18 @@ class SelfEvolution:
                 task_type="meta",
                 lesson=f"Promoted reusable script → {dest.name}",
             )
+
+            # Mark as promoted in the tracker so should_promote() returns False
+            run_id = step.get("script_run_id")
+            if run_id is not None:
+                try:
+                    self.tracker.mark_promoted(
+                        run_id,
+                        str(dest),
+                        description=f"Auto-promoted from task execution",
+                    )
+                except Exception:
+                    pass
 
     # ------------------------------------------------------------------ #
     # Trigger 3 — Script parameterization                                 #

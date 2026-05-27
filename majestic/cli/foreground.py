@@ -328,6 +328,49 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
     if cmd == "/pains":
         from majestic import display as _display
+        from majestic.tools.pains.db import PainsDB
+        words = text.strip().split()
+        _pains_days: int | None = None
+        if len(words) > 1:
+            try:
+                _pains_days = int(words[1])
+            except ValueError:
+                pass
+
+        # DB-read mode: return stored pain points for the last N days (no network fetch)
+        if _pains_days is not None:
+            if settings is None:
+                out("[dim]No profile loaded — cannot read from pains DB.[/dim]")
+                return True
+            try:
+                _pdb_r = PainsDB(str(settings.data_dir / "pains.db"))
+                _stored_pains = _pdb_r.get_pains(days=_pains_days)
+                _pdb_r.close()
+            except Exception as e:
+                out(f"[red]DB error: {e}[/red]")
+                return True
+            if not _stored_pains:
+                out(f"[dim]No pain points in DB for the last {_pains_days} days. Run /pains (no args) to scan sources.[/dim]")
+                return True
+            from collections import defaultdict as _ddict2
+            _by_dom: dict = _ddict2(list)
+            for _p in _stored_pains:
+                _by_dom[_p.get("domain", "other")].append(_p)
+            _lines = [f"\n## Pain Radar — {len(_stored_pains)} stored · last {_pains_days}d\n"]
+            for _dom, _items in sorted(_by_dom.items(), key=lambda x: -len(x[1])):
+                _lines.append(f"### {_dom.upper()} ({len(_items)})")
+                for _p in _items[:6]:
+                    _src = f"[{_p.get('source', '')}] " if _p.get("source") else ""
+                    _lines.append(f"- {_src}{_p.get('pain_text', '')}")
+                _lines.append("")
+            _result_pains = "\n".join(_lines)
+            if channel is not None:
+                await channel.send(_result_pains)
+            else:
+                out(_result_pains)
+            return True
+
+        # Fresh-fetch mode: scan sources, extract, store, display new pains
         out("[dim]Scanning pain-signal sources…[/dim]")
         _display.tree_reset()
 
@@ -339,7 +382,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
         try:
             from majestic.tools.pains import fetch_all as _pains_fetch_all, extract_pains as _extract_pains
-            from majestic.tools.pains.db import PainsDB
             posts, ok_sources, failed = await _pains_fetch_all(on_source=_on_pain_source)
         except Exception as e:
             out(f"[red]Fetch error: {e}[/red]")

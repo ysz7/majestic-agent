@@ -58,30 +58,68 @@ class AnthropicLLM(BaseLLM):
     @staticmethod
     def _convert_messages(messages: list[dict]) -> tuple[str, list[dict]]:
         """
-        Split an OpenAI-style message list into:
-          - system_prompt (str): merged text of all "system" messages.
-          - messages (list[dict]): remaining "user" / "assistant" turns.
+        Split an OpenAI-style message list into Anthropic format.
 
-        Anthropic requires:
-          1. The ``system`` parameter to be a plain string (not a message).
-          2. The ``messages`` list to start with a "user" turn.
-          3. Alternating user / assistant turns (no consecutive same roles).
+        Handles standard messages plus two internal types written by the
+        runtime when native tool calling is active:
+          - {"role": "assistant", "_tool_use": {"id", "name", "input"}, "content": ""}
+          - {"role": "tool", "tool_use_id": ..., "content": ...}
         """
         system_parts: list[str] = []
         converted: list[dict] = []
 
         for msg in messages:
             role = msg.get("role", "")
-            content = msg.get("content", "")
+            content = msg.get("content", "") or ""
+
             if role == "system":
                 if content:
                     system_parts.append(content)
+
+            elif role == "assistant" and "_tool_use" in msg:
+                tc = msg["_tool_use"]
+                blocks = []
+                if content:
+                    blocks.append({"type": "text", "text": content})
+                blocks.append({
+                    "type": "tool_use",
+                    "id": tc["id"],
+                    "name": tc["name"],
+                    "input": tc["input"],
+                })
+                converted.append({"role": "assistant", "content": blocks})
+
+            elif role == "tool":
+                converted.append({
+                    "role": "user",
+                    "content": [{
+                        "type": "tool_result",
+                        "tool_use_id": msg.get("tool_use_id", ""),
+                        "content": str(content),
+                    }],
+                })
+
             elif role in ("user", "assistant"):
                 converted.append({"role": role, "content": content})
-            # Ignore unknown roles silently.
 
         system_prompt = "\n\n".join(system_parts)
         return system_prompt, converted
+
+    @staticmethod
+    def _to_anthropic_tools(tools: list[dict]) -> list[dict]:
+        """Convert generic tool schemas to Anthropic ``tools`` format."""
+        result = []
+        for t in tools:
+            result.append({
+                "name": t["name"],
+                "description": t.get("description", ""),
+                "input_schema": (
+                    t.get("input_schema")
+                    or t.get("parameters")
+                    or {"type": "object", "properties": {}}
+                ),
+            })
+        return result
 
     # ------------------------------------------------------------------
     # Public interface
@@ -98,6 +136,7 @@ class AnthropicLLM(BaseLLM):
             raise LLMError("ANTHROPIC_API_KEY is not set", provider=self.provider_name)
 
         use_cache: bool = kwargs.pop("use_cache", False)
+        tools_raw: list[dict] | None = kwargs.pop("tools", None)
 
         system_prompt, converted_messages = self._convert_messages(messages)
 
@@ -107,7 +146,6 @@ class AnthropicLLM(BaseLLM):
                 provider=self.provider_name,
             )
 
-        # Ensure the conversation starts with a user turn.
         if converted_messages[0]["role"] != "user":
             raise LLMError(
                 "Anthropic requires the first message to have role='user'",
@@ -121,12 +159,13 @@ class AnthropicLLM(BaseLLM):
         }
         if system_prompt:
             if use_cache:
-                # Cache the system prompt — stable prefix, rarely changes
                 payload["system"] = [
                     {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}
                 ]
             else:
                 payload["system"] = system_prompt
+        if tools_raw:
+            payload["tools"] = self._to_anthropic_tools(tools_raw)
         payload.update(kwargs)
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
@@ -163,20 +202,38 @@ class AnthropicLLM(BaseLLM):
                 provider=self.provider_name,
             ) from exc
 
-        # Extract text content from Anthropic's content blocks.
+        # Parse content blocks — handle both text and tool_use.
         try:
             content_blocks: list[dict] = data["content"]
-            text_parts = [
-                block["text"]
-                for block in content_blocks
-                if block.get("type") == "text"
-            ]
-            content = "\n".join(text_parts)
         except (KeyError, TypeError) as exc:
             raise LLMError(
                 f"Unexpected response structure: {exc} — body: {str(data)[:300]}",
                 provider=self.provider_name,
             ) from exc
+
+        text_parts: list[str] = []
+        native_tool_call: dict | None = None
+
+        for block in content_blocks:
+            btype = block.get("type")
+            if btype == "text":
+                text_parts.append(block.get("text", ""))
+            elif btype == "tool_use":
+                # Convert to the text-based TOOL_CALL format the runtime expects.
+                import json as _json
+                tc_json = _json.dumps(
+                    {"name": block["name"], "args": block.get("input", {})},
+                    ensure_ascii=False,
+                )
+                text_parts.append(f"TOOL_CALL: {tc_json}")
+                # Also expose structured form for callers that want it.
+                native_tool_call = {
+                    "id": block.get("id", ""),
+                    "name": block["name"],
+                    "input": block.get("input", {}),
+                }
+
+        content = "\n".join(text_parts)
 
         usage = data.get("usage") or {}
         input_tokens: int = int(usage.get("input_tokens", 0))
@@ -184,19 +241,23 @@ class AnthropicLLM(BaseLLM):
         cost: float = self._estimate_cost(input_tokens, output_tokens)
 
         logger.debug(
-            "Anthropic chat | model=%s | in=%d out=%d cost=$%.6f",
+            "Anthropic chat | model=%s | in=%d out=%d cost=$%.6f native_tool=%s",
             model,
             input_tokens,
             output_tokens,
             cost,
+            native_tool_call["name"] if native_tool_call else None,
         )
 
-        return {
+        result = {
             "content": content,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "cost": cost,
         }
+        if native_tool_call:
+            result["native_tool_call"] = native_tool_call
+        return result
 
     async def is_available(self) -> bool:
         """

@@ -78,23 +78,30 @@ class OpenRouterLLM(BaseLLM):
     # Public interface
     # ------------------------------------------------------------------
 
-    async def chat(
+    @staticmethod
+    def _to_openai_tools(tools: list[dict]) -> list[dict]:
+        """Convert generic tool schemas to OpenAI-compatible ``tools`` format."""
+        result = []
+        for t in tools:
+            result.append({
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t.get("description", ""),
+                    "parameters": (
+                        t.get("parameters")
+                        or t.get("input_schema")
+                        or {"type": "object", "properties": {}}
+                    ),
+                },
+            })
+        return result
+
+    async def _chat_request(
         self,
-        messages: list[dict],
-        model: str,
-        **kwargs: Any,
+        payload: dict[str, Any],
     ) -> dict:
-        """Send a chat request to OpenRouter and return a standardised dict."""
-        if not self._api_key:
-            raise LLMError("OPENROUTER_API_KEY is not set", provider=self.provider_name)
-
-        payload: dict[str, Any] = {
-            "model": model,
-            "messages": messages,
-            "max_tokens": kwargs.pop("max_tokens", _DEFAULT_MAX_TOKENS),
-            **kwargs,
-        }
-
+        """Execute a single HTTP request to OpenRouter and parse the response."""
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             try:
                 response = await client.post(
@@ -122,21 +129,82 @@ class OpenRouterLLM(BaseLLM):
             )
 
         try:
-            data = response.json()
+            return response.json()
         except Exception as exc:
             raise LLMError(
                 f"Invalid JSON response: {exc}",
                 provider=self.provider_name,
             ) from exc
 
-        # Validate minimal structure
+    async def chat(
+        self,
+        messages: list[dict],
+        model: str,
+        **kwargs: Any,
+    ) -> dict:
+        """Send a chat request to OpenRouter and return a standardised dict."""
+        if not self._api_key:
+            raise LLMError("OPENROUTER_API_KEY is not set", provider=self.provider_name)
+
+        tools_raw: list[dict] | None = kwargs.pop("tools", None)
+
+        payload: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": kwargs.pop("max_tokens", _DEFAULT_MAX_TOKENS),
+            **kwargs,
+        }
+        if tools_raw:
+            payload["tools"] = self._to_openai_tools(tools_raw)
+            payload["tool_choice"] = "auto"
+
         try:
-            content: str = data["choices"][0]["message"]["content"]
+            data = await self._chat_request(payload)
+        except LLMError as exc:
+            # Some models on OpenRouter don't support function calling.
+            # If we get a 4xx with tools in the payload, retry without them.
+            if tools_raw and exc.status_code and 400 <= exc.status_code < 500:
+                logger.debug(
+                    "OpenRouter: model %s rejected tools (%s) — retrying without",
+                    model,
+                    exc,
+                )
+                payload.pop("tools", None)
+                payload.pop("tool_choice", None)
+                data = await self._chat_request(payload)
+                tools_raw = None  # mark as disabled so we skip tool_calls parsing
+            else:
+                raise
+
+        try:
+            message = data["choices"][0]["message"]
         except (KeyError, IndexError, TypeError) as exc:
             raise LLMError(
                 f"Unexpected response structure: {exc} — body: {str(data)[:300]}",
                 provider=self.provider_name,
             ) from exc
+
+        content: str = message.get("content") or ""
+        native_tool_call: dict | None = None
+
+        tool_calls = message.get("tool_calls") if tools_raw else None
+        if tool_calls:
+            import json as _json
+            tc = tool_calls[0]
+            try:
+                args = _json.loads(tc["function"]["arguments"])
+            except (KeyError, ValueError):
+                args = {}
+            tc_json = _json.dumps(
+                {"name": tc["function"]["name"], "args": args},
+                ensure_ascii=False,
+            )
+            content = f"TOOL_CALL: {tc_json}"
+            native_tool_call = {
+                "id": tc.get("id", ""),
+                "name": tc["function"]["name"],
+                "input": args,
+            }
 
         usage = data.get("usage") or {}
         input_tokens: int = int(usage.get("prompt_tokens", 0))
@@ -144,19 +212,23 @@ class OpenRouterLLM(BaseLLM):
         cost: float = self._parse_cost(data, input_tokens, output_tokens)
 
         logger.debug(
-            "OpenRouter chat | model=%s | in=%d out=%d cost=$%.6f",
+            "OpenRouter chat | model=%s | in=%d out=%d cost=$%.6f native_tool=%s",
             model,
             input_tokens,
             output_tokens,
             cost,
+            native_tool_call["name"] if native_tool_call else None,
         )
 
-        return {
+        result = {
             "content": content,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "cost": cost,
         }
+        if native_tool_call:
+            result["native_tool_call"] = native_tool_call
+        return result
 
     async def is_available(self) -> bool:
         """
