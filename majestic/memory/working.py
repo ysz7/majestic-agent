@@ -82,20 +82,13 @@ class WorkingMemory:
             self._db = None
 
     def _load_last_session(self) -> None:
-        """Load the most recently active session's KV pairs into in-memory store."""
+        """Load persisted KV pairs for the current session into in-memory store."""
         if not self._db:
             return
         try:
-            row = self._db.execute(
-                "SELECT session_id FROM wm_sessions "
-                "WHERE session_id != ? ORDER BY last_active DESC LIMIT 1",
-                (self._session_id,),
-            ).fetchone()
-            if not row:
-                return
             rows = self._db.execute(
                 "SELECT key, value_json FROM working_kv WHERE session_id = ?",
-                (row[0],),
+                (self._session_id,),
             ).fetchall()
             for key, value_json in rows:
                 try:
@@ -103,7 +96,7 @@ class WorkingMemory:
                 except (json.JSONDecodeError, TypeError):
                     self._store[key] = value_json
         except Exception as exc:
-            logger.debug("WorkingMemory: failed to load last session: %s", exc)
+            logger.debug("WorkingMemory: failed to load session data: %s", exc)
 
     def _db_set(self, key: str, value: Any) -> None:
         if not self._db or not self._session_id:

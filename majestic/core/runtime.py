@@ -46,6 +46,7 @@ class AgentRuntime:
         checkpoint_store=None,
         reflection_engine=None,
         planner=None,
+        context_manager=None,
         hitl_enabled: bool = False,
         stream_callback=None,
     ):
@@ -56,6 +57,7 @@ class AgentRuntime:
         self._checkpoints = checkpoint_store   # CheckpointStore | None
         self._reflection = reflection_engine   # ReflectionEngine | None
         self._planner = planner                # Planner | None
+        self._context_mgr = context_manager   # ContextManager | None
         self._hitl_enabled = hitl_enabled
         self._stream_callback = stream_callback  # callable(token: str) | None
         self._tokens_used = 0
@@ -140,6 +142,11 @@ class AgentRuntime:
 
                     # Pre-check budget before spending tokens on this step
                     self._check_budget()
+
+                    # Compress context if approaching model limit
+                    if self._context_mgr:
+                        model_limit = getattr(self.llm, "context_limit", None)
+                        messages = await self._context_mgr.compress_if_needed(messages, model_limit)
 
                     # REASON — stream only on first response (no tools used yet);
                     # subsequent iterations use the spinner so tree display stays clean
@@ -245,7 +252,7 @@ class AgentRuntime:
                     duration_s=duration,
                 )
             except Exception as exc:
-                logger.debug("Reflection failed (non-fatal): %s", exc)
+                logger.warning("Reflection failed (non-fatal): %s", exc)
 
         if self._checkpoints:
             try:
@@ -274,7 +281,7 @@ class AgentRuntime:
                 },
             )
         except Exception as exc:
-            logger.debug("Checkpoint save failed (non-fatal): %s", exc)
+            logger.warning("Checkpoint save failed (non-fatal): %s", exc)
 
     # ------------------------------------------------------------------
     # HITL helper
@@ -399,10 +406,13 @@ class AgentRuntime:
             enhanced = messages
             tool_schemas = []
 
-        kwargs = {"tools": tool_schemas} if tool_schemas else {}
+        # Do NOT pass native tool schemas — text-based TOOL_CALL protocol is used
+        # instead. Native schemas cause some models (especially via OpenRouter) to
+        # return content=null with empty tool_calls, producing a silent empty result.
+        # Streaming already drops tools for the same reason; keep both paths consistent.
         if self._stream_callback:
-            return await self._reason_streamed(enhanced, kwargs)
-        return await self.llm.chat(enhanced, step_type="reason", **kwargs)
+            return await self._reason_streamed(enhanced, {})
+        return await self.llm.chat(enhanced, step_type="reason")
 
     async def _reason_streamed(self, messages: list, chat_kwargs: dict) -> dict:
         """

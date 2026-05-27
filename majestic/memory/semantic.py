@@ -1,5 +1,23 @@
+import re
 import sqlite3, threading, json
 from pathlib import Path
+
+_FTS5_OPERATORS = frozenset({"and", "or", "not"})
+
+
+def _fts5_query(text: str) -> str:
+    """Build a safe FTS5 MATCH expression from free text.
+
+    Extracts alphanumeric words (3+ chars), skips boolean operators,
+    and wraps each term in double quotes so FTS5 treats them as literals.
+    """
+    words = [
+        w for w in re.findall(r"\b[A-Za-z0-9_]{3,}\b", text[:400])
+        if w.lower() not in _FTS5_OPERATORS
+    ][:8]
+    if not words:
+        return ""
+    return " ".join(f'"{w}"' for w in words)
 
 class SemanticMemory:
     """Vector search using sqlite-vec. Falls back to FTS5 if sqlite-vec unavailable."""
@@ -58,6 +76,9 @@ class SemanticMemory:
 
     def search(self, query: str, limit: int = 5) -> list[dict]:
         """Search indexed content using FTS5."""
+        fts_query = _fts5_query(query)
+        if not fts_query:
+            return []
         with self._get_conn() as conn:
             rows = conn.execute("""
                 SELECT c.source, c.content
@@ -66,7 +87,7 @@ class SemanticMemory:
                 WHERE chunks_fts MATCH ?
                 ORDER BY rank
                 LIMIT ?
-            """, (query, limit)).fetchall()
+            """, (fts_query, limit)).fetchall()
             return [{"source": r[0], "content": r[1]} for r in rows]
 
     def format_for_prompt(self, results: list[dict]) -> str:

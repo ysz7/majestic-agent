@@ -36,7 +36,7 @@ async def _run_plain(profile_name: str):
     settings = Settings(profile_name)
     settings.validate()
 
-    session_id = str(uuid.uuid4())[:8]
+    session_id = "main"
 
     # Persistent working memory when enabled in persona.yaml
     _wm_db = str(settings.data_dir / "working.db") if settings.working_persistent else None
@@ -1473,6 +1473,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 def _build_runtime(settings, working_memory, llm_router, stream_callback=None) -> "AgentRuntime":
     """Instantiate AgentRuntime with the full self-evolution stack wired up."""
     from majestic.core.runtime import AgentRuntime
+    from majestic.core.context_manager import ContextManager
     from majestic.memory.lessons import LessonsStore
     from majestic.memory.episodic import EpisodicMemory
     from majestic.memory.checkpoints import CheckpointStore
@@ -1506,6 +1507,7 @@ def _build_runtime(settings, working_memory, llm_router, stream_callback=None) -
         self_evolution=evolution,
     )
     planner = Planner(settings, llm_router, lessons_store)
+    context_manager = ContextManager(llm_router=llm_router)
 
     return AgentRuntime(
         settings=settings,
@@ -1514,6 +1516,7 @@ def _build_runtime(settings, working_memory, llm_router, stream_callback=None) -
         checkpoint_store=checkpoint_store,
         reflection_engine=reflection_engine,
         planner=planner,
+        context_manager=context_manager,
         hitl_enabled=False,
         stream_callback=stream_callback,
     )

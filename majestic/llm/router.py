@@ -58,6 +58,13 @@ class LLMRouter:
     If all configured providers fail, ``LLMError`` is raised.
     """
 
+    _CONTEXT_LIMITS: dict[str, int] = {
+        "anthropic":  200_000,
+        "openrouter": 128_000,
+        "openai":     128_000,
+        "ollama":       8_000,
+    }
+
     def __init__(self, settings: Any) -> None:
         self._settings = settings
         self._providers: list[BaseLLM] = self._build_provider_list(settings)
@@ -265,6 +272,13 @@ class LLMRouter:
                     exc,
                 )
         return False
+
+    @property
+    def context_limit(self) -> int:
+        """Context window size (tokens) for the primary provider."""
+        if self._providers:
+            return self._CONTEXT_LIMITS.get(self._providers[0].provider_name, 128_000)
+        return 128_000
 
     @property
     def provider_names(self) -> list[str]:

@@ -264,7 +264,7 @@ class Gateway:
                 if rag_block:
                     parts.append("\n" + rag_block)
             except Exception as exc:
-                logger.debug("Semantic RAG injection failed (non-fatal): %s", exc)
+                logger.warning("Semantic RAG injection failed: %s", exc)
 
         return "\n".join(parts)
 
