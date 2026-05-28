@@ -149,7 +149,10 @@ def _build_news_corpus(
     max_chars: int = 50_000,
     include_summaries: bool = True,
 ) -> tuple[list[str], bool]:
-    """Deduplicate, group by category, build a token-budget-aware corpus. Returns (lines, capped)."""
+    """Deduplicate, group by category, build a char-bounded corpus. Returns (lines, capped).
+
+    Used for display-only paths (e.g. /news). For LLM calls use corpus.build_corpus().
+    """
     import re as _re
     from collections import defaultdict as _dd
 
@@ -189,6 +192,59 @@ def _build_news_corpus(
         if capped:
             break
     return lines, capped
+
+
+def _is_context_error(exc: Exception) -> bool:
+    """Return True if the exception indicates a context-length or dropped-connection error."""
+    s = str(exc).lower()
+    return any(k in s for k in [
+        "peer closed", "incomplete message", "context length", "too long",
+        "maximum context", "context_length_exceeded", "413", "payload too large",
+        "token", "input is too long",
+    ])
+
+
+def _shrink_messages(messages: list[dict], shrink_factor: float) -> list[dict]:
+    """Shrink user message corpus by keeping the header + instructions and trimming the middle."""
+    import copy
+    msgs = copy.deepcopy(messages)
+    for m in msgs:
+        if m["role"] != "user":
+            continue
+        content = m["content"]
+        target = int(len(content) * shrink_factor)
+        if len(content) <= target:
+            continue
+        # Keep first 10% (corpus header) + last 25% (instructions), shrink middle corpus
+        head_end = max(200, len(content) // 10)
+        tail_start = int(len(content) * 0.75)
+        head = content[:head_end]
+        tail = content[tail_start:]
+        middle_budget = max(0, target - len(head) - len(tail) - 60)
+        mid = content[head_end:tail_start]
+        m["content"] = head + mid[:middle_budget] + "\n[... corpus trimmed for token budget ...]\n" + tail
+    return msgs
+
+
+async def _llm_with_retry(
+    llm,
+    messages: list[dict],
+    step_type: str = "reason",
+    shrink_factor: float = 0.6,
+    max_retries: int = 2,
+) -> dict:
+    """LLM call with automatic message shrinking on context-length errors."""
+    current = messages
+    last_exc: Exception | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            return await llm.chat(current, step_type=step_type)
+        except Exception as exc:
+            last_exc = exc
+            if not _is_context_error(exc) or attempt >= max_retries:
+                raise
+            current = _shrink_messages(current, shrink_factor)
+    raise last_exc  # type: ignore[misc]
 
 
 def _load_recent_briefing(settings, max_days: int = 3) -> str | None:
@@ -299,7 +355,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                     f"{len(new_articles)} new · {skipped} cached · {stats['total']} total",
                 )
             except Exception as e:
-                out(f"[yellow]DB warning: {e}[/yellow]")
+                _display.tree_step("saved", f"DB error: {e}", status="warn")
 
             # Index new articles into semantic memory so future queries can find them
             if semantic is not None and new_articles:
@@ -510,8 +566,15 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             out(f"[dim]No articles in database for the last {days} days. Run /research first.[/dim]")
             return True
 
-        # ── 2–4. Deduplicate, group by category, build token-bounded corpus
-        corpus_lines, capped = _build_news_corpus(articles, max_chars=60_000, include_summaries=True)
+        # ── 2–4. Build token-budget-aware corpus (dynamic, score-sorted)
+        from majestic.tools.research.corpus import build_corpus, calc_article_budget
+        _ctx_lim = getattr(runtime.llm, "context_limit", 128_000)
+        _art_budget = calc_article_budget(_ctx_lim)
+        if _ctx_lim < 16_000:
+            from majestic.tools.research.summarizer import build_corpus_summarized
+            corpus_lines, capped = await build_corpus_summarized(articles, runtime.llm, _art_budget)
+        else:
+            corpus_lines, capped = build_corpus(articles, token_budget=_art_budget, include_summaries=True)
 
         _display.tree_reset()
         _display.tree_step("Research DB", f"{stats['total']} total · last {days}d: {len(articles)} articles")
@@ -607,7 +670,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
         try:
             with _display.TreePending("analyzing…"):
-                _response = await runtime.llm.chat(_messages, step_type="reason")
+                _response = await _llm_with_retry(runtime.llm, _messages, step_type="reason")
             _display.tree_close()
             result = _response.get("content", "")
             _in  = _response.get("input_tokens", 0)
@@ -743,9 +806,16 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                 _corpus_lines.append(f"· [{_pi.get('source', '')}] {_pi.get('pain_text', '')}")
             _corpus_lines.append("")
 
-        # LAYER 3: Market & news signals with full summaries, capped at 25K chars
+        # LAYER 3: Market & news signals — dynamic token budget, score-sorted
         if _mkt_news:
-            _news_lines, _ = _build_news_corpus(_mkt_news, max_chars=25_000, include_summaries=True)
+            from majestic.tools.research.corpus import build_corpus as _bc_ideas, calc_article_budget as _cab_ideas
+            _ctx_i = getattr(runtime.llm, "context_limit", 128_000)
+            _bgt_i = _cab_ideas(_ctx_i, section_fraction=0.35)
+            if _ctx_i < 16_000:
+                from majestic.tools.research.summarizer import build_corpus_summarized as _bcs_i
+                _news_lines, _ = await _bcs_i(_mkt_news, runtime.llm, _bgt_i)
+            else:
+                _news_lines, _ = _bc_ideas(_mkt_news, token_budget=_bgt_i, include_summaries=True)
             _corpus_lines.append(f"=== MARKET & NEWS SIGNALS ({len(_mkt_news)} articles) ===\n")
             _corpus_lines.extend(_news_lines)
 
@@ -820,7 +890,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
         try:
             with _display.TreePending("generating ideas…"):
-                _ideas_resp = await runtime.llm.chat(_ideas_messages, step_type="reason")
+                _ideas_resp = await _llm_with_retry(runtime.llm, _ideas_messages, step_type="reason")
             _display.tree_close()
             _ideas_result = _ideas_resp.get("content", "")
             _in_i  = _ideas_resp.get("input_tokens", 0)
@@ -934,9 +1004,16 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             _pred_lines.append(_b_cap)
             _pred_lines.append("")
 
-        # LAYER 2: News & market signals with full summaries, capped at 45K chars
+        # LAYER 2: News & market signals — dynamic token budget, score-sorted
         if _pred_articles:
-            _news_lines, _ = _build_news_corpus(_pred_articles, max_chars=45_000, include_summaries=True)
+            from majestic.tools.research.corpus import build_corpus as _bc_pred, calc_article_budget as _cab_pred
+            _ctx_p = getattr(runtime.llm, "context_limit", 128_000)
+            _bgt_p = _cab_pred(_ctx_p, section_fraction=0.45)
+            if _ctx_p < 16_000:
+                from majestic.tools.research.summarizer import build_corpus_summarized as _bcs_p
+                _news_lines, _ = await _bcs_p(_pred_articles, runtime.llm, _bgt_p)
+            else:
+                _news_lines, _ = _bc_pred(_pred_articles, token_budget=_bgt_p, include_summaries=True)
             _pred_lines.append(f"=== NEWS & MARKET SIGNALS ({len(_pred_articles)} articles) ===\n")
             _pred_lines.extend(_news_lines)
 
@@ -1042,7 +1119,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
         try:
             with _display.TreePending("analyzing signals…"):
-                _pred_resp = await runtime.llm.chat(_pred_messages, step_type="reason")
+                _pred_resp = await _llm_with_retry(runtime.llm, _pred_messages, step_type="reason")
             _display.tree_close()
             _pred_result = _pred_resp.get("content", "")
             _in_p  = _pred_resp.get("input_tokens", 0)
@@ -1264,7 +1341,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
         try:
             with _display.TreePending("analyzing…"):
-                _ask_resp = await runtime.llm.chat(_ask_messages, step_type="reason")
+                _ask_resp = await _llm_with_retry(runtime.llm, _ask_messages, step_type="reason")
             _display.tree_close()
             _ask_result = _ask_resp.get("content", "")
             _in_a  = _ask_resp.get("input_tokens", 0)
