@@ -879,6 +879,13 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             "RULE: Every idea must connect at least 2 layers. "
             "Check MARKET LAUNCHES — if a gap is already filled, find the remaining niche or drop the idea.\n\n"
 
+            "## TOP OPPORTUNITY\n\n"
+            "Write this FIRST — before bottleneck map or idea list. "
+            "2 sentences: (1) the single strongest idea — product name, who it's for, and why the timing is right NOW; "
+            "(2) the specific pain + market signal combination that makes this the top pick. "
+            "No hedging. This is the governing conclusion.\n\n"
+            "---\n\n"
+
             "## SECTION 1 — BOTTLENECK MAP\n\n"
             "Identify 5–7 structural gaps from the corpus where demand exists but supply hasn't caught up.\n"
             "Check MARKET LAUNCHES for each: already built / partial / open field.\n\n"
@@ -1118,6 +1125,13 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             "equities (specific tickers or sectors mentioned in corpus), crypto (BTC, ETH, major alts), "
             "commodities, forex — ONLY where the corpus provides direct evidence. "
             "Format: **[BUY/HOLD/SELL/AVOID] [asset]** — XX% — causal chain from corpus.\n\n"
+
+            "## EXECUTIVE SUMMARY\n\n"
+            "Write this FIRST — before any signal map or sections. "
+            "2 sentences maximum: (1) the single highest-confidence prediction with its probability, "
+            "(2) the one signal combination that drives it most. "
+            "This is the governing conclusion — everything below supports it.\n\n"
+            "---\n\n"
 
             "## SECTION 1 — SIGNAL MAP\n\n"
             "Before predicting, scan the ENTIRE corpus and map 8–12 directional forces — "

@@ -192,6 +192,9 @@ class Gateway:
             f"You are {name}, {role}.",
             f"Tone: {tone}.",
             f"Today's date: {today}.",
+            "Communication style: lead with the answer or conclusion first, then reasoning and evidence. "
+            "Never open with context, background, or 'let me explain'. "
+            "If asked a question — answer it in the first sentence.",
         ]
         if lang:
             parts.append(f"Always respond in: {lang}. Never switch to another language unless the user explicitly asks.")
