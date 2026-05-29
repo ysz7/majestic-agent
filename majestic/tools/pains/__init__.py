@@ -169,9 +169,11 @@ async def fetch_all(on_source=None) -> tuple[list[dict], list[dict], list[str]]:
 
 async def extract_pains(posts: list[dict], llm, lang: str = "en") -> list[dict]:
     """
-    One LLM call over up to 60 posts. Returns [{pain_text, domain, source, url, date}].
-    domain values: b2b, devtools, marketing, productivity, design, finance, hr, other
-    lang: language code for pain_text output (e.g. "ru", "en")
+    One LLM call over up to 60 posts.
+    Returns [{pain_text, domain, intensity, willingness_to_pay, source, url, date}].
+    domain: b2b, devtools, marketing, productivity, design, finance, hr, other
+    intensity: HIGH (strong frustration / many upvotes), MEDIUM (default), LOW (minor complaint)
+    willingness_to_pay: true if post mentions money, budget, or paid alternatives
     """
     if not posts:
         return []
@@ -183,9 +185,15 @@ async def extract_pains(posts: list[dict], llm, lang: str = "en") -> list[dict]:
     lines = [
         "Extract real user pain points from these community posts.\n"
         f"Rules: only genuine expressed frustrations or unsolved problems. Skip promotions. {_lang_rule}\n"
-        "Domain values: b2b, devtools, marketing, productivity, design, finance, hr, other\n\n"
+        "Domain: b2b, devtools, marketing, productivity, design, finance, hr, other\n"
+        "Intensity: HIGH = strong frustration or many upvotes; MEDIUM = default; LOW = minor complaint\n"
+        "wtp: true if post mentions money, budget, pricing, or existing paid solutions being inadequate\n\n"
+        "Pain formulation rules:\n"
+        "- Be SPECIFIC: not 'onboarding problems' but 'no automated onboarding for B2B teams >10 — takes 2+ weeks manually'\n"
+        "- Include the context: who, what they were trying to do, what blocked them\n\n"
         "Return ONLY a JSON array — no commentary, no markdown fences:\n"
-        '[{"pain": "concise pain description", "domain": "...", "idx": N}, ...]\n\n'
+        '[{"pain": "specific pain with context", "domain": "...", "intensity": "HIGH|MEDIUM|LOW", '
+        '"wtp": true|false, "idx": N}, ...]\n\n'
         "Posts:\n"
     ]
     for i, p in enumerate(posts[:60]):
@@ -214,11 +222,13 @@ async def extract_pains(posts: list[dict], llm, lang: str = "en") -> list[dict]:
             if not pain_text:
                 continue
             pains.append({
-                "pain_text": pain_text,
-                "domain":    item.get("domain", "other"),
-                "source":    post.get("source", ""),
-                "url":       post.get("url", ""),
-                "date":      post.get("date", ""),
+                "pain_text":          pain_text,
+                "domain":             item.get("domain", "other"),
+                "intensity":          item.get("intensity", "MEDIUM"),
+                "willingness_to_pay": bool(item.get("wtp", False)),
+                "source":             post.get("source", ""),
+                "url":                post.get("url", ""),
+                "date":               post.get("date", ""),
             })
         return pains
     except Exception:

@@ -43,18 +43,33 @@ class PainsDB:
             CREATE INDEX IF NOT EXISTS idx_raw_fetched ON raw_posts(fetched_at DESC);
 
             CREATE TABLE IF NOT EXISTS pains (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                pain_text  TEXT    NOT NULL,
-                domain     TEXT,
-                source     TEXT,
-                url        TEXT,
-                date       TEXT,
-                fetched_at TEXT    DEFAULT (date('now'))
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                pain_text          TEXT    NOT NULL,
+                domain             TEXT,
+                intensity          TEXT    DEFAULT 'MEDIUM',
+                willingness_to_pay INTEGER DEFAULT 0,
+                source             TEXT,
+                url                TEXT,
+                date               TEXT,
+                fetched_at         TEXT    DEFAULT (date('now'))
             );
             CREATE INDEX IF NOT EXISTS idx_pain_date    ON pains(date DESC);
             CREATE INDEX IF NOT EXISTS idx_pain_domain  ON pains(domain);
             CREATE INDEX IF NOT EXISTS idx_pain_fetched ON pains(fetched_at DESC);
         """)
+        self._conn.commit()
+
+        # Migration for existing DBs missing new columns
+        existing = {r[1] for r in self._conn.execute("PRAGMA table_info(pains)").fetchall()}
+        if "intensity" not in existing:
+            self._conn.execute("ALTER TABLE pains ADD COLUMN intensity TEXT DEFAULT 'MEDIUM'")
+            self._conn.commit()
+        if "willingness_to_pay" not in existing:
+            self._conn.execute("ALTER TABLE pains ADD COLUMN willingness_to_pay INTEGER DEFAULT 0")
+            self._conn.commit()
+
+        # Intensity index — created after migration guarantees column exists
+        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_pain_intensity ON pains(intensity)")
         self._conn.commit()
 
     # ── Write ─────────────────────────────────────────────────────────────────
@@ -86,9 +101,11 @@ class PainsDB:
             if not p.get("pain_text"):
                 continue
             self._conn.execute(
-                """INSERT INTO pains (pain_text, domain, source, url, date)
-                   VALUES (?,?,?,?,?)""",
+                """INSERT INTO pains (pain_text, domain, intensity, willingness_to_pay, source, url, date)
+                   VALUES (?,?,?,?,?,?,?)""",
                 (p["pain_text"], p.get("domain", "other"),
+                 p.get("intensity", "MEDIUM"),
+                 1 if p.get("willingness_to_pay") else 0,
                  p.get("source", ""), p.get("url", ""),
                  p.get("date", "")),
             )
@@ -99,17 +116,49 @@ class PainsDB:
     # ── Read ──────────────────────────────────────────────────────────────────
 
     def get_pains(self, days: int = 30) -> list[dict]:
-        """Return pain points fetched in the last *days* days."""
+        """Return pain points fetched in the last *days* days, ordered by date."""
         cutoff = (date.today() - timedelta(days=days)).isoformat()
         cur = self._conn.execute(
-            """SELECT pain_text, domain, source, url, date
+            """SELECT pain_text, domain, intensity, willingness_to_pay, source, url, date
                FROM pains
                WHERE fetched_at >= ?
                ORDER BY date DESC, fetched_at DESC""",
             (cutoff,),
         )
-        cols = ["pain_text", "domain", "source", "url", "date"]
+        cols = ["pain_text", "domain", "intensity", "willingness_to_pay", "source", "url", "date"]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def get_trending_domains(self, current_days: int = 7, compare_days: int = 14) -> list[dict]:
+        """Compare domain pain counts: last current_days vs the prior window.
+
+        Returns list sorted by abs(delta_pct) descending.
+        Only domains with at least 1 pain in the current window are included.
+        """
+        today = date.today()
+        cutoff_now  = (today - timedelta(days=current_days)).isoformat()
+        cutoff_prev = (today - timedelta(days=compare_days)).isoformat()
+
+        curr_rows = self._conn.execute(
+            "SELECT domain, COUNT(*) FROM pains WHERE fetched_at >= ? GROUP BY domain",
+            (cutoff_now,),
+        ).fetchall()
+        prev_rows = self._conn.execute(
+            "SELECT domain, COUNT(*) FROM pains "
+            "WHERE fetched_at >= ? AND fetched_at < ? GROUP BY domain",
+            (cutoff_prev, cutoff_now),
+        ).fetchall()
+
+        curr = {r[0]: r[1] for r in curr_rows}
+        prev = {r[0]: r[1] for r in prev_rows}
+
+        trends: list[dict] = []
+        for domain, n in curr.items():
+            p = prev.get(domain, 0)
+            delta_pct = int((n - p) / p * 100) if p > 0 else (100 if n > 0 else 0)
+            trends.append({"domain": domain, "current": n, "prev": p, "delta_pct": delta_pct})
+
+        trends.sort(key=lambda x: -abs(x["delta_pct"]))
+        return trends
 
     def stats(self) -> dict:
         total_raw   = self._conn.execute("SELECT COUNT(*) FROM raw_posts").fetchone()[0]

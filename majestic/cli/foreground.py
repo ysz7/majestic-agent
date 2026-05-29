@@ -456,6 +456,11 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             try:
                 _pdb_r = PainsDB(str(settings.data_dir / "pains.db"))
                 _stored_pains = _pdb_r.get_pains(days=_pains_days)
+                _trends_stored: list[dict] = []
+                try:
+                    _trends_stored = _pdb_r.get_trending_domains()
+                except Exception:
+                    pass
                 _pdb_r.close()
             except Exception as e:
                 out(f"[red]DB error: {e}[/red]")
@@ -468,11 +473,24 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             for _p in _stored_pains:
                 _by_dom[_p.get("domain", "other")].append(_p)
             _lines = [f"\n## Pain Radar — {len(_stored_pains)} stored · last {_pains_days}d\n"]
+            _t_parts_s: list[str] = []
+            for _t in _trends_stored[:6]:
+                if _t["delta_pct"] >= 20:
+                    _t_parts_s.append(f"📈 {_t['domain']}: +{_t['delta_pct']}%")
+                elif _t["delta_pct"] <= -20:
+                    _t_parts_s.append(f"📉 {_t['domain']}: {_t['delta_pct']}%")
+            if _t_parts_s:
+                _lines.append("  ".join(_t_parts_s[:5]) + "\n")
             for _dom, _items in sorted(_by_dom.items(), key=lambda x: -len(x[1])):
                 _lines.append(f"### {_dom.upper()} ({len(_items)})")
                 for _p in _items[:6]:
                     _src = f"[{_p.get('source', '')}] " if _p.get("source") else ""
-                    _lines.append(f"- {_src}{_p.get('pain_text', '')}")
+                    _itag = ""
+                    if _p.get("intensity") == "HIGH":
+                        _itag += " [HIGH]"
+                    if _p.get("willingness_to_pay"):
+                        _itag += " 💰"
+                    _lines.append(f"- {_src}{_p.get('pain_text', '')}{_itag}")
                 _lines.append("")
             _result_pains = "\n".join(_lines)
             if channel is not None:
@@ -542,6 +560,22 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             except Exception as e:
                 out(f"[yellow]Pain save warning: {e}[/yellow]")
 
+        # Trending detection before DB close
+        _trend_line = ""
+        if _pdb:
+            try:
+                _trend_data = _pdb.get_trending_domains()
+                _tp: list[str] = []
+                for _t in _trend_data[:6]:
+                    if _t["delta_pct"] >= 20:
+                        _tp.append(f"📈 {_t['domain']}: +{_t['delta_pct']}%")
+                    elif _t["delta_pct"] <= -20:
+                        _tp.append(f"📉 {_t['domain']}: {_t['delta_pct']}%")
+                if _tp:
+                    _trend_line = "  ".join(_tp[:5])
+            except Exception:
+                pass
+
         if _pdb:
             _pdb.close()
 
@@ -558,11 +592,18 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             by_domain[p.get("domain", "other")].append(p)
 
         summary_lines = [f"\n## Pain Radar — {len(pains)} pain points · {len(ok_sources)} sources\n"]
+        if _trend_line:
+            summary_lines.append(_trend_line + "\n")
         for domain, items in sorted(by_domain.items(), key=lambda x: -len(x[1])):
             summary_lines.append(f"### {domain.upper()} ({len(items)})")
             for p in items[:6]:
                 src_tag = f"[{p.get('source', '')}] " if p.get("source") else ""
-                summary_lines.append(f"- {src_tag}{p.get('pain_text', '')}")
+                _itag = ""
+                if p.get("intensity") == "HIGH":
+                    _itag += " [HIGH]"
+                if p.get("willingness_to_pay"):
+                    _itag += " 💰"
+                summary_lines.append(f"- {src_tag}{p.get('pain_text', '')}{_itag}")
             summary_lines.append("")
 
         result_text = "\n".join(summary_lines)
@@ -802,12 +843,36 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _launches   = [a for a in _ideas_articles if a.get("category") == "launches"]
         _mkt_news   = [a for a in _ideas_articles if a.get("category") != "launches"]
 
+        # Classify pains by priority: HIGH intensity or willingness_to_pay → high demand
+        _high_demand_pains = [p for p in _ideas_pains
+                              if p.get("intensity") == "HIGH" or p.get("willingness_to_pay")]
+        _regular_pains     = [p for p in _ideas_pains
+                              if not (p.get("intensity") == "HIGH" or p.get("willingness_to_pay"))]
+
+        # Recall past ideas from lessons.db (7.3) — 0 LLM calls, FTS5 search by pain domains
+        _past_ideas: list[dict] = []
+        try:
+            from majestic.memory.lessons import LessonsStore as _LS_ideas_r
+            _ls_ideas_r = _LS_ideas_r(str(settings.data_dir / "lessons.db"))
+            from collections import Counter as _Counter_i
+            _dom_counts = _Counter_i(p.get("domain", "") for p in _ideas_pains if p.get("domain") and p.get("domain") != "other")
+            _dom_kw = " ".join([d for d, _ in _dom_counts.most_common(6)])
+            if _dom_kw.strip():
+                _all_lessons_i = _ls_ideas_r.search(_dom_kw, limit=8)
+                _past_ideas = [l for l in _all_lessons_i if l.get("task_type") == "ideas"][:3]
+            _ls_ideas_r._conn.close()
+        except Exception:
+            pass
+
         _display.tree_reset()
         if _ideas_briefing:
             _display.tree_step("Briefing", "macro context loaded")
         else:
             _display.tree_step("Briefing", "not found — run /briefing for richer analysis", status="warn")
-        _display.tree_step("Pains DB", f"{len(_ideas_pains)} pain points · last {days}d")
+        _high_tag = f" · {len(_high_demand_pains)} HIGH/💰" if _high_demand_pains else ""
+        _display.tree_step("Pains DB", f"{len(_ideas_pains)} pain points{_high_tag} · last {days}d")
+        if _past_ideas:
+            _display.tree_step("Memory", f"{len(_past_ideas)} past idea patterns recalled")
         if _mkt_news:
             _display.tree_step("Research DB", f"{len(_mkt_news)} articles")
         if _launches:
@@ -827,17 +892,51 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             _corpus_lines.append(_b_cap)
             _corpus_lines.append("")
 
-        # LAYER 2: Pain signals grouped by domain
+        # LAYER 2: Pain signals — HIGH DEMAND first, then grouped by domain (total ~30K chars)
         from collections import defaultdict as _ddict3
+
+        # HIGH DEMAND block: intensity=HIGH or WTP=true — highest conviction signals
+        if _high_demand_pains:
+            _corpus_lines.append(
+                f"=== HIGH DEMAND SIGNALS ({len(_high_demand_pains)} pain points) ===\n"
+                "[Strongest demand — HIGH intensity frustration or explicit willingness to pay]\n"
+            )
+            _hd_chars = 0
+            for _hpi in _high_demand_pains[:60]:
+                _hsrc = f"[{_hpi.get('source', '')}] " if _hpi.get("source") else ""
+                _hwtp = " 💰" if _hpi.get("willingness_to_pay") else ""
+                _hentry = f"· {_hsrc}[{_hpi.get('intensity','H')}] {_hpi.get('pain_text', '')}{_hwtp}"
+                _corpus_lines.append(_hentry)
+                _hd_chars += len(_hentry)
+                if _hd_chars >= 15_000:
+                    break
+            _corpus_lines.append("")
+
+        # Regular pains grouped by domain
         _ip_by_domain: dict = _ddict3(list)
-        for _ip in _ideas_pains:
+        for _ip in _regular_pains:
             _ip_by_domain[_ip.get("domain", "other")].append(_ip)
 
-        _corpus_lines.append(f"=== DEMAND & PAIN SIGNALS ({len(_ideas_pains)} pain points) ===\n")
-        for _dom, _pitems in sorted(_ip_by_domain.items(), key=lambda x: -len(x[1])):
-            _corpus_lines.append(f"[{_dom.upper()} — {len(_pitems)} mentions]")
-            for _pi in _pitems[:20]:
-                _corpus_lines.append(f"· [{_pi.get('source', '')}] {_pi.get('pain_text', '')}")
+        if _ip_by_domain:
+            _corpus_lines.append(f"=== DEMAND & PAIN SIGNALS ({len(_regular_pains)} additional pain points) ===\n")
+            _rp_chars = 0
+            for _dom, _pitems in sorted(_ip_by_domain.items(), key=lambda x: -len(x[1])):
+                _corpus_lines.append(f"[{_dom.upper()} — {len(_pitems)} mentions]")
+                for _pi in _pitems[:20]:
+                    _pe = f"· [{_pi.get('source', '')}] {_pi.get('pain_text', '')}"
+                    _corpus_lines.append(_pe)
+                    _rp_chars += len(_pe)
+                    if _rp_chars >= 15_000:
+                        break
+                _corpus_lines.append("")
+                if _rp_chars >= 15_000:
+                    break
+
+        # Past ideas recall (7.3) — inject so LLM avoids repeating them
+        if _past_ideas:
+            _corpus_lines.append("=== PAST IDEAS (do NOT repeat — find NEW angles) ===\n")
+            for _pi_past in _past_ideas:
+                _corpus_lines.append(f"· {_pi_past.get('lesson', '')[:300]}")
             _corpus_lines.append("")
 
         # LAYER 3: Market & news signals — dynamic token budget, score-sorted
@@ -874,15 +973,16 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
         _ideas_instructions = (
             "TASK: Identify 7 realistic business opportunities by synthesizing ALL FOUR corpus layers: "
-            "macro structural shifts (LAYER 1), expressed user pains (LAYER 2), "
+            "macro structural shifts (LAYER 1), expressed user pains (HIGH DEMAND + DEMAND layers), "
             "market capital flows (LAYER 3), and what's already being built on ProductHunt (LAYER 4).\n"
+            "PRIORITY: Ideas backed by HIGH DEMAND signals (HIGH intensity or 💰 WTP) rank higher. "
             "RULE: Every idea must connect at least 2 layers. "
             "Check MARKET LAUNCHES — if a gap is already filled, find the remaining niche or drop the idea.\n\n"
 
             "## TOP OPPORTUNITY\n\n"
             "Write this FIRST — before bottleneck map or idea list. "
             "2 sentences: (1) the single strongest idea — product name, who it's for, and why the timing is right NOW; "
-            "(2) the specific pain + market signal combination that makes this the top pick. "
+            "(2) the specific HIGH DEMAND pain + market signal combination that makes this the top pick. "
             "No hedging. This is the governing conclusion.\n\n"
             "---\n\n"
 
@@ -890,7 +990,8 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             "Identify 5–7 structural gaps from the corpus where demand exists but supply hasn't caught up.\n"
             "Check MARKET LAUNCHES for each: already built / partial / open field.\n\n"
             "**→ [GAP NAME]** — [one sentence: what's missing and why it matters now]\n"
-            "- Evidence: (source) + competition status on ProductHunt\n\n"
+            "- Demand: (cite specific pain from corpus + intensity + 💰 if WTP signal present)\n"
+            "- Competition status on ProductHunt: already built / partial / open field\n\n"
             "---\n\n"
 
             "## SECTION 2 — 7 IDEAS\n\n"
@@ -904,9 +1005,12 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             "Читатель должен сразу понять идею.]\n\n"
             "**Как работает**: [конкретный сценарий от первого лица — пользователь открывает, видит, делает, получает. "
             "Один реальный пример использования. Без слов 'платформа', 'SaaS', 'AI-агент'.]\n\n"
+            "**Спрос**: [конкретные боли из корпуса — цитата + интенсивность + 💰 если есть WTP-сигнал; "
+            "сколько отдельных источников подтверждают эту боль?]\n"
             "**Почему сейчас**: [что именно изменилось недавно, что открыло это окно — cite corpus]\n"
-            "**Для кого**: [точная персона: роль, контекст, размер компании]\n"
-            "**Деньги**: [как монетизируется, конкретные цифры]\n"
+            "**Для кого**: [основной клиент: роль, контекст, размер компании + "
+            "second-order beneficiaries — кто ещё выигрывает кроме основного пользователя?]\n"
+            "**Деньги**: [как монетизируется, конкретные цифры; есть ли WTP-сигналы в болях?]\n"
             "**Конкуренция**: [что уже есть на PH/рынке → какая конкретно дыра остаётся]\n"
             "**Kill check**: [что должно быть правдой через 30 дней или идея мертва]\n"
             "**Убеждённость**: XX%\n\n"
@@ -965,6 +1069,32 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             _ifname.write_text(_ideas_result, encoding="utf-8")
             _display.tree_reset()
             _display.tree_step("saved", f"{_ifname.name}")
+
+            # Save top-3 ideas to lessons.db for future recall (7.3)
+            if _ideas_result and not _ideas_result.startswith("Error:"):
+                import re as _re_isave
+                _idea_save_ms = list(_re_isave.finditer(
+                    r'\*\*#([123])\s*[—–]\s*([^\*\n(]+)', _ideas_result
+                ))[:3]
+                if _idea_save_ms:
+                    try:
+                        from majestic.memory.lessons import LessonsStore as _LS_isave
+                        _ls_isave = _LS_isave(str(settings.data_dir / "lessons.db"))
+                        for _ism in _idea_save_ms:
+                            _istart = _ism.start()
+                            _inext = _re_isave.search(r'\*\*#[234]|\n##', _ideas_result[_istart + 5:])
+                            _iend = (
+                                _istart + 5 + _inext.start() if _inext
+                                else min(_istart + 700, len(_ideas_result))
+                            )
+                            _iblock = _ideas_result[_istart:_iend].strip()
+                            if _iblock:
+                                _ls_isave.save(task_type="ideas", lesson=_iblock[:600])
+                        _ls_isave._conn.close()
+                        _display.tree_step("memory", f"{len(_idea_save_ms)} ideas saved to lessons")
+                    except Exception:
+                        pass
+
             _display.tree_close()
         except Exception:
             pass
