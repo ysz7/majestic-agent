@@ -1024,6 +1024,26 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         if _pred_pains:
             _display.tree_step("Pains DB", f"{len(_pred_pains)} pain points")
 
+        # Recall historical signal patterns — FTS5, 0 LLM calls
+        import re as _re_sp
+        _historical_patterns: list[dict] = []
+        try:
+            from majestic.memory.lessons import LessonsStore as _LS_pred
+            _ls_pred = _LS_pred(str(settings.data_dir / "lessons.db"))
+            _kw_set: set[str] = set()
+            for _a in (_pred_articles or [])[:15]:
+                for _w in _re_sp.sub(r"[^\w\s]", " ", _a.get("title", "")).split():
+                    if len(_w) > 4:
+                        _kw_set.add(_w.lower())
+            _kw_q = " ".join(list(_kw_set)[:15])
+            if _kw_q:
+                _historical_patterns = _ls_pred.search_signal_patterns(_kw_q, limit=3)
+            _ls_pred._conn.close()
+        except Exception:
+            pass
+        if _historical_patterns:
+            _display.tree_step("Patterns", f"{len(_historical_patterns)} historical matches")
+
         # ── Build combined corpus ─────────────────────────────────────────────
         from collections import defaultdict as _ddict4
 
@@ -1071,6 +1091,23 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                 if _pc >= 15_000:
                     break
 
+        # HISTORICAL PATTERNS — free recall from lessons.db
+        if _historical_patterns:
+            _pred_lines.append("=== HISTORICAL SIGNAL PATTERNS ===")
+            _pred_lines.append(
+                "[Previously observed signal combinations — use to calibrate probabilities "
+                "and detect second/third-order cross-domain effects]\n"
+            )
+            for _hp in _historical_patterns:
+                _sig_display = _hp.get("signals_text", "").replace("\n", " · ")[:220]
+                _sum_display = _hp.get("prediction_summary", "")[:350]
+                _conf_display = f"{_hp.get('avg_confidence', 0.0):.0f}%"
+                _date_display = _hp.get("created_at", "")[:10]
+                _pred_lines.append(f"[{_date_display}] avg confidence={_conf_display}")
+                _pred_lines.append(f"Signals: {_sig_display}")
+                _pred_lines.append(f"Prior predictions: {_sum_display}")
+                _pred_lines.append("")
+
         _pred_instructions = (
             "CRITICAL SYNTHESIS RULE: Every prediction in SECTIONS 2–4 MUST be grounded in "
             "signals from at least 2 DIFFERENT corpus sections (e.g. a NEWS signal + a PAIN signal, "
@@ -1087,9 +1124,12 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             "things actively pushing in a specific direction. Group signals pointing the same way.\n\n"
             "**→ [DIRECTION/THEME]** (N signals)\n"
             "- [Signal]: what's happening — (source, date or pain source)\n"
-            "- [Signal]: ...\n\n"
+            "- [Signal]: ...\n"
+            "- Cross-domain touch: which OTHER sectors/niches does this theme reach into?\n\n"
             "This map is the foundation for all predictions below. "
-            "Themes with 3+ independent signals = highest conviction.\n\n"
+            "Themes with 3+ independent signals = highest conviction. "
+            "If HISTORICAL SIGNAL PATTERNS are present in the corpus, note which current signals "
+            "repeat prior patterns — this raises or lowers confidence.\n\n"
             "---\n\n"
 
             "## SECTION 2 — SHORT-TERM (1–4 weeks)\n\n"
@@ -1097,6 +1137,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             "Each prediction MUST connect 2+ signals from SECTION 1 via a causal chain.\n\n"
             "**[PREDICTION STATEMENT]** — **XX%**\n"
             "- Causal chain: [Signal A (source)] → [mechanism] → [Signal B (source)] → [outcome]\n"
+            "- Cross-domain ripple: which OTHER sectors/niches are affected if this materialises\n"
             "- Base rate: reference class grounding this probability\n"
             "- Counter-signals: what in the corpus argues against\n"
             "- Invalidation: one event that kills this prediction\n"
@@ -1179,7 +1220,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         if _pm:
             _pred_result = _pred_result[_pm.start():]
 
-        # Save to workspace/predictions/YYYY-MM-DD.md
+        # Save to workspace/predictions/YYYY-MM-DD.md + store signal pattern
         try:
             _pred_dir = settings.workspace_dir / "predictions"
             _pred_dir.mkdir(parents=True, exist_ok=True)
@@ -1187,6 +1228,29 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             _pfname.write_text(_pred_result, encoding="utf-8")
             _display.tree_reset()
             _display.tree_step("saved", f"{_pfname.name}")
+
+            # Extract signal themes + save pattern to lessons.db (0 LLM calls)
+            if _pred_result and not _pred_result.startswith("Error:"):
+                _sig_names = [
+                    s.strip().rstrip("(").strip()
+                    for s in _re4.findall(r'\*\*→\s*([^*\n(]+)', _pred_result)
+                ][:12]
+                _conf_vals = [int(c) for c in _re4.findall(r'\*\*(\d+)%\*\*', _pred_result)]
+                _avg_conf_p = (
+                    sum(_conf_vals[:8]) / len(_conf_vals[:8]) if _conf_vals else 0.0
+                )
+                _sec2 = _re4.search(r'^## SECTION 2', _pred_result, _re4.MULTILINE)
+                _pred_sum_p = (
+                    _pred_result[_sec2.start():_sec2.start() + 600]
+                    if _sec2 else _pred_result[:600]
+                )
+                if _sig_names:
+                    from majestic.memory.lessons import LessonsStore as _LS_save
+                    _ls_save = _LS_save(str(settings.data_dir / "lessons.db"))
+                    _ls_save.save_signal_pattern(_sig_names, _pred_sum_p, _avg_conf_p)
+                    _ls_save._conn.close()
+                    _display.tree_step("patterns", f"{len(_sig_names)} signals → memory")
+
             _display.tree_close()
         except Exception:
             pass
