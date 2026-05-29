@@ -369,39 +369,73 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                 except Exception:
                     pass
 
-        _display.tree_close("sending to agent…")
-
         if not articles:
+            _display.tree_close()
             out("[dim]No articles fetched. Check your internet connection.[/dim]")
             return True
 
         if not new_articles:
+            _display.tree_close()
             out("[dim]No new articles since last /research. Use /briefing to analyze stored news.[/dim]")
             return True
 
-        # Build prompt — only newly fetched articles (not cached ones)
-        lines = [
-            f"Here are {len(new_articles)} NEW articles just fetched from {len(ok_sources)} sources "
-            f"(previously seen articles were excluded):\n"
-        ]
-        for a in new_articles[:40]:
-            lines.append(f"[{a.get('category','?').upper()}] {a.get('source','?')} · {a.get('date','')}:")
-            lines.append(f"  {a.get('title','')}")
-            if a.get("summary"):
-                lines.append(f"  {a.get('summary','')[:180]}")
-            lines.append("")
+        _display.tree_close()
+
+        # Direct LLM call for a short summary — bypass the full ReAct loop for reliability
         _lang = getattr(settings, "agent_language", "") or "en"
         _lang_note = (
             f" Respond in {_lang}. Article titles may stay in original language."
             if _lang and _lang.lower() not in ("en", "english") else ""
         )
-        lines.append(
-            f"\nWrite a concise briefing of these NEW articles only.{_lang_note} "
-            "Structure it as: 1) Top stories right now, 2) Tech & AI, "
-            "3) Business & Finance, 4) Science & World. "
-            "Be specific, mention real names and numbers. Under 400 words."
+        _art_lines: list[str] = []
+        for a in new_articles[:40]:
+            _art_lines.append(f"[{a.get('category','?').upper()}] {a.get('source','?')} · {a.get('date','')}:")
+            _art_lines.append(f"  {a.get('title','')}")
+            if a.get("summary"):
+                _art_lines.append(f"  {a.get('summary','')[:180]}")
+            _art_lines.append("")
+        _prompt = (
+            f"Here are {len(new_articles)} new articles from {len(ok_sources)} sources "
+            f"(previously seen articles excluded):\n\n"
+            + "\n".join(_art_lines)
+            + f"\nWrite a concise briefing.{_lang_note} "
+            "Structure: 1) Top stories, 2) Tech & AI, 3) Business & Finance, 4) Science & World. "
+            "Mention real names and numbers. Under 400 words."
         )
-        return "\n".join(lines)
+        _sys = (
+            "You are a news analyst. Begin directly with the briefing — "
+            "no preamble, no meta-commentary."
+        )
+        _messages = [
+            {"role": "system", "content": _sys},
+            {"role": "user",   "content": _prompt},
+        ]
+        import time as _time_r
+        _t0_r = _time_r.monotonic()
+        try:
+            with _display.TreePending("summarizing…"):
+                _resp_r = await _llm_with_retry(runtime.llm, _messages, step_type="simple")
+            _display.tree_close()
+            _summary = _resp_r.get("content", "").strip()
+            runtime._tokens_used = _resp_r.get("input_tokens", 0) + _resp_r.get("output_tokens", 0)
+            runtime._cost_used = _resp_r.get("cost") or 0.0
+        except Exception as exc:
+            _display.tree_close("error")
+            _summary = f"(summary unavailable: {exc})"
+        _elapsed_r = _time_r.monotonic() - _t0_r
+
+        if channel is not None:
+            await channel.send(f"\n{_summary}\n")
+        else:
+            out(_summary)
+
+        from majestic import display as _dr
+        _dr.inline_stats(
+            tokens=getattr(runtime, "_tokens_used", 0),
+            cost=getattr(runtime, "_cost_used", 0.0),
+            elapsed=_elapsed_r,
+        )
+        return True
 
     if cmd == "/pains":
         from majestic import display as _display
