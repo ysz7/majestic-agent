@@ -14,6 +14,8 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from majestic.storage import connect
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -138,7 +140,7 @@ class Janitor:
             return
 
         try:
-            conn = sqlite3.connect(str(db_path))
+            conn = connect(str(db_path), wal=False)
             try:
                 cursor = conn.cursor()
 

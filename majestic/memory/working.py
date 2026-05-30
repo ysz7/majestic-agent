@@ -19,6 +19,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from majestic.storage import connect
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,9 +46,8 @@ class WorkingMemory:
     # ------------------------------------------------------------------
 
     def _init_db(self, db_path: str) -> None:
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         try:
-            self._db = sqlite3.connect(db_path, check_same_thread=False)
+            self._db = connect(db_path, wal=False)
             self._db.execute("""
                 CREATE TABLE IF NOT EXISTS working_kv (
                     session_id TEXT,

@@ -12,6 +12,8 @@ import os
 import sqlite3
 from pathlib import Path
 
+from majestic.storage import connect
+
 logger = logging.getLogger(__name__)
 
 
@@ -156,7 +158,7 @@ class StartupManager:
             path = Path(db_path)
             path.parent.mkdir(parents=True, exist_ok=True)
             if not path.exists():
-                conn = sqlite3.connect(str(path))
+                conn = connect(str(path), wal=False)
                 conn.close()
                 logger.info("Initialized database '%s' at %s", name, path)
             else:

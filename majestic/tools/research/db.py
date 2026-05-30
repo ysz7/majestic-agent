@@ -12,6 +12,8 @@ import sqlite3
 from datetime import date, timedelta
 from pathlib import Path
 
+from majestic.storage import Store
+
 
 _SOURCE_WEIGHTS: dict[str, float] = {
     "reuters": 1.0, "bloomberg": 1.0, "ft": 0.95, "wsj": 0.95,
@@ -60,12 +62,10 @@ def _compute_score(article: dict) -> float:
     return round(recency * source_w * cat_w, 4)
 
 
-class ResearchDB:
+class ResearchDB(Store):
     def __init__(self, db_path: str) -> None:
+        super().__init__(db_path)
         self._path = db_path
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.execute("PRAGMA journal_mode=WAL")
         self._create_schema()
 
     def _create_schema(self) -> None:
@@ -107,12 +107,7 @@ class ResearchDB:
         # Migration: add score column to existing DBs that predate this feature.
         # PRAGMA is reliable; catching OperationalError would silently swallow real errors.
         # Must run before creating idx_art_score (which references the column).
-        existing_cols = {
-            row[1] for row in self._conn.execute("PRAGMA table_info(articles)").fetchall()
-        }
-        if "score" not in existing_cols:
-            self._conn.execute("ALTER TABLE articles ADD COLUMN score REAL DEFAULT 0.0")
-            self._conn.commit()
+        self.add_column_if_missing("articles", "score", "score REAL DEFAULT 0.0")
         self._conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_art_score ON articles(score DESC)"
         )

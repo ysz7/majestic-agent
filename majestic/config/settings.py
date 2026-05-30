@@ -126,6 +126,15 @@ class Settings:
         d.mkdir(parents=True, exist_ok=True)
         return d
 
+    def db_path(self, name: str) -> str:
+        """Absolute path to a profile SQLite DB by logical name (e.g. ``"research"``).
+
+        Single source of truth for DB file locations so the storage layout can
+        change in one place later (tiered subfolders — PLAN.md Phase 9). For now
+        it returns the current flat location: ``<profile>/data/<name>.db``.
+        """
+        return str(self.data_dir / f"{name}.db")
+
     @property
     def skills_dir(self) -> Path:
         d = self._profile_dir / "skills"

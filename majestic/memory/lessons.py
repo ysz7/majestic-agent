@@ -2,13 +2,14 @@ import sqlite3
 import threading
 from datetime import datetime
 
+from majestic.storage import Store
 
-class LessonsStore:
+
+class LessonsStore(Store):
     def __init__(self, db_path: str):
+        super().__init__(db_path)
         self.db_path = db_path
         self._lock = threading.Lock()
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.execute("PRAGMA journal_mode=WAL;")
         self._init_db()
 
     def _init_db(self):

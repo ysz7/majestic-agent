@@ -24,6 +24,8 @@ from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
 
+from majestic.storage import Store
+
 
 _CREATE_PROFILE = """
 CREATE TABLE IF NOT EXISTS profile (
@@ -72,7 +74,7 @@ def _extract_topics(text: str, top_n: int = 10) -> list[str]:
     return [word for word, _ in Counter(filtered).most_common(top_n)]
 
 
-class UserProfile:
+class UserProfile(Store):
     """Persistent key/value store for user preferences and behavioural patterns."""
 
     def __init__(self, db_path: str) -> None:
@@ -82,11 +84,8 @@ class UserProfile:
             db_path: Filesystem path to the SQLite file.
                      Use ``":memory:"`` for a transient in-process store.
         """
-        self._db_path = db_path
+        super().__init__(db_path, row_factory=True)
         self._lock = threading.Lock()
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL;")
         self._init_schema()
 
     # ------------------------------------------------------------------

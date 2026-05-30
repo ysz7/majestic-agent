@@ -13,18 +13,18 @@ import sqlite3
 from datetime import date, timedelta
 from pathlib import Path
 
+from majestic.storage import Store
+
 
 def _url_hash(url: str, title: str) -> str:
     key = url.strip().lower() if url.strip() else title.strip().lower()[:120]
     return hashlib.sha256(key.encode()).hexdigest()
 
 
-class PainsDB:
+class PainsDB(Store):
     def __init__(self, db_path: str) -> None:
+        super().__init__(db_path)
         self._path = db_path
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.execute("PRAGMA journal_mode=WAL")
         self._create_schema()
 
     def _create_schema(self) -> None:
@@ -60,13 +60,10 @@ class PainsDB:
         self._conn.commit()
 
         # Migration for existing DBs missing new columns
-        existing = {r[1] for r in self._conn.execute("PRAGMA table_info(pains)").fetchall()}
-        if "intensity" not in existing:
-            self._conn.execute("ALTER TABLE pains ADD COLUMN intensity TEXT DEFAULT 'MEDIUM'")
-            self._conn.commit()
-        if "willingness_to_pay" not in existing:
-            self._conn.execute("ALTER TABLE pains ADD COLUMN willingness_to_pay INTEGER DEFAULT 0")
-            self._conn.commit()
+        self.add_column_if_missing("pains", "intensity", "intensity TEXT DEFAULT 'MEDIUM'")
+        self.add_column_if_missing(
+            "pains", "willingness_to_pay", "willingness_to_pay INTEGER DEFAULT 0"
+        )
 
         # Intensity index — created after migration guarantees column exists
         self._conn.execute("CREATE INDEX IF NOT EXISTS idx_pain_intensity ON pains(intensity)")

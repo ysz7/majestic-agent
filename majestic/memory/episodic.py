@@ -22,6 +22,8 @@ import threading
 from datetime import datetime, timezone
 from typing import Any
 
+from majestic.storage import Store
+
 
 _CREATE_TASKS = """
 CREATE TABLE IF NOT EXISTS tasks (
@@ -72,7 +74,7 @@ def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return dict(row)
 
 
-class EpisodicMemory:
+class EpisodicMemory(Store):
     """Persistent log of completed tasks with full-text search via FTS5."""
 
     def __init__(self, db_path: str) -> None:
@@ -82,12 +84,8 @@ class EpisodicMemory:
             db_path: Filesystem path to the SQLite file.
                      Use ``":memory:"`` for an in-process ephemeral store.
         """
-        self._db_path = db_path
+        super().__init__(db_path, row_factory=True, foreign_keys=True)
         self._lock = threading.Lock()
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL;")
-        self._conn.execute("PRAGMA foreign_keys=ON;")
         self._init_schema()
 
     # ------------------------------------------------------------------

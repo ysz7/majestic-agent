@@ -25,6 +25,8 @@ import threading
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
+from majestic.storage import Store
+
 
 _SCHEMA_VERSION = 2
 _COMMIT_BATCH = 5
@@ -51,7 +53,7 @@ def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-class CheckpointStore:
+class CheckpointStore(Store):
     """SQLite-backed store for incremental task checkpoints."""
 
     def __init__(self, db_path: str) -> None:
@@ -61,13 +63,9 @@ class CheckpointStore:
             db_path: Filesystem path to the SQLite file.
                      Use ``":memory:"`` for a transient in-process store.
         """
-        self._db_path = db_path
+        super().__init__(db_path, row_factory=True, foreign_keys=True)
         self._lock = threading.Lock()
         self._pending = 0
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL;")
-        self._conn.execute("PRAGMA foreign_keys=ON;")
         self._init_schema()
         self._migrate_schema()
 
@@ -82,12 +80,11 @@ class CheckpointStore:
 
     def _migrate_schema(self) -> None:
         """Add schema_version column if upgrading from v1."""
-        cols = {row[1] for row in self._conn.execute("PRAGMA table_info(checkpoints)")}
-        if "schema_version" not in cols:
-            self._conn.execute(
-                "ALTER TABLE checkpoints ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1"
-            )
-            self._conn.commit()
+        self.add_column_if_missing(
+            "checkpoints",
+            "schema_version",
+            "schema_version INTEGER NOT NULL DEFAULT 1",
+        )
 
     # ------------------------------------------------------------------
     # Write

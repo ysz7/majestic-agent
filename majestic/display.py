@@ -131,7 +131,7 @@ def _gather_startup(profile: str = "default") -> dict:
 
         try:
             from majestic.memory.episodic import EpisodicMemory
-            db_path = str(settings.data_dir / "episodic.db")
+            db_path = settings.db_path("episodic")
             em = EpisodicMemory(db_path)
             out["mem_count"] = em.count()
             recent = em.get_recent(limit=3)
@@ -144,10 +144,10 @@ def _gather_startup(profile: str = "default") -> dict:
             pass
 
         try:
-            import sqlite3 as _sqlite3
+            from majestic.storage import connect as _connect
             lessons_db = settings.data_dir / "lessons.db"
             if lessons_db.exists():
-                conn = _sqlite3.connect(str(lessons_db))
+                conn = _connect(str(lessons_db), wal=False)
                 row = conn.execute("SELECT COUNT(*) FROM lessons").fetchone()
                 conn.close()
                 out["lessons_count"] = row[0] if row else 0

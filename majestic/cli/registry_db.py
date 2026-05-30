@@ -21,6 +21,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from majestic.storage import connect
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _DB_PATH = _PROJECT_ROOT / "data" / "registry.db"
 _JSON_PATH = _PROJECT_ROOT / "data" / "registry.json"
@@ -42,10 +44,7 @@ _lock = threading.Lock()
 
 
 def _get_conn() -> sqlite3.Connection:
-    _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(_DB_PATH), check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
+    conn = connect(str(_DB_PATH), row_factory=True)
     conn.execute(_CREATE_TABLE)
     conn.commit()
     return conn

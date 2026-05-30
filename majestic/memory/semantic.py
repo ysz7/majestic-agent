@@ -2,6 +2,8 @@ import re
 import sqlite3, threading, json
 from pathlib import Path
 
+from majestic.storage import Store
+
 _FTS5_OPERATORS = frozenset({"and", "or", "not"})
 
 
@@ -19,15 +21,14 @@ def _fts5_query(text: str) -> str:
         return ""
     return " ".join(f'"{w}"' for w in words)
 
-class SemanticMemory:
+class SemanticMemory(Store):
     """Vector search using sqlite-vec. Falls back to FTS5 if sqlite-vec unavailable."""
 
     def __init__(self, db_path: str):
+        super().__init__(db_path)
         self.db_path = db_path
         self._lock = threading.Lock()
         self._use_vec = False
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.execute("PRAGMA journal_mode=WAL;")
         self._init_db()
 
     def _init_db(self):

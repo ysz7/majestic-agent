@@ -6,6 +6,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from majestic.storage import connect
+
 
 class ScriptTracker:
     """
@@ -22,7 +24,7 @@ class ScriptTracker:
         self._init_db()
 
     def _get_conn(self):
-        return sqlite3.connect(self.db_path)
+        return connect(self.db_path, wal=False)
 
     def _init_db(self):
         with self._lock:
