@@ -369,6 +369,26 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                 except Exception:
                     pass
 
+        # Fetch & store market prices (CoinGecko + Yahoo Finance — no API keys needed)
+        _prices: list[dict] = []
+        _prices_ts: str = ""
+        if settings is not None:
+            try:
+                from majestic.tools.research.prices import fetch_prices as _fetch_prices
+                from datetime import datetime as _dtnow
+                with _display.TreePending("prices…"):
+                    _prices = await _fetch_prices()
+                if _prices:
+                    _prices_ts = _dtnow.utcnow().isoformat(timespec="seconds")
+                    _pdb_r2 = ResearchDB(str(settings.data_dir / "research.db"))
+                    _pdb_r2.insert_prices(_prices)
+                    _pdb_r2.close()
+                    _display.tree_step("prices", f"{len(_prices)} assets updated")
+                else:
+                    _display.tree_step("prices", "no data", status="warn")
+            except Exception as _pe:
+                _display.tree_step("prices", f"skipped: {_pe}", status="warn")
+
         if not articles:
             _display.tree_close()
             out("[dim]No articles fetched. Check your internet connection.[/dim]")
@@ -428,6 +448,20 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             await channel.send(f"\n{_summary}\n")
         else:
             out(_summary)
+
+        # Show market snapshot after news summary
+        if _prices:
+            from majestic.tools.research.prices import render_prices_table as _rpt, format_prices_for_display as _fmt_prices
+            _table = _rpt(_prices, _prices_ts) if _prices else None
+            if channel is not None:
+                _price_display = _fmt_prices(_prices)
+                if _price_display:
+                    await channel.send(f"\n## Market Snapshot\n\n{_price_display}\n")
+            elif _table is not None and console:
+                console.print()
+                console.print(_table)
+            elif _prices:
+                out(f"\n{_fmt_prices(_prices)}\n")
 
         from majestic import display as _dr
         _dr.inline_stats(
@@ -651,11 +685,31 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         else:
             corpus_lines, capped = build_corpus(articles, token_budget=_art_budget, include_summaries=True)
 
+        # Load latest price snapshot
+        _brief_prices: list[dict] = []
+        _brief_prices_ts = ""
+        try:
+            _bpdb = ResearchDB(str(settings.data_dir / "research.db"))
+            _brief_prices, _brief_prices_ts = _bpdb.get_latest_prices()
+            _bpdb.close()
+        except Exception:
+            pass
+
         _display.tree_reset()
         _display.tree_step("Research DB", f"{stats['total']} total · last {days}d: {len(articles)} articles")
+        if _brief_prices:
+            _display.tree_step("Prices", f"{len(_brief_prices)} assets · {_brief_prices_ts[:16]}")
 
         article_count_note = f"{len(articles)} articles" + (" (truncated for token budget)" if capped else "")
         lines = [f"INTELLIGENCE CORPUS — {article_count_note}, last {days} days\n"]
+
+        # Inject live market prices first — gives LLM real numbers to anchor analysis
+        if _brief_prices:
+            from majestic.tools.research.prices import format_prices_for_corpus as _fmt_corp
+            _price_block = _fmt_corp(_brief_prices, _brief_prices_ts)
+            if _price_block:
+                lines.append(_price_block)
+
         lines.extend(corpus_lines)
 
         instructions = (
@@ -1153,9 +1207,22 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         # Load recent briefing as macro layer (optional)
         _pred_briefing = _load_recent_briefing(settings, max_days=3)
 
+        # Load latest price snapshot
+        _pred_prices: list[dict] = []
+        _pred_prices_ts = ""
+        try:
+            from majestic.tools.research.db import ResearchDB as _RDB3p
+            _rdb3p = _RDB3p(str(settings.data_dir / "research.db"))
+            _pred_prices, _pred_prices_ts = _rdb3p.get_latest_prices()
+            _rdb3p.close()
+        except Exception:
+            pass
+
         _display.tree_reset()
         if _pred_briefing:
             _display.tree_step("Briefing", "macro context loaded")
+        if _pred_prices:
+            _display.tree_step("Prices", f"{len(_pred_prices)} assets · {_pred_prices_ts[:16]}")
         if _pred_articles:
             _display.tree_step("Research DB", f"{len(_pred_articles)} articles")
         if _pred_pains:
@@ -1185,6 +1252,13 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         from collections import defaultdict as _ddict4
 
         _pred_lines: list[str] = [f"INTELLIGENCE CORPUS — last {days} days\n"]
+
+        # LAYER 0: Live market prices — real numbers to anchor probability calibration
+        if _pred_prices:
+            from majestic.tools.research.prices import format_prices_for_corpus as _fmt_pred_p
+            _pred_price_block = _fmt_pred_p(_pred_prices, _pred_prices_ts)
+            if _pred_price_block:
+                _pred_lines.append(_pred_price_block)
 
         # LAYER 1: Macro briefing capped at 8K chars
         if _pred_briefing:

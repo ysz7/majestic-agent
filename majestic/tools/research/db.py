@@ -86,6 +86,22 @@ class ResearchDB:
             CREATE INDEX IF NOT EXISTS idx_art_date     ON articles(date DESC);
             CREATE INDEX IF NOT EXISTS idx_art_category ON articles(category);
             CREATE INDEX IF NOT EXISTS idx_art_fetched  ON articles(fetched_at DESC);
+
+            CREATE TABLE IF NOT EXISTS prices (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                symbol      TEXT    NOT NULL,
+                name        TEXT,
+                asset_class TEXT,
+                price       REAL,
+                change_24h  REAL,
+                change_7d   REAL,
+                market_cap  REAL,
+                volume_24h  REAL,
+                currency    TEXT    DEFAULT 'USD',
+                fetched_at  TEXT    DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_prices_fetched ON prices(fetched_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_prices_symbol  ON prices(symbol);
         """)
         self._conn.commit()
         # Migration: add score column to existing DBs that predate this feature.
@@ -130,7 +146,58 @@ class ResearchDB:
         self._conn.commit()
         return new_articles, skipped
 
+    def insert_prices(self, prices: list[dict]) -> int:
+        """Insert a price snapshot batch. Returns count inserted."""
+        from datetime import datetime as _dt
+        ts = _dt.utcnow().isoformat(timespec="seconds")
+        count = 0
+        for p in prices:
+            if p.get("price") is None:
+                continue
+            self._conn.execute(
+                """INSERT INTO prices
+                   (symbol, name, asset_class, price, change_24h, change_7d,
+                    market_cap, volume_24h, currency, fetched_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (p.get("symbol", ""), p.get("name", ""),
+                 p.get("asset_class", ""),
+                 p.get("price"), p.get("change_24h"), p.get("change_7d"),
+                 p.get("market_cap"), p.get("volume_24h"),
+                 p.get("currency", "USD"), ts),
+            )
+            count += 1
+        self._conn.commit()
+        return count
+
     # ── Read ──────────────────────────────────────────────────────────────────
+
+    def get_latest_prices(self) -> tuple[list[dict], str]:
+        """Return the most recent price snapshot batch.
+
+        Returns (prices, fetched_at_str). Empty list if no prices stored.
+        """
+        row = self._conn.execute(
+            "SELECT fetched_at FROM prices ORDER BY fetched_at DESC LIMIT 1"
+        ).fetchone()
+        if not row:
+            return [], ""
+        latest_ts = row[0]
+        # Match all rows from the same minute (trim to 16 chars: "YYYY-MM-DDTHH:MM")
+        cutoff = latest_ts[:16]
+        rows = self._conn.execute(
+            """SELECT symbol, name, asset_class, price, change_24h, change_7d,
+                      market_cap, volume_24h, currency, fetched_at
+               FROM prices
+               WHERE fetched_at >= ?
+               ORDER BY
+                 CASE asset_class WHEN 'crypto' THEN 0 WHEN 'index' THEN 1
+                                  WHEN 'commodity' THEN 2 ELSE 3 END,
+                 COALESCE(market_cap, 0) DESC""",
+            (cutoff,),
+        ).fetchall()
+        cols = ["symbol", "name", "asset_class", "price", "change_24h", "change_7d",
+                "market_cap", "volume_24h", "currency", "fetched_at"]
+        return [dict(zip(cols, r)) for r in rows], latest_ts
 
     def get_articles(self, days: int = 30, category: str = "") -> list[dict]:
         """Return articles fetched in the last *days* days, sorted by score then date."""
