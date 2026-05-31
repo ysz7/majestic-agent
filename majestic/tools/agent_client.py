@@ -27,10 +27,6 @@ def _project_root() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
-def _default_registry_path() -> str:
-    return str(_project_root() / "data" / "registry.json")
-
-
 def _get_agent_token() -> str:
     token_path = _project_root() / "data" / "agent_token"
     if token_path.exists():
@@ -49,12 +45,7 @@ class AgentClient:
     ``ensure_running()``.
     """
 
-    def __init__(
-        self,
-        registry_path: str | None = None,
-        timeout: float = 60.0,
-    ) -> None:
-        self.registry_path = registry_path or _default_registry_path()
+    def __init__(self, timeout: float = 60.0) -> None:
         self.timeout = timeout
 
     # ------------------------------------------------------------------

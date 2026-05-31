@@ -67,12 +67,8 @@ def handle_slash_command(text: str, app: "MajesticApp") -> str | None:
 
     if cmd == "/agents":
         try:
-            import json
-            from pathlib import Path
-            reg = Path(__file__).resolve().parent.parent.parent.parent / "data" / "registry.json"
-            if not reg.exists():
-                return "[dim]No background agents running. Start one with: majestic run <profile>[/dim]"
-            data = json.loads(reg.read_text())
+            from majestic.cli.registry_db import load_registry
+            data = load_registry()
             if not data:
                 return "[dim]No background agents running. Start one with: majestic run <profile>[/dim]"
             lines = ["[bold]Running agents:[/bold]"]

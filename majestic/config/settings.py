@@ -155,6 +155,16 @@ class Settings:
         return str(tiered)
 
     @property
+    def db_backend(self) -> str:
+        """Storage backend name (``MAJESTIC_DB_BACKEND``, default ``"sqlite"``).
+
+        Selects the :class:`StorageBackend` implementation via
+        ``majestic.storage.backends.get_backend``. Only ``"sqlite"`` is wired
+        today; other values raise until their adapter is added.
+        """
+        return (self._env_get("MAJESTIC_DB_BACKEND", "sqlite") or "sqlite").strip().lower()
+
+    @property
     def skills_dir(self) -> Path:
         d = self._profile_dir / "skills"
         d.mkdir(parents=True, exist_ok=True)

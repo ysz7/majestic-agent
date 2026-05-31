@@ -155,14 +155,12 @@ def _gather_startup(profile: str = "default") -> dict:
             pass
 
     try:
-        import json
-        reg = Path(__file__).resolve().parent.parent / "data" / "registry.json"
-        if reg.exists():
-            data = json.loads(reg.read_text())
-            out["running_agents"] = [
-                {"name": k, "port": v.get("port", "?"), "status": v.get("status", "?")}
-                for k, v in data.items()
-            ]
+        from majestic.cli.registry_db import load_registry
+        data = load_registry()
+        out["running_agents"] = [
+            {"name": k, "port": v.get("port", "?"), "status": v.get("status", "?")}
+            for k, v in data.items()
+        ]
     except Exception:
         pass
 

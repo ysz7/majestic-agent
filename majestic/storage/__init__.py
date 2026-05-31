@@ -6,5 +6,6 @@ single seam to swap for an external backend later (see PLAN.md Phase 11).
 """
 
 from majestic.storage.base import Store, connect
+from majestic.storage.backends import StorageBackend, get_backend
 
-__all__ = ["Store", "connect"]
+__all__ = ["Store", "connect", "StorageBackend", "get_backend"]

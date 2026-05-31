@@ -1,9 +1,8 @@
 class Planner:
-    def __init__(self, settings, llm_router, lessons_store=None, agent_registry_path: str = "data/registry.json"):
+    def __init__(self, settings, llm_router, lessons_store=None):
         self.settings = settings
         self.llm = llm_router
         self.lessons = lessons_store
-        self.registry_path = agent_registry_path
 
     def classify_task(self, task: str) -> str:
         """Classify task to determine default model type."""
@@ -34,15 +33,16 @@ class Planner:
         Includes both running and stopped agents so the LLM can decide
         whether to auto-start one via delegate_to_agent.
         """
-        import json
         import yaml
         from pathlib import Path
 
         root = Path(__file__).resolve().parent.parent.parent
         profiles_dir = root / "profiles"
 
+        # Single source of truth — SQLite registry (registry.json is legacy).
         try:
-            registry = json.loads(Path(self.registry_path).read_text())
+            from majestic.cli.registry_db import load_registry
+            registry = load_registry()
         except Exception:
             registry = {}
 

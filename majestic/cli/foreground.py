@@ -35,22 +35,23 @@ async def _run_plain(profile_name: str):
     settings = Settings(profile_name)
     settings.validate()
 
+    from majestic.storage import get_backend
+    backend = get_backend(settings)
+
     session_id = "main"
 
     # Persistent working memory when enabled in persona.yaml
-    _wm_db = settings.db_path("working") if settings.working_persistent else None
-    working_memory = WorkingMemory(db_path=_wm_db, session_id=session_id)
+    working_memory = backend.working(session_id=session_id)
 
     channel = CLIChannel(session_id=session_id)
     llm_router = LLMRouter(settings)
 
-    from majestic.memory.user_profile import UserProfile
     from majestic.memory.procedural import ProceduralMemory
 
     # Memory systems wired into gateway for per-request RAG
-    _semantic = SemanticMemory(settings.db_path("semantic"))
-    _episodic = EpisodicMemory(settings.db_path("episodic"))
-    _user_profile = UserProfile(settings.db_path("user_profile"))
+    _semantic = backend.semantic()
+    _episodic = backend.episodic()
+    _user_profile = backend.user_profile()
 
     startup = StartupManager(settings)
     incomplete = await startup.run()
@@ -286,6 +287,12 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         else:
             print(markup)
 
+    # Storage backend (pluggable) — handlers get stores via backend.pains() etc.
+    backend = None
+    if settings is not None:
+        from majestic.storage import get_backend
+        backend = get_backend(settings)
+
     cmd = text.strip().lower().split()[0]
 
     if cmd == "/help":
@@ -346,7 +353,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         new_articles: list[dict] = articles
         if settings is not None:
             try:
-                db = ResearchDB(settings.db_path("research"))
+                db = backend.research()
                 new_articles, skipped = db.insert_articles(articles)
                 stats = db.stats()
                 db.close()
@@ -380,7 +387,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                     _prices = await _fetch_prices()
                 if _prices:
                     _prices_ts = _dtnow.now(_tz.utc).isoformat(timespec="seconds")
-                    _pdb_r2 = ResearchDB(settings.db_path("research"))
+                    _pdb_r2 = backend.research()
                     _pdb_r2.insert_prices(_prices)
                     _pdb_r2.close()
                     _display.tree_step("prices", f"{len(_prices)} assets updated")
@@ -488,7 +495,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                 out("[dim]No profile loaded — cannot read from pains DB.[/dim]")
                 return True
             try:
-                _pdb_r = PainsDB(settings.db_path("pains"))
+                _pdb_r = backend.pains()
                 _stored_pains = _pdb_r.get_pains(days=_pains_days)
                 _trends_stored: list[dict] = []
                 try:
@@ -559,7 +566,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _pdb = None
         if settings is not None:
             try:
-                _pdb = PainsDB(settings.db_path("pains"))
+                _pdb = backend.pains()
                 new_posts, skipped = _pdb.insert_posts(posts)
                 _display.tree_step(
                     "saved",
@@ -663,7 +670,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
         try:
             from majestic.tools.research.db import ResearchDB
-            db = ResearchDB(settings.db_path("research"))
+            db = backend.research()
             articles = db.get_articles(days=days)
             stats = db.stats()
             db.close()
@@ -689,7 +696,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _brief_prices: list[dict] = []
         _brief_prices_ts = ""
         try:
-            _bpdb = ResearchDB(settings.db_path("research"))
+            _bpdb = backend.research()
             _brief_prices, _brief_prices_ts = _bpdb.get_latest_prices()
             _bpdb.close()
         except Exception:
@@ -869,7 +876,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         # LAYER 2: Pain signals (required)
         try:
             from majestic.tools.pains.db import PainsDB as _PainsDB2
-            _idb = _PainsDB2(settings.db_path("pains"))
+            _idb = backend.pains()
             _ideas_pains = _idb.get_pains(days=days)
             _idb.close()
         except Exception as e:
@@ -884,7 +891,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _ideas_articles: list[dict] = []
         try:
             from majestic.tools.research.db import ResearchDB as _RDB2
-            _rdb2 = _RDB2(settings.db_path("research"))
+            _rdb2 = backend.research()
             _ideas_articles = _rdb2.get_articles(days=days)
             _rdb2.close()
         except Exception:
@@ -907,7 +914,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _past_ideas: list[dict] = []
         try:
             from majestic.memory.lessons import LessonsStore as _LS_ideas_r
-            _ls_ideas_r = _LS_ideas_r(settings.db_path("lessons"))
+            _ls_ideas_r = backend.lessons()
             from collections import Counter as _Counter_i
             _dom_counts = _Counter_i(p.get("domain", "") for p in _ideas_pains if p.get("domain") and p.get("domain") != "other")
             _dom_kw = " ".join([d for d, _ in _dom_counts.most_common(6)])
@@ -1133,7 +1140,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                 if _idea_save_ms:
                     try:
                         from majestic.memory.lessons import LessonsStore as _LS_isave
-                        _ls_isave = _LS_isave(settings.db_path("lessons"))
+                        _ls_isave = backend.lessons()
                         for _ism in _idea_save_ms:
                             _istart = _ism.start()
                             _inext = _re_isave.search(r'\*\*#[234]|\n##', _ideas_result[_istart + 5:])
@@ -1184,7 +1191,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _pred_articles: list[dict] = []
         try:
             from majestic.tools.research.db import ResearchDB as _RDB3
-            _rdb3 = _RDB3(settings.db_path("research"))
+            _rdb3 = backend.research()
             _pred_articles = _rdb3.get_articles(days=days)
             _rdb3.close()
         except Exception:
@@ -1194,7 +1201,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _pred_pains: list[dict] = []
         try:
             from majestic.tools.pains.db import PainsDB as _PDB3
-            _pdb3 = _PDB3(settings.db_path("pains"))
+            _pdb3 = backend.pains()
             _pred_pains = _pdb3.get_pains(days=days)
             _pdb3.close()
         except Exception:
@@ -1212,7 +1219,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _pred_prices_ts = ""
         try:
             from majestic.tools.research.db import ResearchDB as _RDB3p
-            _rdb3p = _RDB3p(settings.db_path("research"))
+            _rdb3p = backend.research()
             _pred_prices, _pred_prices_ts = _rdb3p.get_latest_prices()
             _rdb3p.close()
         except Exception:
@@ -1233,7 +1240,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _historical_patterns: list[dict] = []
         try:
             from majestic.memory.lessons import LessonsStore as _LS_pred
-            _ls_pred = _LS_pred(settings.db_path("lessons"))
+            _ls_pred = backend.lessons()
             _kw_set: set[str] = set()
             for _a in (_pred_articles or [])[:15]:
                 for _w in _re_sp.sub(r"[^\w\s]", " ", _a.get("title", "")).split():
@@ -1464,7 +1471,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                 )
                 if _sig_names:
                     from majestic.memory.lessons import LessonsStore as _LS_save
-                    _ls_save = _LS_save(settings.db_path("lessons"))
+                    _ls_save = backend.lessons()
                     _ls_save.save_signal_pattern(_sig_names, _pred_sum_p, _avg_conf_p)
                     _ls_save._conn.close()
                     _display.tree_step("patterns", f"{len(_sig_names)} signals → memory")
@@ -1543,7 +1550,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _ask_articles: list[dict] = []
         try:
             from majestic.tools.research.db import ResearchDB as _RDB_ask
-            _rdb_ask = _RDB_ask(settings.db_path("research"))
+            _rdb_ask = backend.research()
             _all_art = _rdb_ask.get_articles(days=60)
             _rdb_ask.close()
             if _kw:
@@ -1560,7 +1567,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _ask_pains: list[dict] = []
         try:
             from majestic.tools.pains.db import PainsDB as _PDB_ask
-            _pdb_ask = _PDB_ask(settings.db_path("pains"))
+            _pdb_ask = backend.pains()
             _all_pains = _pdb_ask.get_pains(days=60)
             _pdb_ask.close()
             if _kw:
@@ -1758,7 +1765,7 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
         try:
             from majestic.tools.research.db import ResearchDB
-            db = ResearchDB(settings.db_path("research"))
+            db = backend.research()
             articles = db.get_articles(days=days)
             db.close()
         except Exception as e:
@@ -1796,22 +1803,17 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
     if cmd == "/agents":
         try:
-            import json
-            from pathlib import Path
-            reg = Path(__file__).resolve().parent.parent.parent / "data" / "registry.json"
-            if not reg.exists():
+            from majestic.cli.registry_db import load_registry
+            data = load_registry()
+            if not data:
                 out("[dim]No background agents running. Start one with: majestic run <profile>[/dim]")
             else:
-                data = json.loads(reg.read_text())
-                if not data:
-                    out("[dim]No background agents running. Start one with: majestic run <profile>[/dim]")
-                else:
-                    out("[bold]Running agents:[/bold]")
-                    for name, info in data.items():
-                        port = info.get("port", "?")
-                        status = info.get("status", "?")
-                        dot = "[green]●[/green]" if status == "running" else "[yellow]●[/yellow]"
-                        out(f"  {dot} [bold]{name}[/bold]  [dim]:{port}  {status}[/dim]")
+                out("[bold]Running agents:[/bold]")
+                for name, info in data.items():
+                    port = info.get("port", "?")
+                    status = info.get("status", "?")
+                    dot = "[green]●[/green]" if status == "running" else "[yellow]●[/yellow]"
+                    out(f"  {dot} [bold]{name}[/bold]  [dim]:{port}  {status}[/dim]")
         except Exception as e:
             out(f"[red]Error: {e}[/red]")
         return True
@@ -1888,23 +1890,21 @@ def _build_runtime(
     """Instantiate AgentRuntime with the full self-evolution stack wired up."""
     from majestic.core.runtime import AgentRuntime
     from majestic.core.context_manager import ContextManager
-    from majestic.memory.lessons import LessonsStore
-    from majestic.memory.episodic import EpisodicMemory
-    from majestic.memory.checkpoints import CheckpointStore
-    from majestic.core.script_tracker import ScriptTracker
     from majestic.core.skill_writer import SkillWriter
     from majestic.core.self_evolution import SelfEvolution
     from majestic.core.reflection import ReflectionEngine
     from majestic.core.planner import Planner
+    from majestic.storage import get_backend
 
     data_dir   = settings.data_dir
     skills_dir = settings.skills_dir
     workspace  = settings.workspace_dir
 
-    lessons_store   = LessonsStore(settings.db_path("lessons"))
-    episodic_memory = EpisodicMemory(settings.db_path("episodic"))
-    checkpoint_store = CheckpointStore(settings.db_path("checkpoints"))
-    script_tracker  = ScriptTracker(settings.db_path("script_tracker"))
+    backend = get_backend(settings)
+    lessons_store   = backend.lessons()
+    episodic_memory = backend.episodic()
+    checkpoint_store = backend.checkpoints()
+    script_tracker  = backend.script_tracker()
 
     skill_writer = SkillWriter(llm_router, str(skills_dir))
     evolution    = SelfEvolution(
