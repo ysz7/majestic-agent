@@ -140,11 +140,10 @@ class StartupManager:
         simply by opening a connection and closing it immediately.
         """
         profile_dir = getattr(self.settings, "profile_dir", None)
-        if profile_dir is not None:
-            data_dir = Path(profile_dir) / "data"
+        if profile_dir is not None and hasattr(self.settings, "db_path"):
             databases = {
-                "episodic": data_dir / "episodic.db",
-                "checkpoints": data_dir / "checkpoints.db",
+                "episodic": self.settings.db_path("episodic"),
+                "checkpoints": self.settings.db_path("checkpoints"),
             }
         else:
             databases = {

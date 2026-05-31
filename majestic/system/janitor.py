@@ -127,13 +127,14 @@ class Janitor:
         or an ``id`` column.  If the table or database does not exist the
         method logs a debug message and returns without error.
         """
-        databases: dict = self._get(
-            "databases",
-            {
-                "episodic": os.path.join("data", "episodic.db"),
-            },
-        )
-        db_path = Path(databases.get("episodic", os.path.join("data", "episodic.db")))
+        if hasattr(self.settings, "db_path"):
+            db_path = Path(self.settings.db_path("episodic"))
+        else:
+            databases: dict = self._get(
+                "databases",
+                {"episodic": os.path.join("data", "episodic.db")},
+            )
+            db_path = Path(databases.get("episodic", os.path.join("data", "episodic.db")))
 
         if not db_path.exists():
             logger.debug("Episodic database does not exist; nothing to trim.")

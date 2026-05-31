@@ -92,7 +92,10 @@ dmypy.json
 *.log
 logs/
 
-# Per-profile: databases and generated personal data
+# Per-profile databases — all tiers ignored (binary SQLite shouldn't go in git).
+#   data/runtime/  disposable execution state
+#   data/memory/   agent's cognitive memory
+#   data/intel/    the collected asset — back up via export (Parquet/CSV), not git
 profiles/*/data/
 
 # Per-profile: runtime workspace artifacts (outputs, temp scripts, sandboxes)

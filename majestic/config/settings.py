@@ -73,6 +73,7 @@ class Settings:
     def __init__(self, profile_name: str = "default") -> None:
         self._profile_name = profile_name
         self._profile_dir = _profiles_root() / profile_name
+        self._layout_migrated = False
 
         if not self._profile_dir.exists():
             raise FileNotFoundError(
@@ -129,11 +130,29 @@ class Settings:
     def db_path(self, name: str) -> str:
         """Absolute path to a profile SQLite DB by logical name (e.g. ``"research"``).
 
-        Single source of truth for DB file locations so the storage layout can
-        change in one place later (tiered subfolders — PLAN.md Phase 9). For now
-        it returns the current flat location: ``<profile>/data/<name>.db``.
+        DBs are organized into tier subfolders (``runtime/`` · ``memory/`` ·
+        ``intel/``). On first call, existing flat ``data/<name>.db`` files are
+        migrated into their tier automatically (one-time, idempotent). If a flat
+        file still exists for *name* (migration skipped/failed), the flat path is
+        returned so accumulated data is never stranded behind an empty new DB.
         """
-        return str(self.data_dir / f"{name}.db")
+        from majestic.storage.migrate import DB_TIERS, migrate_layout
+
+        if not self._layout_migrated:
+            self._layout_migrated = True
+            migrate_layout(self.data_dir)
+
+        tier = DB_TIERS.get(name)
+        if tier is None:
+            return str(self.data_dir / f"{name}.db")
+
+        flat = self.data_dir / f"{name}.db"
+        tiered_dir = self.data_dir / tier
+        tiered = tiered_dir / f"{name}.db"
+        if flat.exists() and not tiered.exists():
+            return str(flat)  # don't strand un-migrated data
+        tiered_dir.mkdir(parents=True, exist_ok=True)
+        return str(tiered)
 
     @property
     def skills_dir(self) -> Path:
