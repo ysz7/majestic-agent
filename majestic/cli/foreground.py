@@ -375,11 +375,11 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         if settings is not None:
             try:
                 from majestic.tools.research.prices import fetch_prices as _fetch_prices
-                from datetime import datetime as _dtnow
+                from datetime import datetime as _dtnow, timezone as _tz
                 with _display.TreePending("prices…"):
                     _prices = await _fetch_prices()
                 if _prices:
-                    _prices_ts = _dtnow.utcnow().isoformat(timespec="seconds")
+                    _prices_ts = _dtnow.now(_tz.utc).isoformat(timespec="seconds")
                     _pdb_r2 = ResearchDB(settings.db_path("research"))
                     _pdb_r2.insert_prices(_prices)
                     _pdb_r2.close()

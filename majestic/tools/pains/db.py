@@ -14,6 +14,9 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from majestic.storage import Store
+from majestic.tools.pains.taxonomy import normalize_domain
+
+SCHEMA_VERSION = 1
 
 
 def _url_hash(url: str, title: str) -> str:
@@ -51,7 +54,8 @@ class PainsDB(Store):
                 source             TEXT,
                 url                TEXT,
                 date               TEXT,
-                fetched_at         TEXT    DEFAULT (date('now'))
+                fetched_at         TEXT    DEFAULT (date('now')),
+                schema_version     INTEGER DEFAULT 1
             );
             CREATE INDEX IF NOT EXISTS idx_pain_date    ON pains(date DESC);
             CREATE INDEX IF NOT EXISTS idx_pain_domain  ON pains(domain);
@@ -63,6 +67,9 @@ class PainsDB(Store):
         self.add_column_if_missing("pains", "intensity", "intensity TEXT DEFAULT 'MEDIUM'")
         self.add_column_if_missing(
             "pains", "willingness_to_pay", "willingness_to_pay INTEGER DEFAULT 0"
+        )
+        self.add_column_if_missing(
+            "pains", "schema_version", "schema_version INTEGER DEFAULT 1"
         )
 
         # Intensity index — created after migration guarantees column exists
@@ -98,17 +105,30 @@ class PainsDB(Store):
             if not p.get("pain_text"):
                 continue
             self._conn.execute(
-                """INSERT INTO pains (pain_text, domain, intensity, willingness_to_pay, source, url, date)
-                   VALUES (?,?,?,?,?,?,?)""",
-                (p["pain_text"], p.get("domain", "other"),
+                """INSERT INTO pains
+                   (pain_text, domain, intensity, willingness_to_pay, source, url, date, schema_version)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                (p["pain_text"], normalize_domain(p.get("domain")),
                  p.get("intensity", "MEDIUM"),
                  1 if p.get("willingness_to_pay") else 0,
                  p.get("source", ""), p.get("url", ""),
-                 p.get("date", "")),
+                 p.get("date", ""), SCHEMA_VERSION),
             )
             count += 1
         self._conn.commit()
         return count
+
+    def normalize_existing_domains(self) -> int:
+        """One-time backfill: map existing free-text domains onto the canonical
+        taxonomy. Returns number of rows changed. Idempotent (re-runs are no-ops)."""
+        changed = 0
+        for rid, dom in self._conn.execute("SELECT id, domain FROM pains").fetchall():
+            norm = normalize_domain(dom)
+            if norm != dom:
+                self._conn.execute("UPDATE pains SET domain=? WHERE id=?", (norm, rid))
+                changed += 1
+        self._conn.commit()
+        return changed
 
     # ── Read ──────────────────────────────────────────────────────────────────
 

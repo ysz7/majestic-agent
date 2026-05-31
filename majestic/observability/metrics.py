@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 @dataclass
 class TaskMetrics:
     task_id: str
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     tokens_input: int = 0
     tokens_output: int = 0
     cost_usd: float = 0.0
@@ -21,7 +21,7 @@ class TaskMetrics:
         self.tool_calls += 1
 
     def duration_s(self) -> float:
-        return (datetime.utcnow() - self.started_at).total_seconds()
+        return (datetime.now(timezone.utc) - self.started_at).total_seconds()
 
     def summary(self) -> str:
         return (

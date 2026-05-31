@@ -1,7 +1,7 @@
 import asyncio
 import shutil
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 from majestic import display
 
@@ -404,5 +404,5 @@ Return ONLY the fixed code, no explanation, no markdown fences."""
                 if name:
                     return f"{name}{ext}"
 
-        ts = datetime.utcnow().strftime("%H%M%S")
+        ts = datetime.now(timezone.utc).strftime("%H%M%S")
         return f"script_{ts}{ext}"

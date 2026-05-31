@@ -1,6 +1,6 @@
 import sqlite3
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 
 from majestic.storage import Store
 
@@ -57,7 +57,7 @@ class LessonsStore(Store):
             with self._get_conn() as conn:
                 cur = conn.execute(
                     "INSERT INTO lessons (task_type, lesson, created_at) VALUES (?, ?, ?)",
-                    (task_type, lesson, datetime.utcnow().isoformat()),
+                    (task_type, lesson, datetime.now(timezone.utc).isoformat()),
                 )
                 rowid = cur.lastrowid
                 conn.execute(
@@ -96,7 +96,7 @@ class LessonsStore(Store):
             with self._get_conn() as conn:
                 conn.execute(
                     "INSERT INTO skill_scores (skill_name, score, created_at) VALUES (?, ?, ?)",
-                    (skill_name, score, datetime.utcnow().isoformat()),
+                    (skill_name, score, datetime.now(timezone.utc).isoformat()),
                 )
 
     def get_skill_scores(self, skill_name: str, limit: int = 10) -> list[float]:
@@ -124,7 +124,7 @@ class LessonsStore(Store):
                     "INSERT INTO signal_patterns (signals_text, prediction_summary, avg_confidence, created_at) "
                     "VALUES (?, ?, ?, ?)",
                     (signals_text, prediction_summary[:600], avg_confidence,
-                     datetime.utcnow().isoformat()),
+                     datetime.now(timezone.utc).isoformat()),
                 )
                 rowid = cur.lastrowid
                 conn.execute(

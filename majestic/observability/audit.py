@@ -1,5 +1,5 @@
 import sqlite3, json, threading
-from datetime import datetime
+from datetime import datetime, timezone
 
 from majestic.storage import connect
 
@@ -26,7 +26,7 @@ class AuditLog:
             with connect(self.db_path, wal=False) as conn:
                 conn.execute(
                     "INSERT INTO audit_log (timestamp, event_type, agent, data) VALUES (?, ?, ?, ?)",
-                    (datetime.utcnow().isoformat(), event_type, agent, json.dumps(data))
+                    (datetime.now(timezone.utc).isoformat(), event_type, agent, json.dumps(data))
                 )
 
     def get_recent(self, limit: int = 50) -> list[dict]:

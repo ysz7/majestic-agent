@@ -81,7 +81,8 @@ class ResearchDB(Store):
                 category   TEXT,
                 date       TEXT,
                 score      REAL    DEFAULT 0.0,
-                fetched_at TEXT    DEFAULT (date('now'))
+                fetched_at TEXT    DEFAULT (date('now')),
+                schema_version INTEGER DEFAULT 1
             );
             CREATE INDEX IF NOT EXISTS idx_art_date     ON articles(date DESC);
             CREATE INDEX IF NOT EXISTS idx_art_category ON articles(category);
@@ -108,6 +109,9 @@ class ResearchDB(Store):
         # PRAGMA is reliable; catching OperationalError would silently swallow real errors.
         # Must run before creating idx_art_score (which references the column).
         self.add_column_if_missing("articles", "score", "score REAL DEFAULT 0.0")
+        self.add_column_if_missing(
+            "articles", "schema_version", "schema_version INTEGER DEFAULT 1"
+        )
         self._conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_art_score ON articles(score DESC)"
         )
@@ -143,8 +147,8 @@ class ResearchDB(Store):
 
     def insert_prices(self, prices: list[dict]) -> int:
         """Insert a price snapshot batch. Returns count inserted."""
-        from datetime import datetime as _dt
-        ts = _dt.utcnow().isoformat(timespec="seconds")
+        from datetime import datetime as _dt, timezone as _tz
+        ts = _dt.now(_tz.utc).isoformat(timespec="seconds")
         count = 0
         for p in prices:
             if p.get("price") is None:

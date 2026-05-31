@@ -1,7 +1,7 @@
 import yaml
 import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class SkillWriter:
@@ -77,7 +77,7 @@ Do not add commentary, only YAML."""
             return False
 
         updated["name"] = existing.get("name", skill_name)
-        updated["updated_at"] = datetime.utcnow().isoformat()
+        updated["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         tmp = skill_path.with_suffix(".tmp")
         with open(tmp, "w") as f:
@@ -173,7 +173,7 @@ Rules:
 
         skill["name"] = name
         skill["auto_generated"] = True
-        skill["created_at"] = datetime.utcnow().isoformat()
+        skill["created_at"] = datetime.now(timezone.utc).isoformat()
 
         dest = self.skills_dir / f"{name}.yaml"
 

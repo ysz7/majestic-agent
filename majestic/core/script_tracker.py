@@ -3,7 +3,7 @@ import threading
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from majestic.storage import connect
@@ -80,7 +80,7 @@ class ScriptTracker:
                         json.dumps(args or {}),
                         1 if success else 0,
                         (output or "")[:2000],
-                        datetime.utcnow().isoformat(),
+                        datetime.now(timezone.utc).isoformat(),
                     ),
                 )
                 return cur.lastrowid
@@ -108,7 +108,7 @@ class ScriptTracker:
                 conn.execute(
                     """INSERT INTO promoted_scripts (lang, name, path, description, created_at)
                        VALUES (?, ?, ?, ?, ?)""",
-                    (lang, name, dest_path, description, datetime.utcnow().isoformat()),
+                    (lang, name, dest_path, description, datetime.now(timezone.utc).isoformat()),
                 )
 
     def detect_repeats(self, lang: str = None) -> list[dict]:

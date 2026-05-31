@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -68,8 +68,8 @@ def _t(el: ET.Element | None) -> str:
 # ── Fetchers ──────────────────────────────────────────────────────────────────
 
 async def _fetch_github_trending(client: httpx.AsyncClient, src: dict, query: str) -> list[dict]:
-    from datetime import datetime, timedelta
-    week_ago = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
+    from datetime import datetime, timedelta, timezone
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
     try:
         r = await client.get(
             "https://api.github.com/search/repositories",
