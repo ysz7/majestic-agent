@@ -200,6 +200,17 @@ class CLIChannel(BaseChannel):
             indented = "\n".join("  " + ln for ln in message.splitlines())
             print(indented)
 
+    async def send_renderable(self, renderable) -> None:
+        """Print a Rich renderable (e.g. a Table) directly, bypassing Markdown.
+
+        Lets callers emit colored/aligned output that Markdown can't express
+        (green/red percentages, aligned columns). No-op if Rich is unavailable
+        — callers should provide a text fallback in that case.
+        """
+        if _RICH_AVAILABLE and _rich_console is not None:
+            from rich.padding import Padding
+            _rich_console.print(Padding(renderable, (0, 0, 1, 2)))
+
     async def send_stream(self, token: str) -> None:
         """Write *token* directly to stdout without buffering a newline."""
         sys.stdout.write(token)

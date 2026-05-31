@@ -164,6 +164,50 @@ def format_prices_for_corpus(prices: list[dict], fetched_at: str = "") -> str:
     return "\n".join(lines)
 
 
+def format_prices_markdown(prices: list[dict], fetched_at: str = "") -> str:
+    """Render prices as a Markdown table — for channels that render Markdown.
+
+    A real table keeps columns aligned (plain text with single newlines gets
+    collapsed by Markdown renderers). 🟢/🔴 give a color cue for up/down moves.
+    """
+    if not prices:
+        return ""
+
+    def _delta(ch: float | None) -> str:
+        return f"{ch:+.1f}%" if ch is not None else "n/a"
+
+    def _price(p: dict) -> str:
+        v = p.get("price")
+        if v is None:
+            return "n/a"
+        if p.get("asset_class") in ("crypto", "commodity"):
+            return f"${v:,.2f}"
+        return f"{v:,.2f}"
+
+    crypto = [p for p in prices if p.get("asset_class") == "crypto"]
+    other  = [p for p in prices if p.get("asset_class") != "crypto"]
+
+    ts = f" ({fetched_at[:16]})" if fetched_at else ""
+    lines = [
+        f"**Market Snapshot**{ts}",
+        "",
+        "| Asset | Price | 24h | 7d |",
+        "|:--|--:|--:|--:|",
+    ]
+    if crypto:
+        lines.append("| **Crypto** | | | |")
+        for p in crypto[:10]:
+            name = p.get("name") or p.get("symbol", "")
+            lines.append(f"| {name} | {_price(p)} | {_delta(p.get('change_24h'))} | {_delta(p.get('change_7d'))} |")
+    if other:
+        lines.append("| **Indices & Macro** | | | |")
+        for p in other:
+            name = p.get("name") or p.get("symbol", "")
+            lines.append(f"| {name} | {_price(p)} | {_delta(p.get('change_24h'))} | n/a |")
+
+    return "\n".join(lines)
+
+
 def format_prices_for_display(prices: list[dict]) -> str:
     """Compact one-line-per-asset display for terminal output (plain text fallback)."""
     if not prices:

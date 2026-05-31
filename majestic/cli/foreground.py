@@ -458,12 +458,19 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
         # Show market snapshot after news summary
         if _prices:
-            from majestic.tools.research.prices import render_prices_table as _rpt, format_prices_for_display as _fmt_prices
+            from majestic.tools.research.prices import (
+                render_prices_table as _rpt,
+                format_prices_markdown as _fmt_md,
+                format_prices_for_display as _fmt_prices,
+            )
             _table = _rpt(_prices, _prices_ts) if _prices else None
-            if channel is not None:
-                _price_display = _fmt_prices(_prices)
-                if _price_display:
-                    await channel.send(f"\n## Market Snapshot\n\n{_price_display}\n")
+            if channel is not None and _table is not None and hasattr(channel, "send_renderable"):
+                # Colored Rich table (green/red %) — bypasses Markdown
+                await channel.send_renderable(_table)
+            elif channel is not None:
+                _md = _fmt_md(_prices, _prices_ts)
+                if _md:
+                    await channel.send(f"\n{_md}\n")
             elif _table is not None and console:
                 console.print()
                 console.print(_table)
