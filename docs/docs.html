@@ -904,6 +904,14 @@ majestic stop researcher`}</CodeBlock>
                 ["/help",   "Show all available slash commands"],
                 ["/skills", "List loaded skills with descriptions"],
                 ["/tools",  "List all registered tools"],
+                ["/research",         "Fetch curated news → store → summary with a live Market Snapshot"],
+                ["/pains",            "Extract pain points (intensity, willingness-to-pay, trending domains)"],
+                ["/ideas",            "Generate startup ideas from the accumulated pains corpus"],
+                ["/predict",          "Forecasts grounded in live market data"],
+                ["/briefing",         "Daily briefing from the news corpus + market snapshot"],
+                ["/news [days]",      "Show stored news from the last N days (no re-fetch)"],
+                ["/goodmorning [days]","Full pipeline: research → pains → briefing → ideas → predict"],
+                ["/ask <question>",   "Answer a question against the accumulated research + pains corpus"],
                 ["/agents", "Show running background agents"],
                 ["/memory", "Memory stats — episodic tasks, lessons, semantic index"],
                 ["/budget", "Current token and cost usage for this session"],
@@ -1019,18 +1027,35 @@ majestic stop researcher`}</CodeBlock>
             <thead><tr><th>System</th><th>File</th><th>Purpose</th></tr></thead>
             <tbody>
               {[
-                ["WorkingMemory",    "in-memory",         "Current session KV state (cleared on restart)"],
-                ["EpisodicMemory",   "episodic.db",       "Task history with FTS5 full-text search"],
-                ["SemanticMemory",   "semantic.db",       "sqlite-vec vectors + FTS5 fallback for RAG"],
-                ["ProceduralMemory", "skills/ directory", "Hot-loaded YAML skill definitions"],
-                ["LessonsStore",     "lessons.db",        "Extracted principles from reflection (FTS5)"],
-                ["UserProfile",      "user_profile.db",   "Interaction patterns and preferences"],
-                ["CheckpointStore",  "checkpoints.db",    "Step-by-step execution state for crash recovery"],
+                ["WorkingMemory",    "in-memory · runtime/working.db", "Current session KV state (cleared on restart)"],
+                ["EpisodicMemory",   "memory/episodic.db",      "Task history with FTS5 full-text search"],
+                ["SemanticMemory",   "memory/semantic.db",      "sqlite-vec vectors + FTS5 fallback for RAG"],
+                ["ProceduralMemory", "skills/ directory",       "Hot-loaded YAML skill definitions"],
+                ["LessonsStore",     "memory/lessons.db",       "Extracted principles from reflection (FTS5)"],
+                ["UserProfile",      "memory/user_profile.db",  "Interaction patterns and preferences"],
+                ["CheckpointStore",  "runtime/checkpoints.db",  "Step-by-step execution state for crash recovery"],
               ].map(([sys, file, purpose]) => (
                 <tr key={sys}><td><strong>{sys}</strong></td><td><code style={{fontSize:11}}>{file}</code></td><td>{purpose}</td></tr>
               ))}
             </tbody>
           </table>
+
+          <h2 className="section-title" id="memory-storage">Storage layout &amp; backends</h2>
+          <div className="prose">
+            <p>Each profile's <code>data/</code> directory is organized into three tiers by lifecycle and value:</p>
+            <ul>
+              <li><code>runtime/</code> — disposable execution state (working, checkpoints). Delete it and the agent simply starts a fresh session; nothing is lost.</li>
+              <li><code>memory/</code> — the agent's cognitive memory that accumulates across sessions (episodic, semantic, lessons, user_profile, script_tracker).</li>
+              <li><code>intel/</code> — collected data, the durable asset (research.db, pains.db). The unit you would back up or export.</li>
+            </ul>
+            <p>
+              Storage is pluggable. The backend is selected by <code>MAJESTIC_DB_BACKEND</code>
+              {' '}(default <code>sqlite</code>); every store is created through a backend adapter,
+              so adding PostgreSQL / Supabase later means implementing one adapter class with no
+              changes to memory or tools. Existing flat databases are migrated into their tier
+              automatically on first run.
+            </p>
+          </div>
 
           <h2 className="section-title" id="memory-gateway">How memory is injected</h2>
           <div className="prose">
@@ -1825,6 +1850,7 @@ def get_weather(city: str) -> str:
       ],
       "memory-skills": [
         { id: "memory-how",       label: "Memory systems" },
+        { id: "memory-storage",   label: "Storage & backends" },
         { id: "memory-gateway",   label: "Memory injection" },
         { id: "skills-how",       label: "How skills work" },
         { id: "skills-evolution", label: "Self-evolution" },
