@@ -559,7 +559,7 @@
               each with different tools, roles, and restrictions — all on the same machine.
             </p>
             <p>
-              Agents run in the foreground (interactive CLI or split-screen TUI) or as background HTTP daemons
+              Agents run in the foreground (interactive CLI) or as background HTTP daemons
               that accept tasks from other agents. The <strong>ReAct loop</strong> (up to 30 iterations) handles
               crash recovery, budget tracking, and post-task reflection that auto-generates YAML skills when
               patterns repeat — every agent gets smarter over time.
@@ -862,10 +862,8 @@ majestic stop researcher`}</CodeBlock>
             <thead><tr><th>Command</th><th>Description</th></tr></thead>
             <tbody>
               {[
-                ["majestic",              "Launch default profile in foreground (plain CLI)"],
-                ["majestic --tui",        "Launch default profile with split-screen TUI"],
+                ["majestic",              "Launch default profile in foreground (interactive CLI)"],
                 ["majestic <name>",       "Launch named profile in foreground (e.g. majestic pain_hunter)"],
-                ["majestic <name> --tui", "Launch named profile with split-screen TUI"],
                 ["majestic setup",        "Interactive first-run wizard — API keys, model, preferences"],
                 ["majestic model",        "Change global LLM provider or model interactively"],
                 ["majestic model <name>", "Override model for a specific profile (or clear override)"],
@@ -887,7 +885,6 @@ majestic stop researcher`}</CodeBlock>
             <thead><tr><th>Flag</th><th>Description</th></tr></thead>
             <tbody>
               {[
-                ["--tui",   "Launch the split-screen TUI (textual) instead of plain CLI"],
                 ["--debug", "Show full Python tracebacks on error"],
               ].map(([f, d]) => (
                 <tr key={f}><td><code>{f}</code></td><td>{d}</td></tr>
@@ -896,7 +893,7 @@ majestic stop researcher`}</CodeBlock>
           </table>
 
           <h2 className="section-title" id="cli-slash">Slash commands</h2>
-          <div className="prose"><p>Available inside the interactive session — both plain CLI and TUI. Start typing <code>/</code> to see tab-complete suggestions.</p></div>
+          <div className="prose"><p>Available inside the interactive CLI session. Start typing <code>/</code> to see tab-complete suggestions.</p></div>
           <table className="api-table">
             <thead><tr><th>Command</th><th>Description</th></tr></thead>
             <tbody>

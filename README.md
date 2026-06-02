@@ -13,13 +13,13 @@
 **Deploy a fleet of AI agents. Each with its own role, memory, and skills — running independently or collaborating as a team.** Spin up agents from the terminal, run them as background daemons, and let them delegate tasks to each other. Every agent learns from experience and gets smarter over time.
 
 <table>
-<tr><td><b>Foreground + background modes</b></td><td>Plain CLI, split-screen TUI (<code>--tui</code>), or background HTTP daemon. Same agent, same memory, different channel.</td></tr>
+<tr><td><b>Foreground + background modes</b></td><td>Interactive CLI or background HTTP daemon. Same agent, same memory, different channel.</td></tr>
 <tr><td><b>Profile system</b></td><td>Each agent is a fully isolated profile — its own persona, model, keys, memory, skills, and workspace. Unlimited agents, each on its own port.</td></tr>
 <tr><td><b>Multi-agent</b></td><td>Background agents register in a shared registry. Any agent can delegate tasks to any other via HTTP using the <code>agent_client</code> tool.</td></tr>
 <tr><td><b>8 built-in tools</b></td><td>web_search (Brave → DDG fallback), web_fetch, http, files, python_exec, node_exec, file_parser, agent_client. Add tools with one file in <code>tools/</code>.</td></tr>
 <tr><td><b>Self-improving</b></td><td>After complex tasks the agent writes YAML skill files from experience. Skills are hot-reloaded — no restart needed. Gets smarter over time, zero effort.</td></tr>
 <tr><td><b>6 memory types</b></td><td>Working, Episodic, Semantic (sqlite-vec), Procedural (skills), Lessons Learned, User Profile — all SQLite, all local.</td></tr>
-<tr><td><b>Cost control</b></td><td>Token and USD budgets per task. Warns at 80%, stops at 100%. Budget bar visible in the TUI.</td></tr>
+<tr><td><b>Cost control</b></td><td>Token and USD budgets per task. Warns at 80%, stops at 100%.</td></tr>
 <tr><td><b>~100–150 MB RAM per agent</b></td><td>Runs comfortably in Docker, a VPS, or a Raspberry Pi.</td></tr>
 </table>
 
@@ -55,8 +55,7 @@ pip install -e .
 
 ```bash
 majestic setup     # first-time wizard — provider, API key, model, agent name
-majestic           # start the default agent (plain CLI)
-majestic --tui     # start with split-screen TUI
+majestic           # start the default agent (interactive CLI)
 ```
 
 The setup wizard asks for your LLM provider, API key, model (fetched live for OpenRouter; curated list for others), Brave Search key (optional), and agent name. Creates `profiles/default/` and writes keys to root `.env`.
@@ -68,10 +67,8 @@ The setup wizard asks for your LLM provider, API key, model (fetched live for Op
 | Command | Description |
 |---------|-------------|
 | `majestic setup` | Interactive first-time setup wizard |
-| `majestic` | Run default profile — plain CLI |
-| `majestic --tui` | Run default profile — split-screen TUI |
-| `majestic <name>` | Run named profile — plain CLI |
-| `majestic <name> --tui` | Run named profile — split-screen TUI |
+| `majestic` | Run default profile — interactive CLI |
+| `majestic <name>` | Run named profile — interactive CLI |
 | `majestic new <name>` | Create a new profile |
 | `majestic list` | List all profiles |
 | `majestic config [name]` | Edit agent configuration interactively |
@@ -82,7 +79,7 @@ The setup wizard asks for your LLM provider, API key, model (fetched live for Op
 | `majestic ps` | List running background agents |
 | `majestic stop <name>` | Stop a background agent |
 
-**Slash commands** (available in both plain CLI and TUI):
+**Slash commands** (available in the interactive CLI):
 
 | Command | Description |
 |---------|-------------|

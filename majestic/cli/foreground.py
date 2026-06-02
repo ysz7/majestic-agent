@@ -3,28 +3,13 @@ import sys
 import time
 
 
-def run(profile_name: str = "default", tui: bool = False):
-    """Run agent in foreground mode — plain CLI by default, TUI with --tui."""
-    if tui:
-        try:
-            from majestic.cli.tui.app import MajesticApp
-        except ImportError:
-            import majestic.display as display
-            display.warn("textual not installed — falling back to plain mode.")
-            display.info("Install with: pip install textual")
-            asyncio.run(_run_plain(profile_name))
-            return
-        app = MajesticApp(profile_name)
-        app.run()
-    else:
-        asyncio.run(_run_plain(profile_name))
+def run(profile_name: str = "default"):
+    """Run agent in foreground mode (interactive CLI)."""
+    asyncio.run(_run_plain(profile_name))
 
 
 async def _run_plain(profile_name: str):
     from majestic.config.settings import Settings
-    from majestic.memory.working import WorkingMemory
-    from majestic.memory.semantic import SemanticMemory
-    from majestic.memory.episodic import EpisodicMemory
     from majestic.core.gateway import Gateway
     from majestic.channels.cli import CLIChannel
     from majestic.core.runtime import AgentRuntime
@@ -296,10 +281,26 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
     cmd = text.strip().lower().split()[0]
 
     if cmd == "/help":
-        from majestic.cli.tui.commands import SLASH_COMMANDS
+        _commands = {
+            "/research":    "Fetch curated news → summary + live market snapshot",
+            "/pains":       "Extract pain points (intensity, WTP, trending domains)",
+            "/ideas":       "Generate startup ideas from the accumulated pains corpus",
+            "/predict":     "Forecasts grounded in live market data",
+            "/briefing":    "Daily briefing from the news corpus + market snapshot",
+            "/news":        "Show stored news from the last N days (no re-fetch)",
+            "/goodmorning": "Full pipeline: research → pains → briefing → ideas → predict",
+            "/ask":         "Answer a question against the research + pains corpus",
+            "/skills":      "List loaded skills with descriptions",
+            "/tools":       "List all registered tools",
+            "/agents":      "Show running background agents",
+            "/memory":      "Memory stats — episodic tasks, lessons, semantic index",
+            "/budget":      "Current token and cost usage for this session",
+            "/new":         "Clear session and reset working memory",
+            "/help":        "Show this help",
+        }
         out("[bold]Available commands:[/bold]")
-        for c, desc in SLASH_COMMANDS.items():
-            out(f"  [cyan]{c:<10}[/cyan]  [dim]{desc}[/dim]")
+        for c, desc in _commands.items():
+            out(f"  [cyan]{c:<13}[/cyan]  [dim]{desc}[/dim]")
         return True
 
     if cmd == "/skills":
@@ -343,7 +344,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
         try:
             from majestic.tools.research import fetch_all
-            from majestic.tools.research.db import ResearchDB
             articles, ok_sources, failed = await fetch_all(on_source=_on_source)
         except Exception as e:
             out(f"[red]Fetch error: {e}[/red]")
@@ -487,7 +487,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
     if cmd == "/pains":
         from majestic import display as _display
-        from majestic.tools.pains.db import PainsDB
         words = text.strip().split()
         _pains_days: int | None = None
         if len(words) > 1:
@@ -676,7 +675,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             return True
 
         try:
-            from majestic.tools.research.db import ResearchDB
             db = backend.research()
             articles = db.get_articles(days=days)
             stats = db.stats()
@@ -882,7 +880,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
 
         # LAYER 2: Pain signals (required)
         try:
-            from majestic.tools.pains.db import PainsDB as _PainsDB2
             _idb = backend.pains()
             _ideas_pains = _idb.get_pains(days=days)
             _idb.close()
@@ -897,7 +894,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         # LAYER 3: Market signals — news with full summaries (optional)
         _ideas_articles: list[dict] = []
         try:
-            from majestic.tools.research.db import ResearchDB as _RDB2
             _rdb2 = backend.research()
             _ideas_articles = _rdb2.get_articles(days=days)
             _rdb2.close()
@@ -920,7 +916,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         # Recall past ideas from lessons.db (7.3) — 0 LLM calls, FTS5 search by pain domains
         _past_ideas: list[dict] = []
         try:
-            from majestic.memory.lessons import LessonsStore as _LS_ideas_r
             _ls_ideas_r = backend.lessons()
             from collections import Counter as _Counter_i
             _dom_counts = _Counter_i(p.get("domain", "") for p in _ideas_pains if p.get("domain") and p.get("domain") != "other")
@@ -1146,7 +1141,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                 ))[:3]
                 if _idea_save_ms:
                     try:
-                        from majestic.memory.lessons import LessonsStore as _LS_isave
                         _ls_isave = backend.lessons()
                         for _ism in _idea_save_ms:
                             _istart = _ism.start()
@@ -1197,7 +1191,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         # Load research articles
         _pred_articles: list[dict] = []
         try:
-            from majestic.tools.research.db import ResearchDB as _RDB3
             _rdb3 = backend.research()
             _pred_articles = _rdb3.get_articles(days=days)
             _rdb3.close()
@@ -1207,7 +1200,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         # Load pain points
         _pred_pains: list[dict] = []
         try:
-            from majestic.tools.pains.db import PainsDB as _PDB3
             _pdb3 = backend.pains()
             _pred_pains = _pdb3.get_pains(days=days)
             _pdb3.close()
@@ -1225,7 +1217,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         _pred_prices: list[dict] = []
         _pred_prices_ts = ""
         try:
-            from majestic.tools.research.db import ResearchDB as _RDB3p
             _rdb3p = backend.research()
             _pred_prices, _pred_prices_ts = _rdb3p.get_latest_prices()
             _rdb3p.close()
@@ -1246,7 +1237,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         import re as _re_sp
         _historical_patterns: list[dict] = []
         try:
-            from majestic.memory.lessons import LessonsStore as _LS_pred
             _ls_pred = backend.lessons()
             _kw_set: set[str] = set()
             for _a in (_pred_articles or [])[:15]:
@@ -1477,7 +1467,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
                     if _sec2 else _pred_result[:600]
                 )
                 if _sig_names:
-                    from majestic.memory.lessons import LessonsStore as _LS_save
                     _ls_save = backend.lessons()
                     _ls_save.save_signal_pattern(_sig_names, _pred_sum_p, _avg_conf_p)
                     _ls_save._conn.close()
@@ -1556,7 +1545,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         # ── Layer 4: Keyword-matched articles ────────────────────────────────
         _ask_articles: list[dict] = []
         try:
-            from majestic.tools.research.db import ResearchDB as _RDB_ask
             _rdb_ask = backend.research()
             _all_art = _rdb_ask.get_articles(days=60)
             _rdb_ask.close()
@@ -1573,7 +1561,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
         # ── Layer 5: Keyword-matched pain signals ─────────────────────────────
         _ask_pains: list[dict] = []
         try:
-            from majestic.tools.pains.db import PainsDB as _PDB_ask
             _pdb_ask = backend.pains()
             _all_pains = _pdb_ask.get_pains(days=60)
             _pdb_ask.close()
@@ -1771,7 +1758,6 @@ async def _handle_slash_plain(text: str, profile_name: str, working_memory, runt
             return True
 
         try:
-            from majestic.tools.research.db import ResearchDB
             db = backend.research()
             articles = db.get_articles(days=days)
             db.close()

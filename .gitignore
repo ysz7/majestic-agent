@@ -92,6 +92,9 @@ dmypy.json
 *.log
 logs/
 
+# Web UI template — reference mockup (extracted into shared/ui-kit), not tracked
+web/template/
+
 # Per-profile databases — all tiers ignored (binary SQLite shouldn't go in git).
 #   data/runtime/  disposable execution state
 #   data/memory/   agent's cognitive memory
