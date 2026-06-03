@@ -61,7 +61,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_rm.add_argument("name", help="Profile name to remove.")
 
     p_run = sub.add_parser("run", help="Start an agent profile as a background daemon.")
-    p_run.add_argument("name", help="Profile name to run.")
+    p_run.add_argument(
+        "name",
+        nargs="?",
+        default="default",
+        help="Profile name to run (default: default).",
+    )
 
     sub.add_parser("ps", help="List currently running agent daemons.")
 

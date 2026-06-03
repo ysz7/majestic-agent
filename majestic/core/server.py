@@ -18,6 +18,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 # ---------------------------------------------------------------------------
@@ -94,6 +95,22 @@ def create_app(channel, settings) -> FastAPI:
         Configured FastAPI application (not yet running).
     """
     app = FastAPI(title="Majestic Agent Server")
+
+    # Allow Tauri WebView and Vite dev server to call the API
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["tauri://localhost", "https://tauri.localhost", "http://localhost:5173"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Desktop API — profiles, agents, memory, skills, workspace, budget + WebSocket
+    from majestic.core.api import create_desktop_router
+    from majestic.core.api.ws import router as ws_router
+
+    app.include_router(create_desktop_router())
+    app.include_router(ws_router)
 
     async def _check_token(x_agent_token: str | None = Header(default=None)) -> None:
         if x_agent_token != _AGENT_TOKEN:
