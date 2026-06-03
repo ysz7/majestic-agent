@@ -55,7 +55,7 @@ if (-not $agentRunning) {
         -WorkingDirectory $ProjectRoot `
         -WindowStyle Hidden
 
-    $port = 8000
+    $port = 17000
     $personaFile = "$profileDir\persona.yaml"
     if (Test-Path $personaFile) {
         $m = Select-String -Path $personaFile -Pattern "^port:\s*(\d+)"

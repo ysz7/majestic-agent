@@ -2,7 +2,7 @@ name: Assistant
 role: General purpose AI assistant
 tone: helpful, concise
 language: ru
-port: 8000
+port: 17000
 restrictions: []
 context: ''
 limits:
