@@ -34,6 +34,11 @@ class ServerChannel(BaseChannel):
         self._queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=100)
         self._last_response: str = ""
         self._stream_buffer: str = ""
+        # task_id -> Future resolved when the agent loop stores that task's result.
+        # Lets the HTTP layer (e.g. WorkflowRunner) await a specific task.
+        self._results: dict[str, asyncio.Future[str]] = {}
+        # Results that arrived before anyone awaited them (avoids a lost-wakeup race).
+        self._completed: dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # Queue management (called by the HTTP layer)
@@ -121,6 +126,42 @@ class ServerChannel(BaseChannel):
     # ------------------------------------------------------------------
     # Convenience helpers for the HTTP layer
     # ------------------------------------------------------------------
+
+    def store_result(self, task_id: str, result: str) -> None:
+        """Record a finished task's result and wake any awaiter.
+
+        Called by the agent loop after ``runtime.run()`` returns. Resolves the
+        Future created by :meth:`await_result` so the HTTP layer can retrieve
+        the output of a specific task by id.
+        """
+        if not task_id:
+            return
+        fut = self._results.get(task_id)
+        if fut is not None and not fut.done():
+            fut.set_result(result)
+        else:
+            # No awaiter yet — stash so a later await_result returns immediately.
+            self._completed[task_id] = result
+
+    async def await_result(self, task_id: str, timeout: float = 300.0) -> str:
+        """Block until the task with *task_id* completes, returning its result.
+
+        Raises
+        ------
+        asyncio.TimeoutError
+            If the task does not finish within *timeout* seconds.
+        """
+        if task_id in self._completed:
+            return self._completed.pop(task_id)
+        loop = asyncio.get_running_loop()
+        fut = self._results.get(task_id)
+        if fut is None:
+            fut = loop.create_future()
+            self._results[task_id] = fut
+        try:
+            return await asyncio.wait_for(fut, timeout=timeout)
+        finally:
+            self._results.pop(task_id, None)
 
     def get_response(self) -> str:
         """Return the last complete response stored by ``send()``."""

@@ -29,10 +29,19 @@ async def run_agent_loop(settings, channel) -> None:
     from majestic.core.runtime import AgentRuntime
     from majestic.memory.working import WorkingMemory
     from majestic.llm.router import LLMRouter
+    from majestic.core.api.ws import emit_event
 
     llm = LLMRouter(settings)
     memory = WorkingMemory()
-    runtime = AgentRuntime(settings, memory, llm_router=llm)
+
+    # Bridge streaming tokens from the runtime to all connected WebSocket clients
+    # so the desktop chat panel can render incremental output live.
+    def _stream_callback(token: str) -> None:
+        emit_event({"type": "token", "content": token})
+
+    runtime = AgentRuntime(
+        settings, memory, llm_router=llm, stream_callback=_stream_callback
+    )
 
     while True:
         task = await channel.receive()
@@ -41,8 +50,18 @@ async def run_agent_loop(settings, channel) -> None:
 
         try:
             result = await runtime.run(text, task_id=task_id)
+            emit_event(
+                {
+                    "type": "done",
+                    "task_id": task_id,
+                    "result": result,
+                    "tokens": getattr(runtime, "_tokens_used", 0),
+                    "cost": getattr(runtime, "_cost_used", 0.0),
+                }
+            )
         except Exception as exc:  # noqa: BLE001
             result = f"Error: {exc}"
+            emit_event({"type": "error", "message": str(exc), "task_id": task_id})
 
         await channel.send(result)
         if hasattr(channel, "store_result"):
@@ -63,6 +82,12 @@ async def main(profile_name: str) -> None:
     channel = ServerChannel(session_id=profile_name)
     app = create_app(channel, settings)
 
+    # Schedule cron-triggered workflows for this profile.
+    from majestic.core.scheduler import WorkflowScheduler
+
+    scheduler = WorkflowScheduler(channel)
+    app.state.scheduler = scheduler
+
     loop = asyncio.get_running_loop()
     shutdown = asyncio.Event()
 
@@ -82,9 +107,16 @@ async def main(profile_name: str) -> None:
     server_task = asyncio.create_task(start_server(app, settings.agent_port))
     agent_task = asyncio.create_task(run_agent_loop(settings, channel))
 
+    # Start cron scheduling now that the event loop is running.
+    try:
+        scheduler.start([profile_name])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Workflow scheduler failed to start: %s", exc)
+
     await shutdown.wait()
 
     logger.warning("Shutdown signal received — draining (up to 30 s)...")
+    scheduler.shutdown()
     server_task.cancel()
     agent_task.cancel()
     try:

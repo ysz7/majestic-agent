@@ -96,6 +96,11 @@ def create_app(channel, settings) -> FastAPI:
     """
     app = FastAPI(title="Majestic Agent Server")
 
+    # Expose the channel + settings so routers (e.g. workflows) can enqueue
+    # tasks and await their results.
+    app.state.channel = channel
+    app.state.settings = settings
+
     # Allow Tauri WebView and Vite dev server to call the API
     app.add_middleware(
         CORSMiddleware,

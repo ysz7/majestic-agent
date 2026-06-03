@@ -29,10 +29,27 @@ export default defineConfig(async () => ({
         target: `http://localhost:${AGENT_PORT}`,
         changeOrigin: true,
       },
+      // Direct agent endpoints (not under /api)
+      "/task": {
+        target: `http://localhost:${AGENT_PORT}`,
+        changeOrigin: true,
+      },
+      "/status": {
+        target: `http://localhost:${AGENT_PORT}`,
+        changeOrigin: true,
+      },
+      "/message": {
+        target: `http://localhost:${AGENT_PORT}`,
+        changeOrigin: true,
+      },
       "/ws": {
         target: `ws://localhost:${AGENT_PORT}`,
         ws: true,
         changeOrigin: true,
+        configure: (proxy) => {
+          // Suppress ECONNABORTED noise from reconnect cycles
+          proxy.on("error", () => {});
+        },
       },
     },
   },

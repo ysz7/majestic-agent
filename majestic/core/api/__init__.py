@@ -18,6 +18,7 @@ from .memory import router as memory_router
 from .profiles import router as profiles_router
 from .skills import router as skills_router
 from .workspace import router as workspace_router
+from .workflows import router as workflows_router
 from .ws import router as ws_router
 
 
@@ -32,6 +33,7 @@ def create_desktop_router() -> APIRouter:
     api.include_router(budget_router)
     api.include_router(cron_router)
     api.include_router(audit_router)
+    api.include_router(workflows_router)
     return api
 
 

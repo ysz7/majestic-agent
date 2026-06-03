@@ -9,6 +9,9 @@ import type {
   LessonEntry,
   Profile,
   Skill,
+  Workflow,
+  WorkflowEdgeDef,
+  WorkflowNodeDef,
   WorkspaceFile,
 } from "./types";
 
@@ -129,10 +132,22 @@ export const auditApi = {
 
 // ── Tasks (direct agent endpoints — not under /api) ───────────────────────────
 export const tasksApi = {
-  submit: (message: string) =>
-    post<{ task_id: string }>("/task", { message }),
-  status: (id: string) =>
-    get<{ status: string; result?: string; error?: string }>(`/status/${id}`),
+  submit: (text: string) =>
+    post<{ status: string; task_id: string }>("/task", { text }),
+};
+
+// ── Workflows ─────────────────────────────────────────────────────────────────
+export const workflowsApi = {
+  list:   (profile: string) =>
+    get<{ workflows: Workflow[] }>(`/api/workflows/${profile}`),
+  create: (profile: string, body: { name: string; nodes: WorkflowNodeDef[]; edges: WorkflowEdgeDef[] }) =>
+    post<{ status: string; workflow: Workflow }>(`/api/workflows/${profile}`, body),
+  update: (profile: string, id: string, body: { name: string; nodes: WorkflowNodeDef[]; edges: WorkflowEdgeDef[] }) =>
+    put<{ status: string; workflow: Workflow }>(`/api/workflows/${profile}/${id}`, body),
+  remove: (profile: string, id: string) =>
+    del<{ status: string }>(`/api/workflows/${profile}/${id}`),
+  run:    (profile: string, id: string) =>
+    post<{ status: string }>(`/api/workflows/${profile}/${id}/run`),
 };
 
 // ── Cron ──────────────────────────────────────────────────────────────────────

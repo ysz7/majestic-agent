@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { skillsApi, tasksApi } from "@shared/api/client";
+import { wsClient } from "@shared/ws/client";
 import { Button } from "@shared/ui-kit";
 import { FlaskConical, Pencil, Trash2, Plus, X, Check, Loader2 } from "lucide-react";
 import type { Skill } from "@shared/api/types";
@@ -62,11 +63,29 @@ function TestPanel({ skill, onClose }: TestPanelProps) {
   const [trigger, setTrigger] = useState(firstTrigger);
   const [state,   setState]   = useState<TestState>("idle");
   const [result,  setResult]  = useState("");
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const taskRef    = useRef<string | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stop = () => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+    taskRef.current = null;
   };
+
+  // Listen for the agent's done/error events over the WebSocket
+  useEffect(() => {
+    const off = wsClient.on((event) => {
+      if (event.type === "done" && event.task_id === taskRef.current) {
+        stop();
+        setState("done");
+        setResult(event.result?.trim() || "(empty response)");
+      } else if (event.type === "error" && event.task_id === taskRef.current) {
+        stop();
+        setState("error");
+        setResult(event.message || "Unknown error");
+      }
+    });
+    return () => { off(); stop(); };
+  }, []);
 
   const run = async () => {
     if (!trigger.trim() || state === "running") return;
@@ -74,40 +93,22 @@ function TestPanel({ skill, onClose }: TestPanelProps) {
     setResult("");
     stop();
 
-    let taskId: string;
     try {
       const res = await tasksApi.submit(trigger.trim());
-      taskId = res.task_id;
+      taskRef.current = res.task_id;
     } catch (e) {
       setState("error");
       setResult(`Could not submit task: ${(e as Error).message}`);
       return;
     }
 
-    let waited = 0;
-    pollRef.current = setInterval(async () => {
-      waited += 2;
-      if (waited > 60) {
+    timeoutRef.current = setTimeout(() => {
+      if (taskRef.current) {
         stop();
         setState("error");
-        setResult("Timeout — agent did not respond in 60 s");
-        return;
+        setResult("Timeout — agent did not respond in 120 s");
       }
-      try {
-        const s = await tasksApi.status(taskId);
-        if (s.status === "done" || s.result) {
-          stop();
-          setState("done");
-          setResult(s.result ?? "");
-        } else if (s.status === "error") {
-          stop();
-          setState("error");
-          setResult(s.error ?? "Unknown error");
-        }
-      } catch {
-        // transient error — keep polling
-      }
-    }, 2000);
+    }, 120_000);
   };
 
   // cleanup on unmount

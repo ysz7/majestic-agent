@@ -92,6 +92,48 @@ export interface CronJob {
   last_run:   string | null;
 }
 
+export interface WorkflowNodeData {
+  subtype?: string;
+  label?: string;
+  schedule?: string;
+  query?: string;
+  prompt?: string;
+  url?: string;
+  [key: string]: unknown;
+}
+
+export interface WorkflowNodeDef {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: WorkflowNodeData;
+}
+
+export interface WorkflowEdgeDef {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  nodes: WorkflowNodeDef[];
+  edges: WorkflowEdgeDef[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  streaming?: boolean;
+  task_id?: string;
+}
+
 // WebSocket event union
 export type WsEvent =
   | { type: "connected"; agent: string }
@@ -99,5 +141,9 @@ export type WsEvent =
   | { type: "token"; content: string }
   | { type: "step"; step: "REASON" | "TOOL_CALL" | "OBSERVE"; content: string }
   | { type: "hitl"; task_id: string; tool: string; args: Record<string, unknown> }
-  | { type: "done"; task_id: string; tokens: number; cost: number }
-  | { type: "error"; message: string };
+  | { type: "done"; task_id: string; result?: string; tokens: number; cost: number }
+  | { type: "notify"; title: string; body: string }
+  | { type: "workflow_step"; workflow_id: string; node: string; label: string; status: "running" | "done"; output?: string }
+  | { type: "workflow_done"; workflow_id: string; result: string }
+  | { type: "workflow_error"; workflow_id: string; message: string }
+  | { type: "error"; message: string; task_id?: string };

@@ -1,7 +1,6 @@
 import { Moon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi } from "@shared/api/client";
-import { Badge } from "@shared/ui-kit";
 
 export function Topbar() {
   const { data } = useQuery({
