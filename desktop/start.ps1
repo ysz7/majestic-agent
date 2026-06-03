@@ -20,6 +20,10 @@ if (Test-Path $vcvars) {
 # Add Rust to PATH
 $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
 
+# Ensure data dir exists
+$dataDir = "$ProjectRoot\data"
+if (-not (Test-Path $dataDir)) { New-Item -ItemType Directory -Force $dataDir | Out-Null }
+
 # Ensure default profile exists
 $profileDir = "$ProjectRoot\profiles\default"
 if (-not (Test-Path $profileDir)) {
@@ -29,55 +33,63 @@ if (-not (Test-Path $profileDir)) {
     Pop-Location
 }
 
-# Start agent if not already running
-$agentRunning = $false
-$registry = "$ProjectRoot\data\registry.json"
-if (Test-Path $registry) {
-    try {
-        $reg = Get-Content $registry -Raw | ConvertFrom-Json
-        $entry = $reg.default
-        if ($entry -and $entry.pid) {
-            try {
-                Get-Process -Id $entry.pid -ErrorAction Stop | Out-Null
-                $agentRunning = $true
-                Write-Host "Agent already running (PID $($entry.pid))." -ForegroundColor Green
-            } catch {}
-        }
-    } catch {}
+# Read port from persona.yaml
+$port = 17000
+$personaFile = "$profileDir\persona.yaml"
+if (Test-Path $personaFile) {
+    $m = Select-String -Path $personaFile -Pattern "^port:\s*(\d+)"
+    if ($m) { $port = [int]$m.Matches[0].Groups[1].Value }
 }
+
+# Check if agent is already responding on port
+$agentRunning = $false
+try {
+    $r = Invoke-WebRequest -Uri "http://localhost:$port/status" `
+        -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+    if ($r.StatusCode -lt 500) {
+        $agentRunning = $true
+        Write-Host "Agent already running on port $port." -ForegroundColor Green
+    }
+} catch {}
 
 if (-not $agentRunning) {
     Write-Host "Starting default agent..." -ForegroundColor Yellow
-    $venvPython = "$ProjectRoot\.venv\Scripts\python.exe"
-    $pythonExe = if (Test-Path $venvPython) { $venvPython } else { "python" }
-    Start-Process $pythonExe `
-        -ArgumentList "-m majestic.__background__ default" `
+    # Use 'majestic run' so the agent is properly registered in registry.json
+    Start-Process "majestic" `
+        -ArgumentList @("run", "default") `
         -WorkingDirectory $ProjectRoot `
         -WindowStyle Hidden
 
-    $port = 17000
-    $personaFile = "$profileDir\persona.yaml"
-    if (Test-Path $personaFile) {
-        $m = Select-String -Path $personaFile -Pattern "^port:\s*(\d+)"
-        if ($m) { $port = [int]$m.Matches[0].Groups[1].Value }
-    }
-    Write-Host "Waiting for agent on port $port..." -ForegroundColor Yellow
+    Write-Host "Waiting for agent on port $port (up to 3 min on first run)..." -ForegroundColor Yellow
     $ready = $false
-    for ($i = 1; $i -le 20; $i++) {
+    for ($i = 1; $i -le 90; $i++) {
         try {
             $r = Invoke-WebRequest -Uri "http://localhost:$port/status" `
-                -UseBasicParsing -TimeoutSec 1 -ErrorAction Stop
+                -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
             if ($r.StatusCode -lt 500) { $ready = $true; break }
         } catch {}
-        Write-Host "  [$i/20] not ready yet..." -ForegroundColor DarkGray
+        if ($i % 5 -eq 0) {
+            $elapsed = $i * 2
+            Write-Host "  [${elapsed}s] still starting..." -ForegroundColor DarkGray
+        }
         Start-Sleep -Seconds 2
     }
     if ($ready) {
         Write-Host "Agent ready on port $port." -ForegroundColor Green
     } else {
-        Write-Host "Agent may still be starting, launching app anyway." -ForegroundColor Yellow
+        Write-Host "Agent did not start. Check logs:" -ForegroundColor Red
+        Write-Host "  $agentErr" -ForegroundColor DarkGray
+        if (Test-Path $agentErr) {
+            $errContent = Get-Content $agentErr -Tail 8 -ErrorAction SilentlyContinue
+            if ($errContent) {
+                Write-Host "--- last lines of agent.err ---" -ForegroundColor DarkGray
+                $errContent | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGray }
+            }
+        }
+        Write-Host "Launching app anyway (will retry connection from UI)." -ForegroundColor Yellow
     }
 }
 
 Write-Host "Launching desktop app..." -ForegroundColor Cyan
-npm run tauri:dev
+$env:VITE_AGENT_PORT = "$port"
+& "$PSScriptRoot\node_modules\.bin\tauri.cmd" dev

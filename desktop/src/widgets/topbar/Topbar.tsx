@@ -33,14 +33,6 @@ export function Topbar() {
         </span>
       </div>
 
-      {/* Share / export CTA */}
-      <button
-        className="h-[30px] px-4 rounded-control border-0
-                   bg-cta-bg text-cta-text text-md font-semibold
-                   hover:opacity-90"
-      >
-        Share
-      </button>
     </div>
   );
 }

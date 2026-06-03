@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 
 // Agent port from env (matches persona.yaml port field)
-const AGENT_PORT = process.env.VITE_AGENT_PORT ?? "8000";
+const AGENT_PORT = process.env.VITE_AGENT_PORT ?? "17000";
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({

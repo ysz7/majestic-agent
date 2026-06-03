@@ -27,12 +27,7 @@ export function AppShell() {
     <div className="fixed inset-0 flex items-center justify-center bg-bg-root">
       <div
         className="relative overflow-hidden bg-bg-canvas"
-        style={{
-          width: "100vw",
-          height: "100vh",
-          border: "1px solid rgba(255,255,255,0.16)",
-          borderRadius: "22px",
-        }}
+        style={{ width: "100vw", height: "100vh" }}
       >
         <Sidebar />
         <Topbar />
@@ -45,7 +40,7 @@ export function AppShell() {
         {/* Main content area */}
         <div
           className="absolute inset-0 overflow-hidden"
-          style={{ left: 154, right: 182, top: 12, bottom: 64 }}
+          style={{ left: 154, right: 182, top: 12, bottom: 0 }}
         >
           <Outlet />
         </div>

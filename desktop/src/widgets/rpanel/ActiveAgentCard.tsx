@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi } from "@shared/api/client";
 import { Card, CardLabel } from "@shared/ui-kit";
-import { Button } from "@shared/ui-kit";
 
 export function ActiveAgentCard() {
   const { data, isLoading } = useQuery({
@@ -37,10 +36,6 @@ export function ActiveAgentCard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-[7px] mt-[10px]">
-        <Button size="sm" variant="default">Invite</Button>
-        <Button size="sm" variant="cta">New</Button>
-      </div>
     </Card>
   );
 }
