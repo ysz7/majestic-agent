@@ -126,6 +126,43 @@ export interface Workflow {
   updated_at: string;
 }
 
+export interface ProductItem {
+  name:               string;
+  type:               string;
+  one_liner:          string;
+  audience:           string;
+  demand:             string;
+  why_now:            string;
+  sellability_score:  number;
+  score_breakdown?:   Record<string, number>;
+  monetization_audit?: {
+    pricing_model?:        string;
+    price_points?:         string;
+    revenue_range?:        string;
+    margin?:               string;
+    time_to_first_dollar?: string;
+    build_effort?:         string;
+  };
+  build_stack?:       string[];
+  distribution?:      string[];
+  competition_gap?:   string;
+  unfair_advantage?:  string;
+  validation_test?:   string;
+  first_3_steps?:     string[];
+}
+
+export interface ProductReportSummary {
+  date:  string;
+  count: number;
+  top:   string[];
+}
+
+export interface ProductReport {
+  date:     string;
+  items:    ProductItem[];
+  markdown: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";

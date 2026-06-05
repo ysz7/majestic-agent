@@ -1,4 +1,4 @@
-import { Bot, Clock, MousePointer, Search, Bell, Globe, Code, FileText, X } from "lucide-react";
+import { Bot, Clock, MousePointer, Search, Bell, Globe, Code, FileText, Sparkles, X } from "lucide-react";
 import { useCanvasStore } from "@store/canvasStore";
 
 interface PaletteNode {
@@ -29,6 +29,7 @@ const PALETTE: PaletteGroup[] = [
       { type: "actionNode", subtype: "prompt",   label: "Prompt",   icon: Bot,      color: "#60a5fa" },
       { type: "actionNode", subtype: "http",     label: "HTTP",     icon: Globe,    color: "#60a5fa" },
       { type: "actionNode", subtype: "python",   label: "Python",   icon: Code,     color: "#60a5fa" },
+      { type: "actionNode", subtype: "product_forge", label: "Products", icon: Sparkles, color: "#60a5fa" },
     ],
   },
   {

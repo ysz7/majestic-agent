@@ -176,11 +176,22 @@ async def run_workflow_async(workflow: dict, profile: str, channel) -> None:
             })
 
             if ntype == "actionNode":
-                task_text = _build_action_task(node, prev_output, agent_name)
-                if not task_text.strip():
-                    output = "Error: action node has no configured input"
+                subtype = node.get("data", {}).get("subtype", "")
+                if subtype == "product_forge":
+                    # Runs the Solo Product Forge service directly (not via the agent).
+                    try:
+                        from majestic.core.intelligence.products import run_for_profile
+
+                        res = await run_for_profile(profile, days=30)
+                        output = res["markdown"]
+                    except Exception as exc:  # noqa: BLE001
+                        output = f"Error: {exc}"
                 else:
-                    output = await _run_action(channel, task_text)
+                    task_text = _build_action_task(node, prev_output, agent_name)
+                    if not task_text.strip():
+                        output = "Error: action node has no configured input"
+                    else:
+                        output = await _run_action(channel, task_text)
                 prev_output = output
                 emit_event({
                     "type": "workflow_step", "workflow_id": wf_id,

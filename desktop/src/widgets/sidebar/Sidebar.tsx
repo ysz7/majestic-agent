@@ -7,6 +7,7 @@ import {
   BookOpen,
   Users,
   Folder,
+  Sparkles,
 } from "lucide-react";
 
 interface NavItem {
@@ -20,6 +21,7 @@ const WORKSPACE: NavItem[] = [
 ];
 
 const INTELLIGENCE: NavItem[] = [
+  { to: "/products", icon: Sparkles,      label: "Products"  },
   { to: "/research", icon: BookOpen,      label: "Research"  },
   { to: "/pains",    icon: BrainCircuit,  label: "Pains"     },
   { to: "/ideas",    icon: Folder,        label: "Ideas"     },

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Providers }     from "./providers";
 import { AppShell }      from "@widgets/shell/AppShell";
 import { NodesPage }     from "@pages/nodes";
+import { ProductsPage }  from "@pages/products";
 import { SettingsPage }  from "@pages/settings";
 import { useAutoConnect } from "./useAutoConnect";
 
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/nodes" replace />} />
           <Route path="/nodes"    element={<NodesPage />} />
+          <Route path="/products" element={<ProductsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Routes>

@@ -7,6 +7,8 @@ import type {
   EnvEntry,
   EpisodicEntry,
   LessonEntry,
+  ProductReport,
+  ProductReportSummary,
   Profile,
   Skill,
   Workflow,
@@ -148,6 +150,16 @@ export const workflowsApi = {
     del<{ status: string }>(`/api/workflows/${profile}/${id}`),
   run:    (profile: string, id: string) =>
     post<{ status: string }>(`/api/workflows/${profile}/${id}/run`),
+};
+
+// ── Products (Solo Product Forge) ───────────────────────────────────────────
+export const productsApi = {
+  list: (profile: string) =>
+    get<{ reports: ProductReportSummary[] }>(`/api/products/${profile}`),
+  get:  (profile: string, date: string) =>
+    get<ProductReport>(`/api/products/${profile}/${date}`),
+  run:  (profile: string, days = 30) =>
+    post<ProductReport>(`/api/products/${profile}/run`, { days }),
 };
 
 // ── Cron ──────────────────────────────────────────────────────────────────────

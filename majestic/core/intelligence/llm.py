@@ -44,13 +44,17 @@ async def llm_with_retry(
     step_type: str = "reason",
     shrink_factor: float = 0.6,
     max_retries: int = 2,
+    **chat_kwargs,
 ) -> dict:
-    """LLM call with automatic message shrinking on context-length errors."""
+    """LLM call with automatic message shrinking on context-length errors.
+
+    Extra keyword args (e.g. ``max_tokens``) are forwarded to ``llm.chat``.
+    """
     current = messages
     last_exc: Exception | None = None
     for attempt in range(max_retries + 1):
         try:
-            return await llm.chat(current, step_type=step_type)
+            return await llm.chat(current, step_type=step_type, **chat_kwargs)
         except Exception as exc:
             last_exc = exc
             if not _is_context_error(exc) or attempt >= max_retries:

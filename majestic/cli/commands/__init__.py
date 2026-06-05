@@ -25,6 +25,7 @@ from majestic.cli.commands import (  # noqa: F401,E402
     news as _news,
     pains as _pains,
     predict as _predict,
+    products as _products,
     research as _research,
     skills as _skills,
     tools as _tools,

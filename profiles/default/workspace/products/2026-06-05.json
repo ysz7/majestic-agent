@@ -1,0 +1,397 @@
+[
+  {
+    "name": "B2B‑onboarding Playbook + Notion шаблон",
+    "type": "template",
+    "one_liner": "Готовый пошаговый набор шаблонов и чек‑листов для автоматизированного онбординга команд 10+ человек за 2 дня.",
+    "audience": "Основатели SaaS и агентств, у которых B2B‑клиенты требуют быстрый старт проекта.",
+    "demand": "HN Ask – «нет автоматизированного процесса онбординга для B2B команд >10 человек, требуется 2‑3 недели ручной настройки» (HIGH, WTP).",
+    "why_now": "Рост AI‑агентов (ProductHunt «Walrus Memory», «Cignara») повышает спрос на быстрый ввод в работу новых клиентов, а инвесторы сейчас ставят на автоматизацию процессов (Ramp $750M).",
+    "score_breakdown": {
+      "demand": 90,
+      "trend": 85,
+      "competition_gap": 70,
+      "solo_feasibility": 95,
+      "margin_speed": 90
+    },
+    "monetization_audit": {
+      "pricing_model": "один‑разовый + tiered upgrade",
+      "price_points": "$49 базовый, $149 продвинутый с интеграцией в Notion API",
+      "revenue_range": "$5k‑$20k/мес при 150‑200 продажах",
+      "margin": "90% (цифровой продукт)",
+      "time_to_first_dollar": "1‑2 дня (прямая распродажа в соцсетях)",
+      "build_effort": "40 чел‑часов"
+    },
+    "build_stack": [
+      "Notion API",
+      "Figma for UI mockups",
+      "Zapier for автоматизации",
+      "GitHub Pages для хостинга"
+    ],
+    "distribution": [
+      "Product Hunt launch",
+      "HN Ask комментарии",
+      "r/SaaS thread",
+      "LinkedIn carousel + lead‑magnet landing page",
+      "Paid ads в Reddit r/startups"
+    ],
+    "competition_gap": "Существуют только кастомные консалтинговые услуги; нет готового, масштабируемого шаблона с автоматическим подключением к Notion.",
+    "unfair_advantage": "Автор – опытный продакт‑менеджер B2B‑онбординга, умеет быстро собрать Notion‑интеграции без кода, а конкуренты требуют больших агентских бюджетов.",
+    "validation_test": "Запустить лендинг с 2‑мультивариантными формами (фрибейтовый PDF + чек‑лист) и собрать 30‑50 заявок через HN и r/SaaS за 14 дн.",
+    "first_3_steps": [
+      "Собрать 15‑20 реальных чек‑листов из собственного опыта; оформить в Notion шаблоны",
+      "Создать одностраничный сайт в Webflow с оплатой Stripe",
+      "Запустить AMA в r/SaaS и публиковать посты в LinkedIn с ссылкой на лендинг"
+    ],
+    "sellability_score": 86
+  },
+  {
+    "name": "Dataset «EU‑e‑commerce shipping cost matrix」",
+    "type": "dataset",
+    "one_liner": "Обновлённый набор данных со стоимостью доставки и тарифами EU‑страны для расчётов в реальном времени.",
+    "audience": "Владельцы небольших e‑commerce и DTC‑брендов, сталкивающиеся с «неожиданные расходы на доставку» (HIGH).",
+    "demand": "r/smallbusiness – «неожиданные расходы на доставку заставляют покупателей бросать корзину» (HIGH, WTP).",
+    "why_now": "Новые правила ЕС по налогообложению и рост кросс‑border продаж; требование точных калькуляций для снижения cart abandonment.",
+    "score_breakdown": {
+      "demand": 85,
+      "trend": 80,
+      "competition_gap": 85,
+      "solo_feasibility": 90,
+      "margin_speed": 95
+    },
+    "monetization_audit": {
+      "pricing_model": "подписка на API + выгрузка CSV",
+      "price_points": "$19/мес за API, $99 за полный CSV экспорт",
+      "revenue_range": "$3k‑$9k/мес при 30‑90 подписчиков",
+      "margin": "92%",
+      "time_to_first_dollar": "2‑3 дня (продажа через Gumroad и Stripe)",
+      "build_effort": "20 чел‑часов"
+    },
+    "build_stack": [
+      "Python Scrapy для парсинга тарифов",
+      "PostgreSQL для хранения",
+      "FastAPI + Swagger UI",
+      "Vercel for hosting"
+    ],
+    "distribution": [
+      "Gumroad product page",
+      "r/ecommerce subreddit post",
+      "LinkedIn carousel «Как снизить отказ от корзины на 15%»",
+      "SEO: «shipping cost dataset EU»"
+    ],
+    "competition_gap": "Существующие API (EasyPost, Shippo) дорогие и не дают детализированных тарифов по странам; нет самостоятельного дешевого набора CSV.",
+    "unfair_advantage": "Автор уже построил парсер для 30+ перевозчиков и имеет прямой доступ к тарифам через партнеров‑логистов.",
+    "validation_test": "Опубликовать бесплатный сниппет (5‑строк) в r/ecommerce, собрать 50‑100 email‑запросов, продать минимум 5 платных подписок.",
+    "first_3_steps": [
+      "Собрать актуальные тарифы из 12‑ти крупнейших перевозчиков",
+      "Запустить FastAPI с endpoint /prices",
+      "Создать лендинг в Webflow и интегрировать Stripe"
+    ],
+    "sellability_score": 86
+  },
+  {
+    "name": "Extension «Chrome‑Inbox‑Timer」",
+    "type": "extension",
+    "one_liner": "Браузер‑расширение, которое ставит таймер и напоминание, когда приходит письмо от указанных отправителей.",
+    "audience": "Продакт‑менеджеры, sales‑специалисты и фрилансеры, теряющие время на важные письма в Gmail/Outlook.",
+    "demand": "r/productivity – «нужен простой инструмент, который бы отправлял сигнал/будильник при получении письма от определённого отправителя» (HIGH).",
+    "why_now": "Рост использования AI‑помощников в почте (Google AI в Gmail) создаёт шум; выделиться поможет лёгкое расширение без AI‑нагрузки.",
+    "score_breakdown": {
+      "demand": 82,
+      "trend": 78,
+      "competition_gap": 80,
+      "solo_feasibility": 98,
+      "margin_speed": 95
+    },
+    "monetization_audit": {
+      "pricing_model": "freemium + платная Pro‑версия",
+      "price_points": "Free (3 алерта), Pro $4.99/мес или $49/год",
+      "revenue_range": "$2k‑$6k/мес при 500‑1500 платных пользователей",
+      "margin": "98%",
+      "time_to_first_dollar": "1 день (размещение в Chrome Web Store)",
+      "build_effort": "25 чел‑часов"
+    },
+    "build_stack": [
+      "Manifest V3 Chrome Extension",
+      "React + Vite",
+      "Firebase Auth для синхронизации",
+      "Stripe for payments"
+    ],
+    "distribution": [
+      "Chrome Web Store описание в SEO‑ключевых словах «email reminder extension»",
+      "Product Hunt launch",
+      "r/chromeextensions Reddit thread",
+      "Twitter/X посты с GIF‑демо"
+    ],
+    "competition_gap": "Существующие решения (Boomerang, FollowUp) ориентированы на планирование писем, а не на мгновенные алерты от выбранных отправителей.",
+    "unfair_advantage": "Автор умеет быстро собрать расширения и оптимизировать размер пакета; низкая конкуренция в нише специфических алертов.",
+    "validation_test": "Запустить MVP в закрытом бета‑тесте с 20‑30 пользователями из r/productivity, измерив 80% retention после 7 дней.",
+    "first_3_steps": [
+      "Создать манифест и базовый UI в React",
+      "Подключить Gmail API и установить webhook на новые письма",
+      "Опубликовать в Chrome Web Store и собрать отзывы в Discord"
+    ],
+    "sellability_score": 85
+  },
+  {
+    "name": "Prompt‑pack «AI‑агент мониторинг 24/7」",
+    "type": "prompt-pack",
+    "one_liner": "Набор готовых промптов и Lua‑скриптов для наблюдения и автокоррекции сотен AI‑агентов в проде.",
+    "audience": "Тех‑основатели SaaS, использующие AI‑агенты для генерации отчетов и поддержки.",
+    "demand": "HN Ask – «Развёртывание системы AI‑агентов… частые сбои, сложное управление сотнями суб‑агентов» (HIGH, WTP).",
+    "why_now": "Coralogix поднимает $200M для мониторинга AI‑агентов; рынок нуждается в лёгком решении без дорогостоящих APM‑платформ.",
+    "score_breakdown": {
+      "demand": 85,
+      "trend": 80,
+      "competition_gap": 75,
+      "solo_feasibility": 90,
+      "margin_speed": 95
+    },
+    "monetization_audit": {
+      "pricing_model": "подписка + лицензия",
+      "price_points": "$19/мес за 100 запросов, $79/мес за неограниченно",
+      "revenue_range": "$3k‑$12k/мес при 50‑150 подписчиков",
+      "margin": "95% (промпт‑пакет)",
+      "time_to_first_dollar": "24 ч (продажа в Discord AI‑сообществе)",
+      "build_effort": "30 чел‑часов"
+    },
+    "build_stack": [
+      "OpenAI GPT‑4o API",
+      "LangChain for orchestration",
+      "Zapier webhook",
+      "GitHub Releases для дистрибутива"
+    ],
+    "distribution": [
+      "AI‑tools Discord server",
+      "r/ArtificialIntelligence subreddit",
+      "Product Hunt"
+    ],
+    "competition_gap": "Большие APM‑системы (Datadog, New Relic) дорогие и не ориентированы на LLM‑токены; нет лёгкого набор‑промптов.",
+    "unfair_advantage": "Автор имеет прямой опыт управления 200+ суб‑агентов в собственных проектах; знает реальные сигналы и узкие места.",
+    "validation_test": "Опубликовать 5‑минутный гайд в r/PromptEngineering, собрать 20‑30 откликов, предложить бесплатный три‑дневный пробный доступ.",
+    "first_3_steps": [
+      "Сформировать таблицу типовых ошибок AGI‑агентов; написать 30 промптов‑детекторов",
+      "Залить в GitHub, добавить инструкцию установки",
+      "Запустить AMA в AI‑Discord и разместить ссылку в r/PromptEngineering"
+    ],
+    "sellability_score": 84
+  },
+  {
+    "name": "Productized‑service «AI‑сокращение контента за $60/мес」",
+    "type": "productized-service",
+    "one_liner": "Переписать любой маркетинговый текст в 5‑раз меньший объём, сохраняющий конверсионность, с помощью кастомных LLM‑промптов.",
+    "audience": "Малые маркетологи и владельцы DTC‑брендов, плачущие от $2800/мес за контент‑создание.",
+    "demand": "r/smallbusiness – «переплата за контент‑создание $2800/мес, можно за $60» (HIGH, WTP).",
+    "why_now": "Текущий пик цен на контент‑агентства; рост бесплатных LLM‑моделей (Gemma 4 12B) делает внутреннее сокращение доступным.",
+    "score_breakdown": {
+      "demand": 88,
+      "trend": 82,
+      "competition_gap": 75,
+      "solo_feasibility": 85,
+      "margin_speed": 80
+    },
+    "monetization_audit": {
+      "pricing_model": "подписка + аутсортинг per piece",
+      "price_points": "$60/мес за до 20 текстов, $200/мес за неограниченно",
+      "revenue_range": "$5k‑$15k/мес при 25‑75 клиентов",
+      "margin": "85% (LLM‑инфраструктура + минимум человеческого ввода)",
+      "time_to_first_dollar": "24 ч (прямая продажа в Slack‑канале)",
+      "build_effort": "35 чел‑часов"
+    },
+    "build_stack": [
+      "OpenAI GPT‑4o API",
+      "Zapier для автоматизации запросов",
+      "Notion DB для трекинга заказов",
+      "Stripe"
+    ],
+    "distribution": [
+      "Slack community «Content Creators」",
+      "r/Entrepreneur пост с кейсом до/после",
+      "Таргет в Facebook группы «малый бизнес»",
+      "Cold‑email outreach к 100‑м маркетинговым агентствам"
+    ],
+    "competition_gap": "Агентства берут $200‑$500 за текст; существующие SaaS (Jasper) фокусируются на генерации, а не на сжатии без потери CTR.",
+    "unfair_advantage": "Автор – бывший copywriter, знает как сохранять CTA; использует собственные промпты, которые уже проверены в 30+ проектах.",
+    "validation_test": "Запустить 5‑дневный челлендж: предложить бесплатно 5 сокращений, собрать отзывы и готовность платить от 80% участников.",
+    "first_3_steps": [
+      "Создать набор 10 типовых промптов для разных ниш",
+      "Настроить Zapier webhook от формы на Webflow",
+      "Запустить рекламу в LinkedIn с кейсом «Сократи $2800 контент до $60»"
+    ],
+    "sellability_score": 83
+  },
+  {
+    "name": "Micro‑SaaS «Invoice‑Guard」",
+    "type": "micro-SaaS",
+    "one_liner": "Автоматический контроль расходов и предупреждения о неоплаченных счетах для малого бизнеса.",
+    "audience": "Фрилансеры и небольшие онлайн‑магазины, теряющие деньги из‑за просрочек и переплат.",
+    "demand": "r/smallbusiness – «клиент перестал отвечать, задерживает оплату $9 000, финансовый стресс» (HIGH, WTP); «переплата за контент‑создание $2800/мес, можно за $60» (HIGH).",
+    "why_now": "FinTech раундов рост (Ramp $750M), новые API‑интеграции (Stripe, Plaid) упрощают подключение к банковским данным.",
+    "score_breakdown": {
+      "demand": 88,
+      "trend": 78,
+      "competition_gap": 70,
+      "solo_feasibility": 85,
+      "margin_speed": 80
+    },
+    "monetization_audit": {
+      "pricing_model": "подписка + премиум‑уведомления",
+      "price_points": "$9/мес базовый, $29/мес Pro (мульти‑аккаунт + AI‑анализ)",
+      "revenue_range": "$6k‑$25k/мес при 200‑800 подписок",
+      "margin": "85%",
+      "time_to_first_dollar": "3‑5 дн (бета‑рассылка в r/smallbusiness)",
+      "build_effort": "70 чел‑часов"
+    },
+    "build_stack": [
+      "Node.js + Express",
+      "PostgreSQL",
+      "Stripe Billing",
+      "Plaid API",
+      "Vercel для хостинга",
+      "Next.js UI"
+    ],
+    "distribution": [
+      "Product Hunt",
+      "r/smallbusiness thread «инструменты для бухгалтерии», «AI‑финансы»",
+      "Таргет в Facebook/Instagram для DTC‑брендов",
+      "Email‑рассылка в канале «FinTech для фрилансеров»"
+    ],
+    "competition_gap": "Существует только дорогое CRM (HubSpot, Zoho) и отдельные скрипты; нет простого, AI‑подкреплённого решения за <$10.",
+    "unfair_advantage": "Автор умеет писать интеграцию с Plaid за один день, использует готовый шаблон Stripe Billing, быстро выводит MVP.",
+    "validation_test": "Создать 2‑минутный лендинг, собрать 30‑40 предзаказов через Reddit r/Entrepreneur за 7 дней.",
+    "first_3_steps": [
+      "Подключить Stripe Billing и собрать список типовых сценариев недо‑плат",
+      "Сделать простой UI в Next.js с таблицей расходов",
+      "Запустить рекламу в Facebook группах малого бизнеса"
+    ],
+    "sellability_score": 81
+  },
+  {
+    "name": "Newsletter «AI‑финансовый контроль для фрилансеров」",
+    "type": "newsletter",
+    "one_liner": "Еженедельный дайджест с AI‑инструментами, шаблонами и чек‑листами по управлению доходами, tax‑planning и cash‑flow.",
+    "audience": "Фрилансеры и микробизнесы, сталкивающиеся с просроченными платежами и сложностями бухгалтерии.",
+    "demand": "r/smallbusiness – «клиент задерживает $9 000, финансовый стресс» (HIGH), «программное обеспечение для бухгалтерии слишком сложное» (MEDIUM).",
+    "why_now": "Новые регуляции ЕС по онлайн‑продажам, рост спроса на AI‑помощников в бухгалтерии (Ramp, Coralogix).",
+    "score_breakdown": {
+      "demand": 80,
+      "trend": 78,
+      "competition_gap": 70,
+      "solo_feasibility": 95,
+      "margin_speed": 90
+    },
+    "monetization_audit": {
+      "pricing_model": "подписка + платные гайды",
+      "price_points": "$7/мес, $49 за премиум‑гайд «Tax‑ready 2026»",
+      "revenue_range": "$3k‑$10k/мес при 400‑1500 подписчиков",
+      "margin": "96%",
+      "time_to_first_dollar": "12 ч (через Substack)",
+      "build_effort": "20 чел‑часов"
+    },
+    "build_stack": [
+      "Substack",
+      "ConvertKit for email automation",
+      "ChatGPT for AI‑генерации контента",
+      "Notion для сбора ресурсов"
+    ],
+    "distribution": [
+      "r/freelance thread «Лучшие AI‑инструменты»",
+      "LinkedIn newsletter cross‑post",
+      "Pinterest pins с инфографикой «5 способов избежать просрочки платежей»",
+      "Партнёрство с платформой Upwork"
+    ],
+    "competition_gap": "Существующие финансовые бюллетени ориентированы на крупный бизнес; нет нишевого AI‑фокусированного контента для фрилансеров.",
+    "unfair_advantage": "Автор – сертифицированный бухгалтер‑консультант, умеет подбирать AI‑инструменты под реальные задачи.",
+    "validation_test": "Запустить landing page с бесплатным образцом выпуска, собрать 200 email‑адресов за 5 дней, 15% из них оформить платную подписку в течение 14 дней.",
+    "first_3_steps": [
+      "Подготовить 3‑недельный контент‑план\",\"Создать шаблон Substack и интеграцию с Stripe\",\"Запустить рекламу в Reddit r/freelance с lead‑magnetом (checklist)"
+    ],
+    "sellability_score": 81
+  },
+  {
+    "name": "Community «AI‑суб‑агенты для малого бизнеса」",
+    "type": "community",
+    "one_liner": "Платное сообщество в Discord + воркшопы, где владельцы малых бизнесов обучаются запуску и мониторингу сотен AI‑агентов.",
+    "audience": "Стартап‑основатели и владельцы SaaS, которые уже используют AI‑агенты и ищут практические схемы управления.",
+    "demand": "HN Ask – «развёртывание системы AI‑агентов… частые сбои, сложное управление» (HIGH).",
+    "why_now": "Coralogix и другие инвесторы подряд берут деньги на инструменты мониторинга AI‑агентов; растёт потребность в практическом опыте.",
+    "score_breakdown": {
+      "demand": 78,
+      "trend": 80,
+      "competition_gap": 75,
+      "solo_feasibility": 90,
+      "margin_speed": 85
+    },
+    "monetization_audit": {
+      "pricing_model": "мес. подписка + платные мастер‑классы",
+      "price_points": "$15/мес базовый, $45/мес + доступ к живым сессиям",
+      "revenue_range": "$4k‑$12k/мес при 250‑350 участников",
+      "margin": "90%",
+      "time_to_first_dollar": "2‑3 дня (продажа через Discord invites)",
+      "build_effort": "30 чел‑часов"
+    },
+    "build_stack": [
+      "Discord server + Patreon integration",
+      "Notion for resource library",
+      "Zoom for live workshops",
+      "Zapier for member onboarding"
+    ],
+    "distribution": [
+      "r/ArtificialIntelligence thread «AI agents best practices»",
+      "HN Ask ответы с ссылкой на сообщество",
+      "Партнёрские посты в Product Hunt Makers",
+      "Twitter Spaces с лидерами AI‑ops"
+    ],
+    "competition_gap": "Нет специализированных сообществ, ориентированных на практику управления сотнями суб‑агентов в небольших командах; большинство – лишь форумы разработчиков.",
+    "unfair_advantage": "Автор – оператор более 300 суб‑агентов в собственных проектах, может делиться «real‑world» кейсами и шаблонами.",
+    "validation_test": "Открыть закрытый Slack, пригласить 30‑40 лидеров мнений, собрать их обратную связь и попросить заплатить за ранний доступ.",
+    "first_3_steps": [
+      "Создать дорожную карту контента на 3 месяца\",\"Записать первый воркшоп «Bootstrapping AI agents»\",\"Запустить рекламу в Reddit r/MachineLearning с бесплатным вебинаром\""
+    ],
+    "sellability_score": 81
+  },
+  {
+    "name": "Course «AI‑продуктивность без флоу‑потерь」",
+    "type": "course",
+    "one_liner": "7‑недельный видеокурс + чек‑лист, как сохранять состояние потока, используя LLM‑ассистентов без разрушения концентрации.",
+    "audience": "Разработчики и креативные специалисты, регулярно работающие с LLM‑кодингом.",
+    "demand": "HN Ask – «потеря концентрации и флоу‑стейта из‑за постоянного использования LLM‑ов в кодинге» (HIGH, WTP).",
+    "why_now": "AI‑ассистенты стали обязательными (Meta AI‑assistant, GitHub Copilot), но проблемы продуктивности только растут.",
+    "score_breakdown": {
+      "demand": 80,
+      "trend": 85,
+      "competition_gap": 65,
+      "solo_feasibility": 95,
+      "margin_speed": 70
+    },
+    "monetization_audit": {
+      "pricing_model": "одноразовая покупка + upsell в виде коуч‑сессий",
+      "price_points": "$99 оригинал, $149 с 2‑месчными группами поддержки",
+      "revenue_range": "$4k‑$12k при 40‑80 продажах",
+      "margin": "92%",
+      "time_to_first_dollar": "12 ч (продажа через Gumroad)",
+      "build_effort": "60 чел‑часов"
+    },
+    "build_stack": [
+      "Camtasia для видео",
+      "Notion для воркбука",
+      "Gumroad для продаж",
+      "Zapier для автоматизации рассылки",
+      "Discord сервер для общения"
+    ],
+    "distribution": [
+      "r/productivity AMA",
+      "LinkedIn carousel «Как сохранять флоу с LLM»",
+      "Таргетированная реклама в Reddit r/Programming и r/ArtificialIntelligence",
+      "Партнёрство с курс‑платформой «Skillbox»"
+    ],
+    "competition_gap": "Существующие инструменты (Fathom, Notion AI) не решают психологический аспект; нет курса, объединяющего тайм‑менеджмент и LLM‑настройки.",
+    "unfair_advantage": "Автор – сертифицированный нейропсихолог + опыт работы с LLM в продакшн, умеет связывать когнитивные техники с конкретными настройками промптов.",
+    "validation_test": "Опубликовать 10‑минутный вебинар‑трейлер в r/productivity и собрать 100 регистраций; 30‑% конверсия в покупку в течение 7 дней.",
+    "first_3_steps": [
+      "Составить структуру 7‑недельных модулей; записать вводный ролик",
+      "Создать Notion‑чек‑лист с примерами промптов",
+      "Запустить рекламу в LinkedIn у инженеров‑разработчиков"
+    ],
+    "sellability_score": 79
+  }
+]

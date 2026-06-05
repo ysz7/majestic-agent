@@ -1,9 +1,9 @@
 import { Handle, Position } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
-import { Bot, Search, Globe, Code } from "lucide-react";
+import { Bot, Search, Globe, Code, Sparkles } from "lucide-react";
 import { cn } from "@shared/lib/cn";
 
-type ActionSubtype = "research" | "prompt" | "http" | "python";
+type ActionSubtype = "research" | "prompt" | "http" | "python" | "product_forge";
 
 type ActionNodeData = {
   subtype: ActionSubtype;
@@ -18,17 +18,19 @@ type ActionNodeType = Node<ActionNodeData, "actionNode">;
 const ACTION_COLOR = "#60a5fa";
 
 const ICONS: Record<ActionSubtype, React.ElementType> = {
-  research: Search,
-  prompt:   Bot,
-  http:     Globe,
-  python:   Code,
+  research:      Search,
+  prompt:        Bot,
+  http:          Globe,
+  python:        Code,
+  product_forge: Sparkles,
 };
 
 const LABELS: Record<ActionSubtype, string> = {
-  research: "Research",
-  prompt:   "Prompt",
-  http:     "HTTP",
-  python:   "Python",
+  research:      "Research",
+  prompt:        "Prompt",
+  http:          "HTTP",
+  python:        "Python",
+  product_forge: "Product Forge",
 };
 
 const HANDLE_STYLE = {

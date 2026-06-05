@@ -7,6 +7,7 @@ _COMMANDS = {
     "/research":    "Fetch curated news → summary + live market snapshot",
     "/pains":       "Extract pain points (intensity, WTP, trending domains)",
     "/ideas":       "Generate startup ideas from the accumulated pains corpus",
+    "/products":    "TOP-10 sellable solo digital products + monetization audit",
     "/predict":     "Forecasts grounded in live market data",
     "/briefing":    "Daily briefing from the news corpus + market snapshot",
     "/news":        "Show stored news from the last N days (no re-fetch)",
