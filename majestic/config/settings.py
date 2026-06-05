@@ -275,6 +275,18 @@ class Settings:
         return str(self._persona.get("language", "en"))
 
     @property
+    def anchor_niches(self) -> list[str]:
+        """Pinned world niches always tracked by /predict (Phase J).
+
+        Override in persona.yaml under ``anchor_niches:``; otherwise the four
+        defaults below are used.
+        """
+        raw = self._persona.get("anchor_niches")
+        if isinstance(raw, list) and raw:
+            return [str(r) for r in raw]
+        return ["Crypto (BTC/ETH)", "AI / Tech", "Macro + geopolitics", "Stock markets"]
+
+    @property
     def agent_restrictions(self) -> list[str]:
         raw = self._persona.get("restrictions", [])
         if isinstance(raw, list):

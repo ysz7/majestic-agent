@@ -163,6 +163,35 @@ export interface ProductReport {
   markdown: string;
 }
 
+export interface PredictionItem {
+  niche:        string;
+  anchor?:      boolean;
+  prediction:   string;
+  direction:    "up" | "down" | "flat";
+  horizon?:     string;
+  probability:  number;
+  reason:       string;
+  evidence?:    string[];
+  cross_sector?: {
+    niche?:       string;
+    direction?:   "up" | "down" | "flat";
+    probability?: number;
+    note?:        string;
+  };
+  trend?:       string;
+}
+
+export interface PredictReportSummary {
+  date:  string;
+  count: number;
+}
+
+export interface PredictReport {
+  date:     string;
+  items:    PredictionItem[];
+  markdown: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";

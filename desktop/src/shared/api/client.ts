@@ -7,6 +7,8 @@ import type {
   EnvEntry,
   EpisodicEntry,
   LessonEntry,
+  PredictReport,
+  PredictReportSummary,
   ProductReport,
   ProductReportSummary,
   Profile,
@@ -160,6 +162,16 @@ export const productsApi = {
     get<ProductReport>(`/api/products/${profile}/${date}`),
   run:  (profile: string, days = 30) =>
     post<ProductReport>(`/api/products/${profile}/run`, { days }),
+};
+
+// ── Predict (forecasts) ─────────────────────────────────────────────────────
+export const predictApi = {
+  list: (profile: string) =>
+    get<{ reports: PredictReportSummary[] }>(`/api/predict/${profile}`),
+  get:  (profile: string, date: string) =>
+    get<PredictReport>(`/api/predict/${profile}/${date}`),
+  run:  (profile: string, days = 30) =>
+    post<PredictReport>(`/api/predict/${profile}/run`, { days }),
 };
 
 // ── Cron ──────────────────────────────────────────────────────────────────────
