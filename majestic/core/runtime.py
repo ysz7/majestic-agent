@@ -321,6 +321,16 @@ class AgentRuntime:
         """
         schemas: list[dict] = []
         for name, fn in self.tools.items():
+            # 0. MCP tools carry their own JSON Schema (Phase K.3)
+            mcp_schema = getattr(fn, "mcp_input_schema", None)
+            if mcp_schema is not None:
+                schemas.append({
+                    "name": name,
+                    "description": (getattr(fn, "__doc__", "") or name)[:200],
+                    "parameters": mcp_schema,
+                })
+                continue
+
             # 1. Try tool_schema() on the owning object (e.g. PythonExecutor)
             obj = getattr(fn, "__self__", None)
             if obj is not None and hasattr(obj, "tool_schema"):

@@ -60,29 +60,52 @@ async def run_agent_loop(settings, channel) -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("Tool registration failed — agent will run without tools: %s", exc)
 
-    while True:
-        task = await channel.receive()
-        text = task.get("text", "")
-        task_id = task.get("task_id", "")
+    # Phase K.3 — connect enabled MCP servers and merge their tools into the loop.
+    mcp_manager = None
+    try:
+        from majestic.mcp.client import MCPManager
+        from pathlib import Path as _Path
 
-        try:
-            result = await runtime.run(text, task_id=task_id)
-            emit_event(
-                {
-                    "type": "done",
-                    "task_id": task_id,
-                    "result": result,
-                    "tokens": getattr(runtime, "_tokens_used", 0),
-                    "cost": getattr(runtime, "_cost_used", 0.0),
-                }
-            )
-        except Exception as exc:  # noqa: BLE001
-            result = f"Error: {exc}"
-            emit_event({"type": "error", "message": str(exc), "task_id": task_id})
+        registry = _Path(__file__).resolve().parent / "mcp" / "registry.yaml"
+        mcp_manager = MCPManager(registry)
+        mcp_tools = await mcp_manager.connect_enabled()
+        if mcp_tools:
+            runtime.tools.update(mcp_tools)
+            logger.info("MCP: %d tool(s) merged into the agent loop", len(mcp_tools))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("MCP connect failed (non-fatal): %s", exc)
 
-        await channel.send(result)
-        if hasattr(channel, "store_result"):
-            channel.store_result(task_id, result)
+    try:
+        while True:
+            task = await channel.receive()
+            text = task.get("text", "")
+            task_id = task.get("task_id", "")
+
+            try:
+                result = await runtime.run(text, task_id=task_id)
+                emit_event(
+                    {
+                        "type": "done",
+                        "task_id": task_id,
+                        "result": result,
+                        "tokens": getattr(runtime, "_tokens_used", 0),
+                        "cost": getattr(runtime, "_cost_used", 0.0),
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001
+                result = f"Error: {exc}"
+                emit_event({"type": "error", "message": str(exc), "task_id": task_id})
+
+            await channel.send(result)
+            if hasattr(channel, "store_result"):
+                channel.store_result(task_id, result)
+    finally:
+        # Phase K.3 — tear down MCP server subprocesses on shutdown/cancel.
+        if mcp_manager is not None:
+            try:
+                await mcp_manager.close_all()
+            except Exception:
+                pass
 
 
 async def main(profile_name: str) -> None:
