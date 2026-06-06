@@ -1,0 +1,247 @@
+[
+  {
+    "name": "AI‑агент мониторинг 24/7 Prompt‑Pack",
+    "type": "prompt-pack",
+    "one_liner": "Набор готовых подсказок для мониторинга и автоматического отклика сотен LLM‑агентов в реальном времени.",
+    "audience": "Тех‑фаундеры и solo‑Dev, использующие AI‑агенты в SaaS/FinTech",
+    "demand": "HN Ask: «Развёртывание системы AI‑агентов … приводит к частым сбоям и сложностям в управлении сотнями суб‑агентов, без надёжных средств мониторинга» – HIGH, WTP высокий (готов платить за мгновенную видимость)",
+    "why_now": "Рост автономных LLM‑агентов (Hugging Face, OpenAI) + публикации о нужде регулирования AI‑агентов в финансах (58 % вероятность регуляций) создают немедленный спрос",
+    "score_breakdown": {
+      "demand": 92,
+      "trend": 85,
+      "competition_gap": 78,
+      "solo_feasibility": 94,
+      "margin_speed": 88
+    },
+    "monetization_audit": {
+      "pricing_model": "подписка",
+      "price_points": "$19/мес или $199/год",
+      "revenue_range": "$5k‑$15k/мес при 300‑мес подписчиков",
+      "margin": "≈95 % (LLM‑API + облако)",
+      "time_to_first_dollar": "2‑3 дня (продажа в Discord/Reddit)",
+      "build_effort": "1‑2 недели MVP"
+    },
+    "build_stack": [
+      "OpenAI GPT‑4o API",
+      "Prompt Engineering в VS Code",
+      "Notion для docs",
+      "Stripe для биллинга",
+      "GitHub Pages для сайта"
+    ],
+    "distribution": [
+      "Product Hunt launch",
+      "r/ArtificialIntelligence и r/SaaS Reddit threads",
+      "Twitter/X threads с #AIagents",
+      "Discord AI‑agents community",
+      "SEO: «LLM agent monitoring prompts»"
+    ],
+    "competition_gap": "Текущие решения – кастомные скрипты, цена $500‑$2000 за интеграцию; нет готового plug‑and‑play Prompt‑Pack",
+    "unfair_advantage": "Автор – бывший инженер OpenAI с доступом к внутренним best‑practice prompt‑шаблонам, может быстро итеративно обновлять набор",
+    "validation_test": "Запустить 3‑недельный бесплатный бета‑доступ в закрытом Slack и собрать 30‑пользовательский NPS ≥ 70",
+    "first_3_steps": [
+      "Собрать 20‑топ проблем мониторинга из Reddit/Discord",
+      "Создать 30‑промптов и протестировать на GPT‑4o",
+      "Опубликовать landing page и запустить рекламный пост в r/ArtificialIntelligence"
+    ],
+    "sellability_score": 88
+  },
+  {
+    "name": "Stablecoin‑Payments Playbook",
+    "type": "course",
+    "one_liner": "Полный курс по внедрению USDC/USDT для выплат в B2B и DTC, от KYC до бухгалтерии.",
+    "audience": "Основатели небольших стартапов и онлайн‑магазинов, желающие сократить комиссии и ускорить международные выплаты",
+    "demand": "HIGH‑demand: r/smallbusiness «рост запросов клиентов о приёме цифровых кошельков» + HIGH WTP (экономия до 3 % комиссии)",
+    "why_now": "Meta выплачивает креаторам в USDC, крупные банки токенизируют депозиты – стабл‑крипто становится «корпоративным стандартом»",
+    "score_breakdown": {
+      "demand": 90,
+      "trend": 88,
+      "competition_gap": 75,
+      "solo_feasibility": 94,
+      "margin_speed": 80
+    },
+    "monetization_audit": {
+      "pricing_model": "единовременная покупка + апсейл консалтинг",
+      "price_points": "$399 за курс, $1499 за 4‑недельный коучинг",
+      "revenue_range": "$6k‑$20k/мес при 20‑30 продаж в месяц",
+      "margin": "≈90 % (видео‑хостинг, без инфраст‑затрат)",
+      "time_to_first_dollar": "1‑2 дня (Gumroad)",
+      "build_effort": "2‑3 недели (запись контента, docs)"
+    },
+    "build_stack": [
+      "Notion для структуры курса",
+      "Loom для видео",
+      "Gumroad для продаж",
+      "Zapier автоматизация email‑доступа",
+      "Stripe для апсейл‑коучинга"
+    ],
+    "distribution": [
+      "LinkedIn posts в группах финансовых директоров",
+      "Telegram канал «Crypto Payments for SMB»",
+      "Guest‑post в CoinDesk",
+      "Партнёрство с платёжными шлюзами (Moonpay, Circle) для кросс‑промо",
+      "SEO: «how to pay employees in USDC»"
+    ],
+    "competition_gap": "Существующие обучающие материалы – общие крипто‑курсы, нет нишевого курса про stablecoin‑payroll для малых компаний",
+    "unfair_advantage": "Автор – консультант по внедрению stablecoin в 3 крупных стартапа, имеет готовый чек‑лист и юридические шаблоны",
+    "validation_test": "Запустить 7‑дневный бесплатный вебинар и собрать 100‑зарегистрированных, собрать предзаказы на курс (30 % конверсия)",
+    "first_3_steps": [
+      "Собрать список «pain points» из r/smallbusiness и r/startups",
+      "Создать дорожную карту курса и записать первые 2 видео",
+      "Подготовить landing page на Gumroad и анонсировать в Crypto‑payments Discord"
+    ],
+    "sellability_score": 86
+  },
+  {
+    "name": "B2B‑Onboarding Notion Template",
+    "type": "template",
+    "one_liner": "Готовый набор Notion‑страниц для быстрого онбординга команд от 10+ человек за 2‑3 дня.",
+    "audience": "Менеджеры стартапов и solo‑founders, которым нужно масштабировать процесс онбординга без HR‑отдела",
+    "demand": "HN Ask: «нет автоматизированного процесса онбординга для B2B команд >10 человек — требуется 2‑3 недели ручной настройки» – HIGH; WTP: готов платить за готовое решение",
+    "why_now": "Рост AI‑агентов и распределённой работы создает потребность в стандартизированных процессах онбординга",
+    "score_breakdown": {
+      "demand": 85,
+      "trend": 78,
+      "competition_gap": 80,
+      "solo_feasibility": 96,
+      "margin_speed": 90
+    },
+    "monetization_audit": {
+      "pricing_model": "единоразовая покупка + upsell модулей",
+      "price_points": "$49 за базовый шаблон, $149 за «AI‑assistant integration»",
+      "revenue_range": "$3k‑$8k/мес при 100‑200 продаж",
+      "margin": "≈98 % (digital product)",
+      "time_to_first_dollar": "1 день (Gumroad)",
+      "build_effort": "1‑week MVP"
+    },
+    "build_stack": [
+      "Notion API для автоматизации\",\"Figma для дизайна шаблонов\",\"Gumroad для продажи\",\"Zapier для интеграций с Slack/Google Workspace"
+    ],
+    "distribution": [
+      "Reddit r/startups и r/Entrepreneur post\",\"Product Hunt\",\"LinkedIn carousel demo\",\"SEO: «B2B onboarding template Notion»",
+      "Партнёрство с акселераторами (Y Combinator, Techstars) для рассылки"
+    ],
+    "competition_gap": "Существующие шаблоны – небольшие чек‑листы, без готовой интеграции с AI‑ассистентами и SLA‑планом",
+    "unfair_advantage": "Автор – бывший HR‑директор крупного SaaS, включил реальные SOP и автоматизацию через Notion API",
+    "validation_test": "Запустить бесплатный 7‑дневный trial в 10 стартапах, измерить сокращение времени онбординга > 50 %",
+    "first_3_steps": [
+      "Собрать 15‑point onboarding checklist из HR‑сообщений\",\"Создать Notion шаблон и подключить Zapier для Slack\",\"Опубликовать в Product Hunt и собрать первые 20 отзывов"
+    ],
+    "sellability_score": 85
+  },
+  {
+    "name": "Tokenized‑RealEstate Dataset",
+    "type": "dataset",
+    "one_liner": "База из 5 000+ токенизированных объектов недвижимости с метаданными, юридическим статусом и историей цены.",
+    "audience": "Инвесторы‑анализаторы, fintech‑стартапы, академики, разрабатывающие модели оценки токенизированных активов",
+    "demand": "r/SaaS: «токенизированные фондовые структуры привлекают институциональный капитал» – HIGH; инвесторы ищут данные для моделей, готов платить за качественный набор",
+    "why_now": "Прогноз #2: токенизированные фонды недвижимости превзойдут $5 bn к 2027 – повышенный спрос на аналитические данные",
+    "score_breakdown": {
+      "demand": 85,
+      "trend": 87,
+      "competition_gap": 80,
+      "solo_feasibility": 90,
+      "margin_speed": 85
+    },
+    "monetization_audit": {
+      "pricing_model": "подписка + разовые скачивания",
+      "price_points": "$199 за полный набор, $49/мес за обновления",
+      "revenue_range": "$5k‑$15k/мес при 25‑30 подписок",
+      "margin": "≈94 % (S3 storage)",
+      "time_to_first_dollar": "12 ч (PayPal)",
+      "build_effort": "3‑4 недели (сбор, очистка, валидация)"
+    },
+    "build_stack": [
+      "Python pandas для ETL\",\"AWS S3 + CloudFront\",\"GitHub для версий\",\"Stripe for subscriptions\",\"FastAPI + Swagger для API доступа"
+    ],
+    "distribution": [
+      "LinkedIn статьи для инвесторов\",\"Product Hunt release\",\"Email outreach в VC‑фонды (a16z, Sequoia)",
+      "SEO: «tokenized real estate dataset»",
+      "Webinars в fintech‑сообществах"
+    ],
+    "competition_gap": "Существующие данные – фрагментарные листинги на биржах, нет полного, проверенного набора с юридическим статусом",
+    "unfair_advantage": "Автор – аналитик в Apex + Archax, имеет прямой доступ к публичным реестрам и частным листингам",
+    "validation_test": "Продать 5 лицензий за $199 в течение 2 недель через LinkedIn outreach, собрать обратную связь о полноте",
+    "first_3_steps": [
+      "Получить публичные реестры из SEC и регистров токенов\",\"Очистить данные и добавить метаданные (jurisdiction, token standard)\",\"Опубликовать landing page на Webflow и включить Stripe checkout"
+    ],
+    "sellability_score": 85
+  },
+  {
+    "name": "Invoice‑Guard Micro‑SaaS",
+    "type": "micro‑SaaS",
+    "one_liner": "Автоматическая проверка и защита входящих счетов от подделок и ошибок OCR за $9/мес.",
+    "audience": "Фрилансеры и владельцы малых онлайн‑бизнесов, получающих счета в PDF/изображениях",
+    "demand": "r/smallbusiness: «сканированные рукописные счета невозможно правильно импортировать в бухгалтерию» – HIGH; «постоянные chargeback’ы» – HIGH; WTP высокий, готов платить за автоматизацию",
+    "why_now": "Рост AI‑инструментов OCR (Google Vision, Azure Form Recognizer) + рост регуляций GDPR и необходимости доказуемой подлинности документов",
+    "score_breakdown": {
+      "demand": 88,
+      "trend": 81,
+      "competition_gap": 70,
+      "solo_feasibility": 90,
+      "margin_speed": 85
+    },
+    "monetization_audit": {
+      "pricing_model": "модель подписки + плата за проверку",
+      "price_points": "$9/мес + $0,10/проверка",
+      "revenue_range": "$3k‑$12k/мес при 300‑500 активных клиентов",
+      "margin": "≈92 % (cloud OCR + небольшие серверные затраты)",
+      "time_to_first_dollar": "24 ч (Stripe checkout)",
+      "build_effort": "3‑4 недели MVP"
+    },
+    "build_stack": [
+      "Next.js + Vercel\",\"Python FastAPI backend\",\"Azure Form Recognizer OCR\",\"Supabase DB\",\"Stripe Payments",
+      "Tailwind CSS"
+    ],
+    "distribution": [
+      "Product Hunt + Launch announcements в r/Entrepreneur",
+      "SEO: «automated invoice verification»",
+      "Партнёрство с бухгалтерскими SaaS (QuickBooks, Xero) через их marketplace",
+      "Таргетированная реклама в Facebook группы малого бизнеса"
+    ],
+    "competition_gap": "Существующие решения – дорогие ERP‑модули ($500‑$2000/мес) или ручные сервисы; нет дешёвого облачного продукта для фрилансеров",
+    "unfair_advantage": "Одноразовая разработка без лицензий, интеграция со всеми популярными облачными OCR, быстрота развертывания в Vercel",
+    "validation_test": "Запустить 2‑недельный бесплатный бета‑пилот среди 15 фрилансеров, измерить снижение ручных ошибок ≥ 80 %",
+    "first_3_steps": [
+      "Собрать список типовых ошибок из Reddit r/accounting",
+      "Настроить Azure OCR и написать API‑endpoint",
+      "Создать Stripe‑checkout и простой landing page"
+    ],
+    "sellability_score": 83
+  },
+  {
+    "name": "AI‑Finance Agent Toolkit",
+    "type": "productized-service",
+    "one_liner": "Настройка и поддержка автономного AI‑агента для финансового анализа и отчётности за $999/мес.",
+    "audience": "Малые финансовые фирмы, бухгалтерские агенты, стартапы, нуждающиеся в автоматизации финансовой аналитики",
+    "demand": "Section 2: входящие технологии AI‑агенты (OpenAI) – крупные корпорации внедряют, малый бизнес ищет «простой» способ, подтверждено высоким запросом в r/SaaS и r/finance",
+    "why_now": "Текущий рост токенизации и AI‑агентов + вероятные регуляции требуют прозрачных аудитов, открывая нишу в обслуживании",
+    "score_breakdown": {
+      "demand": 88,
+      "trend": 83,
+      "competition_gap": 78,
+      "solo_feasibility": 85,
+      "margin_speed": 80
+    },
+    "monetization_audit": {
+      "pricing_model": "месячный ретейнер + разовые проекты",
+      "price_points": "$999/мес (включает 10 часов кастомизации)",
+      "revenue_range": "$3k‑$12k/мес при 3‑12 клиентов",
+      "margin": "≈85 % (модель SaaS + ручная настройка)",
+      "time_to_first_dollar": "1‑2 недели (Cold outreach)",
+      "build_effort": "2‑3 недели подготовить шаблоны и пайплайн"
+    },
+    "build_stack": [
+      "OpenAI GPT‑4o API\",\"LangChain для цепочек\",\"Docker + Railway для хостинга\",\"Zapier для интеграции с QuickBooks/ Xero\",\"Stripe for billing"
+    ],
+    "distribution": [
+      "Cold email в финансовые консультации\",\"LinkedIn InMail в группы CFO\",\"Guest‑post в CFO.com\",\"Сторителлинг в Reddit r/FinTech\",\"Партнёрство с бухгалтерскими фриланс‑агентствами"
+    ],
+    "competition_gap": "Конкуренты – крупные консалтинговые фирмы ($5k‑$10k/мес), нет доступного «plug‑and‑play» пакета для малого бизнеса",
+    "unfair_advantage": "Автор – бывший аналитик в Ramp, уже имеет готовые Prompt‑инструкции и шаблоны отчётов",
+    "validation_test": "Запустить 30‑дневный пилот с 1 клиентом (модель «pay‑what‑you‑use») и достичь ROI ≥ 2 млн USD в 6 мес",
+    "first_3_steps": [
+      "Собрать типовые финансовые задачи из r/finance и r/SaaS\",\"Создать 3‑прототипа AI‑агентов (баланс, cash‑flow, KPI)\",\"Запустить landing page и предложить бесплатный 2‑недельный trial в LinkedIn группах"
+    ],
+    "sellability_score": 83
+  }
+]

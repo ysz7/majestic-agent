@@ -34,6 +34,12 @@ class AgentRuntime:
     TIMEOUT_SECONDS = 300
     MAX_DELEGATIONS = 4  # cap fire-and-forget delegate_to_agent calls per task
 
+    # Phase L.1 — runaway-cost safety net applied when persona sets NO limit.
+    # These are protection caps (stop a spiraling ReAct loop), not tight budgets.
+    # Persona may raise them, or set the limit to 0 for explicit "unlimited".
+    DEFAULT_MAX_TOKENS_PER_TASK = 500_000
+    DEFAULT_MAX_COST_PER_TASK = 2.0  # USD
+
     # Tools whose results are safe to cache (read-only, deterministic enough)
     _CACHEABLE_TOOLS = frozenset({"web_search", "web_fetch"})
     _TOOL_CACHE_TTL = 300.0  # seconds — matches ReAct loop timeout
@@ -647,7 +653,7 @@ class AgentRuntime:
 
         try:
             fn = self.tools[name]
-            if asyncio.iscoroutinefunction(fn):
+            if inspect.iscoroutinefunction(fn):
                 result = await fn(**args)
             else:
                 result = fn(**args)
@@ -676,7 +682,10 @@ class AgentRuntime:
     def _check_budget(self):
         limits = self.settings.limits
 
-        max_tokens = limits.get("max_tokens_per_task", 0)
+        # Phase L.1 — unset -> safe default cap; explicit 0 -> unlimited.
+        max_tokens = limits.get("max_tokens_per_task")
+        if max_tokens is None:
+            max_tokens = self.DEFAULT_MAX_TOKENS_PER_TASK
         if max_tokens > 0:
             pct = self._tokens_used / max_tokens
             if pct >= 1.0:
@@ -687,7 +696,9 @@ class AgentRuntime:
             if pct >= 0.8:
                 display.budget_warn(int(pct * 100), "token", f"{self._tokens_used:,}", f"{max_tokens:,}")
 
-        max_cost = limits.get("max_cost_per_task", 0)
+        max_cost = limits.get("max_cost_per_task")
+        if max_cost is None:
+            max_cost = self.DEFAULT_MAX_COST_PER_TASK
         if max_cost > 0:
             pct = self._cost_used / max_cost
             if pct >= 1.0:
