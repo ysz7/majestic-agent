@@ -287,6 +287,15 @@ class Settings:
         return ["Crypto (BTC/ETH)", "AI / Tech", "Macro + geopolitics", "Stock markets"]
 
     @property
+    def permissions(self) -> dict:
+        """Permission policy from persona.yaml (Phase K.5).
+
+        ``{mode, allow, ask, deny}``. Empty dict ⇒ permissive default mode.
+        """
+        raw = self._persona.get("permissions", {})
+        return raw if isinstance(raw, dict) else {}
+
+    @property
     def hooks(self) -> list[dict]:
         """Lifecycle hooks declared in persona.yaml (Phase K.4).
 

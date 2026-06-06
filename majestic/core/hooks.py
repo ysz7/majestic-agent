@@ -140,6 +140,27 @@ def build_hook_bus(settings, *, planner=None, hitl_ask=None, hitl_enabled: bool 
     """
     bus = HookBus()
 
+    # Phase K.5 — permission policy enforced as the first pre_tool_use hook.
+    from majestic.core.permissions import PermissionPolicy
+
+    policy = PermissionPolicy.from_settings(settings)
+
+    async def _permission_hook(event: str, ctx: dict) -> HookDecision | None:
+        tool = ctx.get("tool", "")
+        verdict = policy.decide(tool)
+        if verdict == "deny":
+            return HookDecision(action="deny", reason=f"permission ({policy.mode}): '{tool}' not allowed")
+        if verdict == "ask":
+            if hitl_ask is None:
+                # No interactive prompt available (server/desktop) — fail safe.
+                return HookDecision(action="deny", reason=f"permission: '{tool}' requires approval (non-interactive)")
+            approved = await hitl_ask(tool, ctx.get("args", {}))
+            if not approved:
+                return HookDecision(action="deny", reason="permission: denied at prompt")
+        return None  # allow
+
+    bus.on(PRE_TOOL_USE, _permission_hook)
+
     # Persona-declared command hooks.
     for spec in getattr(settings, "hooks", []) or []:
         try:
