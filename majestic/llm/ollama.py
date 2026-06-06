@@ -50,6 +50,11 @@ class OllamaLLM(BaseLLM):
         """Send a chat request to the local Ollama instance."""
         effective_model = model or self._default_model
 
+        # Drop kwargs that other providers understand but Ollama does not, so a
+        # fallback to Ollama (with native-tool/cache kwargs set upstream) is safe.
+        kwargs.pop("tools", None)
+        kwargs.pop("use_cache", None)
+
         payload: dict[str, Any] = {
             "model": effective_model,
             "messages": messages,

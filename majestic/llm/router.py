@@ -116,6 +116,16 @@ class LLMRouter:
     # Public interface
     # ------------------------------------------------------------------
 
+    def supports_native_tools(self, step_type: str = "reason") -> bool:
+        """Whether the PRIMARY provider+model for *step_type* handles structured
+        tool use (Phase K.2). Decided on the primary provider since it runs
+        first; fallbacks still accept (or safely ignore) the tools kwarg.
+        """
+        if not self._providers:
+            return False
+        model = self._settings.get_model(step_type)
+        return self._providers[0].supports_native_tools(model)
+
     async def chat(
         self,
         messages: list[dict],

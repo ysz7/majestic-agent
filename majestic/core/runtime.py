@@ -160,13 +160,21 @@ class AgentRuntime:
 
                     content = response["content"]
 
+                    # Phase K.2 — a structured native tool call is authoritative:
+                    # if present, it means the model chose a tool (not a final
+                    # answer), so skip the text-marker checks and use it directly.
+                    native_tc = response.get("native_tool_call")
+
                     # FINAL_ANSWER
-                    if self._is_final(content):
+                    if not native_tc and self._is_final(content):
                         final_result = self._extract_final(content)
                         break
 
-                    # TOOL_CALL
-                    tool_call = self._parse_tool_call(content)
+                    # TOOL_CALL — prefer the structured native call over regex parsing
+                    if native_tc:
+                        tool_call = {"name": native_tc["name"], "args": native_tc.get("input", {})}
+                    else:
+                        tool_call = self._parse_tool_call(content)
                     if tool_call:
                         tool_name = tool_call["name"]
                         tool_args = tool_call.get("args", {})
@@ -406,10 +414,17 @@ class AgentRuntime:
             enhanced = messages
             tool_schemas = []
 
-        # Do NOT pass native tool schemas — text-based TOOL_CALL protocol is used
-        # instead. Native schemas cause some models (especially via OpenRouter) to
-        # return content=null with empty tool_calls, producing a silent empty result.
-        # Streaming already drops tools for the same reason; keep both paths consistent.
+        # Phase K.2 — prefer structured (native) tool use on capable models:
+        # the provider parses tool_use/tool_calls reliably and returns a
+        # native_tool_call. Weak/free models (and Ollama) fall back to the
+        # text-based TOOL_CALL protocol, which also keeps token streaming.
+        if (
+            tool_schemas
+            and self.llm is not None
+            and getattr(self.llm, "supports_native_tools", None)
+            and self.llm.supports_native_tools("reason")
+        ):
+            return await self.llm.chat(enhanced, step_type="reason", tools=tool_schemas)
         if self._stream_callback:
             return await self._reason_streamed(enhanced, {})
         return await self.llm.chat(enhanced, step_type="reason")

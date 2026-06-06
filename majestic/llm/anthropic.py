@@ -33,6 +33,10 @@ class AnthropicLLM(BaseLLM):
 
     provider_name = "anthropic"
 
+    def supports_native_tools(self, model: str) -> bool:
+        # All current Claude models handle structured tool use reliably.
+        return True
+
     def __init__(
         self,
         api_key: str | None = None,

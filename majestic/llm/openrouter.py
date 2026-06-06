@@ -32,6 +32,12 @@ class OpenRouterLLM(BaseLLM):
 
     provider_name = "openrouter"
 
+    def supports_native_tools(self, model: str) -> bool:
+        # OpenRouter proxies many models; free tiers often return content=null
+        # with empty tool_calls. Enable native tools only for paid/standard
+        # models — free models fall back to the text TOOL_CALL protocol.
+        return not model.strip().lower().endswith(":free")
+
     def __init__(
         self,
         api_key: str | None = None,

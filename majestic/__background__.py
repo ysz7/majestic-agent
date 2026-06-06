@@ -24,12 +24,15 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
+logger = logging.getLogger("majestic.background")
+
 
 async def run_agent_loop(settings, channel) -> None:
     from majestic.core.runtime import AgentRuntime
     from majestic.memory.working import WorkingMemory
     from majestic.llm.router import LLMRouter
     from majestic.core.api.ws import emit_event
+    from majestic.tools.registry import register_tools
 
     llm = LLMRouter(settings)
     memory = WorkingMemory()
@@ -42,6 +45,20 @@ async def run_agent_loop(settings, channel) -> None:
     runtime = AgentRuntime(
         settings, memory, llm_router=llm, stream_callback=_stream_callback
     )
+
+    # Phase K.1 — give the background/desktop agent the SAME toolset as the CLI
+    # (previously it ran with no tools: pure LLM reasoning only). Semantic memory
+    # is optional and best-effort, used to index web_search results for RAG.
+    semantic = None
+    try:
+        from majestic.storage import get_backend
+        semantic = get_backend(settings).semantic()
+    except Exception:
+        pass
+    try:
+        register_tools(runtime, settings, semantic=semantic)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Tool registration failed — agent will run without tools: %s", exc)
 
     while True:
         task = await channel.receive()

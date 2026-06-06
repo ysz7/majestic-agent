@@ -30,6 +30,10 @@ class OpenAILLM(BaseLLM):
 
     provider_name = "openai"
 
+    def supports_native_tools(self, model: str) -> bool:
+        # OpenAI chat models support structured tool calling.
+        return True
+
     def __init__(
         self,
         api_key: str | None = None,

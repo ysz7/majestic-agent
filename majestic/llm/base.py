@@ -94,6 +94,13 @@ class BaseLLM:
             f"{self.__class__.__name__} must implement `is_available()`"
         )
 
+    def supports_native_tools(self, model: str) -> bool:
+        """Whether *model* on this provider reliably handles structured tool
+        use (Phase K.2). Conservative default: False — the runtime then uses
+        the text-based ``TOOL_CALL:`` protocol instead. Providers override.
+        """
+        return False
+
     # ------------------------------------------------------------------
     # Helpers shared across providers
     # ------------------------------------------------------------------
