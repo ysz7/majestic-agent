@@ -2,7 +2,7 @@
 
 Usage in server.py::
 
-    from majestic.core.api import create_desktop_router
+    from majestic.server.api import create_desktop_router
     app.include_router(create_desktop_router())
 """
 

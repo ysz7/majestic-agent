@@ -26,18 +26,20 @@ def calc_article_budget(
     return max(1_000, int(available * section_fraction))
 
 
-def build_corpus(
+def render_corpus(
     articles: list[dict],
-    token_budget: int,
+    max_chars: int,
     include_summaries: bool = True,
 ) -> tuple[list[str], bool]:
-    """Build a token-budget-aware corpus from articles, sorted by score desc then date.
+    """Canonical corpus renderer: dedup by title, group by category, char-bounded.
 
-    Returns (lines, capped) where capped is True when the budget was reached.
-    Token budget is estimated as tokens × 4 chars (standard heuristic).
+    Single implementation shared by ``build_corpus`` (token-budget) and the
+    intelligence layer's ``build_news_corpus`` (char-budget) — see Phase K.6.
+    Articles are sorted by (score, date) descending; when scores are absent this
+    is equivalent to date ordering.
+
+    Returns (lines, capped) where *capped* is True if the budget was hit first.
     """
-    max_chars = token_budget * 4
-
     articles = sorted(
         articles,
         key=lambda a: (a.get("score", 0.0), a.get("date", "")),
@@ -78,3 +80,12 @@ def build_corpus(
         if capped:
             break
     return lines, capped
+
+
+def build_corpus(
+    articles: list[dict],
+    token_budget: int,
+    include_summaries: bool = True,
+) -> tuple[list[str], bool]:
+    """Build a token-budget-aware corpus (tokens × 4 chars heuristic)."""
+    return render_corpus(articles, token_budget * 4, include_summaries)

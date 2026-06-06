@@ -20,8 +20,8 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-from majestic.core.intelligence.llm import llm_with_retry
-from majestic.core.intelligence.products import _extract_json_array
+from majestic.intelligence.llm import llm_with_retry
+from majestic.intelligence.products import _extract_json_array
 
 # Keyword sets used to detect anchor niches in article text for co-occurrence.
 _ANCHOR_KEYWORDS: dict[str, list[str]] = {
@@ -323,7 +323,7 @@ async def run_for_profile(profile: str, days: int = 30) -> dict:
     from majestic.config.settings import Settings
     from majestic.storage import get_backend
     from majestic.llm.router import LLMRouter
-    from majestic.core.intelligence.briefing import load_recent_briefing
+    from majestic.intelligence.briefing import load_recent_briefing
 
     settings = Settings(profile)
     backend = get_backend(settings)

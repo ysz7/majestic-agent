@@ -10,9 +10,9 @@ def run(profile_name: str = "default"):
 
 async def _run_plain(profile_name: str):
     from majestic.config.settings import Settings
-    from majestic.core.gateway import Gateway
+    from majestic.agent.gateway import Gateway
     from majestic.channels.cli import CLIChannel
-    from majestic.core.runtime import AgentRuntime
+    from majestic.agent.runtime import AgentRuntime
     from majestic.llm.router import LLMRouter
     from majestic.system.startup import StartupManager
     from majestic import display
@@ -209,12 +209,12 @@ def _build_runtime(
     procedural_memory=None,
 ) -> "AgentRuntime":
     """Instantiate AgentRuntime with the full self-evolution stack wired up."""
-    from majestic.core.runtime import AgentRuntime
-    from majestic.core.context_manager import ContextManager
-    from majestic.core.skill_writer import SkillWriter
-    from majestic.core.self_evolution import SelfEvolution
-    from majestic.core.reflection import ReflectionEngine
-    from majestic.core.planner import Planner
+    from majestic.agent.runtime import AgentRuntime
+    from majestic.agent.context_manager import ContextManager
+    from majestic.evolution.skill_writer import SkillWriter
+    from majestic.evolution.self_evolution import SelfEvolution
+    from majestic.evolution.reflection import ReflectionEngine
+    from majestic.agent.planner import Planner
     from majestic.storage import get_backend
 
     data_dir   = settings.data_dir

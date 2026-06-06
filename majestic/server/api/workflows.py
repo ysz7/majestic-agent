@@ -132,7 +132,7 @@ async def run_workflow(
             detail="Workflow execution requires the background agent (majestic run).",
         )
 
-    from majestic.core.workflow_runner import run_workflow_async
+    from majestic.orchestration.workflow_runner import run_workflow_async
 
     asyncio.create_task(run_workflow_async(wf, profile, channel))
     return {"status": "started", "workflow_id": wf_id}

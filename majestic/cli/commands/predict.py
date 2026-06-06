@@ -11,8 +11,8 @@ from datetime import date
 
 from majestic.cli.commands.context import CommandContext
 from majestic.cli.commands.registry import command
-from majestic.core.intelligence import generate_predictions, load_recent_briefing
-from majestic.core.intelligence.predict import (
+from majestic.intelligence import generate_predictions, load_recent_briefing
+from majestic.intelligence.predict import (
     _load_prev_anchors,
     _apply_trend,
     _save_anchors,

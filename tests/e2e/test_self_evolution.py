@@ -22,10 +22,10 @@ from unittest.mock import AsyncMock, MagicMock
 # Make sure the package is importable
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
-from majestic.core.script_tracker import ScriptTracker
-from majestic.core.skill_writer import SkillWriter
-from majestic.core.self_evolution import SelfEvolution
-from majestic.core.reflection import ReflectionEngine
+from majestic.evolution.script_tracker import ScriptTracker
+from majestic.evolution.skill_writer import SkillWriter
+from majestic.evolution.self_evolution import SelfEvolution
+from majestic.evolution.reflection import ReflectionEngine
 from majestic.memory.lessons import LessonsStore
 from majestic.memory.episodic import EpisodicMemory
 from majestic.memory.procedural import ProceduralMemory

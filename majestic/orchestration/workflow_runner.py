@@ -21,7 +21,7 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from majestic.core.api.ws import emit_event
+from majestic.server.api.ws import emit_event
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +180,7 @@ async def run_workflow_async(workflow: dict, profile: str, channel) -> None:
                 if subtype == "product_forge":
                     # Runs the Solo Product Forge service directly (not via the agent).
                     try:
-                        from majestic.core.intelligence.products import run_for_profile
+                        from majestic.intelligence.products import run_for_profile
 
                         res = await run_for_profile(profile, days=30)
                         output = res["markdown"]

@@ -2,7 +2,7 @@
 
 from majestic.cli.commands.context import CommandContext
 from majestic.cli.commands.registry import command
-from majestic.core.intelligence import llm_with_retry
+from majestic.intelligence import llm_with_retry
 
 
 @command("/research")

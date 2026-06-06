@@ -8,7 +8,7 @@ from datetime import date
 
 from majestic.cli.commands.context import CommandContext
 from majestic.cli.commands.registry import command
-from majestic.core.intelligence import (
+from majestic.intelligence import (
     generate_solo_products,
     load_recent_briefing,
 )

@@ -48,7 +48,7 @@ class SqliteBackend(StorageBackend):
         return UserProfile(self.settings.db_path("user_profile"))
 
     def script_tracker(self) -> Any:
-        from majestic.core.script_tracker import ScriptTracker
+        from majestic.evolution.script_tracker import ScriptTracker
 
         return ScriptTracker(self.settings.db_path("script_tracker"))
 

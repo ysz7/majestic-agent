@@ -1,5 +1,5 @@
 """
-majestic.core.server
+majestic.server.server
 ~~~~~~~~~~~~~~~~~~~~
 FastAPI HTTP server for background agent mode.
 
@@ -111,8 +111,8 @@ def create_app(channel, settings) -> FastAPI:
     )
 
     # Desktop API — profiles, agents, memory, skills, workspace, budget + WebSocket
-    from majestic.core.api import create_desktop_router
-    from majestic.core.api.ws import router as ws_router
+    from majestic.server.api import create_desktop_router
+    from majestic.server.api.ws import router as ws_router
 
     app.include_router(create_desktop_router())
     app.include_router(ws_router)

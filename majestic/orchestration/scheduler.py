@@ -2,7 +2,7 @@
 
 Runs workflows whose trigger node is a cron schedule. Backed by APScheduler's
 ``AsyncIOScheduler`` so jobs fire inside the background agent's event loop and
-can drive :func:`majestic.core.workflow_runner.run_workflow_async` directly.
+can drive :func:`majestic.orchestration.workflow_runner.run_workflow_async` directly.
 
 Lifecycle:
   - ``start()``          create the scheduler and schedule all cron workflows.
@@ -100,7 +100,7 @@ class WorkflowScheduler:
             )
 
     async def _run(self, workflow: dict, profile: str) -> None:
-        from majestic.core.workflow_runner import run_workflow_async
+        from majestic.orchestration.workflow_runner import run_workflow_async
 
         await run_workflow_async(workflow, profile, self._channel)
 

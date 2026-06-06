@@ -5,7 +5,7 @@ import time
 
 from majestic.cli.commands.context import CommandContext
 from majestic.cli.commands.registry import command
-from majestic.core.intelligence import llm_with_retry, load_recent_briefing
+from majestic.intelligence import llm_with_retry, load_recent_briefing
 
 
 @command("/ask")

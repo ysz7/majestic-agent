@@ -141,7 +141,7 @@ def build_hook_bus(settings, *, planner=None, hitl_ask=None, hitl_enabled: bool 
     bus = HookBus()
 
     # Phase K.5 — permission policy enforced as the first pre_tool_use hook.
-    from majestic.core.permissions import PermissionPolicy
+    from majestic.agent.permissions import PermissionPolicy
 
     policy = PermissionPolicy.from_settings(settings)
 

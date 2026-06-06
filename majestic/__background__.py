@@ -28,10 +28,10 @@ logger = logging.getLogger("majestic.background")
 
 
 async def run_agent_loop(settings, channel) -> None:
-    from majestic.core.runtime import AgentRuntime
+    from majestic.agent.runtime import AgentRuntime
     from majestic.memory.working import WorkingMemory
     from majestic.llm.router import LLMRouter
-    from majestic.core.api.ws import emit_event
+    from majestic.server.api.ws import emit_event
     from majestic.tools.registry import register_tools
 
     llm = LLMRouter(settings)
@@ -116,14 +116,14 @@ async def main(profile_name: str) -> None:
     """
     from majestic.config.settings import Settings
     from majestic.channels.server_channel import ServerChannel
-    from majestic.core.server import create_app, start_server
+    from majestic.server.server import create_app, start_server
 
     settings = Settings(profile_name)
     channel = ServerChannel(session_id=profile_name)
     app = create_app(channel, settings)
 
     # Schedule cron-triggered workflows for this profile.
-    from majestic.core.scheduler import WorkflowScheduler
+    from majestic.orchestration.scheduler import WorkflowScheduler
 
     scheduler = WorkflowScheduler(channel)
     app.state.scheduler = scheduler

@@ -15,7 +15,7 @@ import json
 import re
 from collections import defaultdict
 
-from majestic.core.intelligence.llm import llm_with_retry
+from majestic.intelligence.llm import llm_with_retry
 
 # Sellability composite weights (sum = 1.0). See PLAN.md Phase I.3.
 _WEIGHTS = {
@@ -368,7 +368,7 @@ async def run_for_profile(profile: str, days: int = 30, n: int = 10) -> dict:
     from majestic.config.settings import Settings
     from majestic.storage import get_backend
     from majestic.llm.router import LLMRouter
-    from majestic.core.intelligence.briefing import load_recent_briefing
+    from majestic.intelligence.briefing import load_recent_briefing
 
     settings = Settings(profile)
     backend = get_backend(settings)

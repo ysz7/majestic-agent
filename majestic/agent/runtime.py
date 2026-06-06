@@ -15,7 +15,7 @@ class _ToolCall(BaseModel):
     args: dict = {}
 
 from majestic import display
-from majestic.core import hooks as _hooks
+from majestic.agent import hooks as _hooks
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ class AgentRuntime:
         self._stream_callback = stream_callback  # callable(token: str) | None
         # Phase K.4 — lifecycle hooks (persona command hooks + built-in HITL).
         if hook_bus is None:
-            from majestic.core.hooks import build_hook_bus
+            from majestic.agent.hooks import build_hook_bus
             hook_bus = build_hook_bus(
                 settings,
                 planner=planner,

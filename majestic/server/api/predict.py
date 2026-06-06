@@ -72,7 +72,7 @@ async def run_report(profile: str, body: dict | None = None, _: None = Depends(r
     if body and isinstance(body.get("days"), int):
         days = body["days"]
 
-    from majestic.core.intelligence.predict import run_for_profile
+    from majestic.intelligence.predict import run_for_profile
 
     try:
         return await run_for_profile(profile, days=days)
