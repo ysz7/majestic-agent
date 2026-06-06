@@ -287,6 +287,15 @@ class Settings:
         return ["Crypto (BTC/ETH)", "AI / Tech", "Macro + geopolitics", "Stock markets"]
 
     @property
+    def hooks(self) -> list[dict]:
+        """Lifecycle hooks declared in persona.yaml (Phase K.4).
+
+        Each entry: ``{event, command, matcher?}``. Empty when unset.
+        """
+        raw = self._persona.get("hooks", [])
+        return [h for h in raw if isinstance(h, dict)] if isinstance(raw, list) else []
+
+    @property
     def agent_restrictions(self) -> list[str]:
         raw = self._persona.get("restrictions", [])
         if isinstance(raw, list):

@@ -15,6 +15,7 @@ class _ToolCall(BaseModel):
     args: dict = {}
 
 from majestic import display
+from majestic.core import hooks as _hooks
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ class AgentRuntime:
         context_manager=None,
         hitl_enabled: bool = False,
         stream_callback=None,
+        hook_bus=None,
     ):
         self.settings = settings
         self.memory = working_memory
@@ -60,6 +62,16 @@ class AgentRuntime:
         self._context_mgr = context_manager   # ContextManager | None
         self._hitl_enabled = hitl_enabled
         self._stream_callback = stream_callback  # callable(token: str) | None
+        # Phase K.4 — lifecycle hooks (persona command hooks + built-in HITL).
+        if hook_bus is None:
+            from majestic.core.hooks import build_hook_bus
+            hook_bus = build_hook_bus(
+                settings,
+                planner=planner,
+                hitl_ask=self._ask_hitl,
+                hitl_enabled=hitl_enabled,
+            )
+        self._hooks = hook_bus
         self._tokens_used = 0
         self._cost_used = 0.0
         self._delegation_count = 0
@@ -89,6 +101,9 @@ class AgentRuntime:
         self._tokens_used = 0
         self._cost_used = 0.0
         self._delegation_count = 0
+
+        # Phase K.4 — session_start hook (observe; may not block).
+        await self._hooks.fire(_hooks.SESSION_START, {"task": task, "task_id": task_id})
 
         # ------------------------------------------------------------------
         # 1. Load lessons and inject into system prompt
@@ -179,24 +194,29 @@ class AgentRuntime:
                         tool_name = tool_call["name"]
                         tool_args = tool_call.get("args", {})
 
-                        # HITL check before dangerous actions
-                        if self._hitl_enabled and self._planner:
-                            action_desc = f"{tool_name} {json.dumps(tool_args)}"
-                            if self._planner.needs_hitl(action_desc):
-                                approved = await self._ask_hitl(tool_name, tool_args)
-                                if not approved:
-                                    messages.append({"role": "assistant", "content": content})
-                                    messages.append({
-                                        "role": "user",
-                                        "content": f"[HITL] Action '{tool_name}' was denied by the user. Choose a different approach.",
-                                    })
-                                    steps.append({
-                                        "tool": tool_name,
-                                        "args": tool_args,
-                                        "result": "DENIED by user (HITL)",
-                                    })
-                                    await self._save_checkpoint(task_id, iteration, messages, steps)
-                                    continue
+                        # Phase K.4 — pre_tool_use hook (HITL + persona hooks).
+                        # A hook may DENY (block) or MODIFY the call's args.
+                        decision = await self._hooks.fire(
+                            _hooks.PRE_TOOL_USE,
+                            {"tool": tool_name, "args": tool_args, "task_id": task_id},
+                        )
+                        if decision.denied:
+                            messages.append({"role": "assistant", "content": content})
+                            messages.append({
+                                "role": "user",
+                                "content": f"[HOOK] Action '{tool_name}' was blocked"
+                                           f"{f' — {decision.reason}' if decision.reason else ''}. "
+                                           "Choose a different approach.",
+                            })
+                            steps.append({
+                                "tool": tool_name,
+                                "args": tool_args,
+                                "result": f"BLOCKED: {decision.reason or 'pre_tool_use hook'}",
+                            })
+                            await self._save_checkpoint(task_id, iteration, messages, steps)
+                            continue
+                        if decision.action == "modify" and isinstance(decision.args, dict):
+                            tool_args = decision.args
 
                         # Delegation cap — prevent fire-and-forget loop
                         if tool_name == "delegate_to_agent":
@@ -219,6 +239,13 @@ class AgentRuntime:
                         with display.Spinner(f"{tool_name}..."):
                             result = await self._execute_tool(tool_name, tool_args)
                         display.tool_done(tool_name, tool_args, result)
+
+                        # Phase K.4 — post_tool_use hook (observe/log; cannot block).
+                        await self._hooks.fire(
+                            _hooks.POST_TOOL_USE,
+                            {"tool": tool_name, "args": tool_args,
+                             "result": str(result)[:2000], "task_id": task_id},
+                        )
 
                         messages.append({"role": "assistant", "content": content})
                         messages.append({
@@ -267,6 +294,12 @@ class AgentRuntime:
                 self._checkpoints.complete_task(task_id)
             except Exception as exc:
                 logger.debug("Checkpoint cleanup failed (non-fatal): %s", exc)
+
+        # Phase K.4 — stop hook (run end).
+        await self._hooks.fire(
+            _hooks.STOP,
+            {"task": task, "task_id": task_id, "result": str(final_result)[:2000]},
+        )
 
         return final_result
 
