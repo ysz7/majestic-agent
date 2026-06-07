@@ -986,7 +986,7 @@
           </div>
           <div class="terminal-body">
             <span class="t-line"><span class="t-prompt">majestic ❯</span> <span class="t-cmd">Parse the PDF and write a summary</span></span>
-            <span class="t-line t-dim" style="margin-top:4px">◆ claude-sonnet-4-6 · 8 tools ready</span>
+            <span class="t-line t-dim" style="margin-top:4px">◆ claude-sonnet-4-6 · 14 tools ready</span>
             <span class="t-line">&nbsp;</span>
             <span class="t-line"><span class="t-dim">┌</span> <span class="t-blue">file_parser</span> <span class="t-dim">· report_q3.pdf · 42 pages</span></span>
             <span class="t-line"><span class="t-dim">├</span> <span class="t-blue">python_exec</span> <span class="t-dim">· extracting text...</span></span>
@@ -1025,7 +1025,7 @@
   <section id="features">
     <div class="container">
       <div class="feature-badges reveal">
-        <div class="feature-badge"><span class="fb-dot"></span>8 Built-in Tools + MCP</div>
+        <div class="feature-badge"><span class="fb-dot"></span>14 Built-in Tools + MCP</div>
         <div class="feature-badge"><span class="fb-dot"></span>Local-first — Ollama ready</div>
         <div class="feature-badge"><span class="fb-dot"></span>Profile-based — isolated agents</div>
         <div class="feature-badge"><span class="fb-dot"></span>One-command install</div>
@@ -1072,7 +1072,7 @@
         <div class="cap-card">
           <span class="cap-num">06</span>
           <div class="cap-title">REST API</div>
-          <p class="cap-desc">POST /task, GET /status/{id}, POST /message/{id} — run agents in background, delegate between agents, connect any service.</p>
+          <p class="cap-desc">POST /task, GET /status, WS /ws, /api/* — run agents in background, delegate between agents, connect any service.</p>
           <div class="cap-tags"><span class="cap-tag">fastapi</span><span class="cap-tag">background-mode</span></div>
         </div>
         <div class="cap-card">
@@ -1089,7 +1089,7 @@
         </div>
         <div class="cap-card">
           <span class="cap-num">09</span>
-          <div class="cap-title">8 Built-in Tools</div>
+          <div class="cap-title">14 Built-in Tools</div>
           <p class="cap-desc">web_search, web_fetch, http, files, python_exec, node_exec, file_parser, agent_client — plus any MCP server. Add domain tools with one file in <code style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">tools/</code>.</p>
           <div class="cap-tags"><span class="cap-tag">built-in</span><span class="cap-tag">mcp</span></div>
         </div>
@@ -1122,7 +1122,7 @@
         <div>
           <div class="tools-header">
             <p class="section-label">Tools</p>
-            <h2 class="section-heading">8 Built-in Tools.<br />Plus Any MCP.</h2>
+            <h2 class="section-heading">14 Built-in Tools.<br />Plus Any MCP.</h2>
             <p class="section-sub" style="margin-top:14px">Core tools cover the essential 80%. Add MCP servers or drop a file in <code style="font-family:var(--font-mono);font-size:12px">tools/</code> — auto-registered, zero config.</p>
           </div>
           <div class="tools-list">
@@ -1167,8 +1167,8 @@
               <span class="tool-badge badge-core">core</span>
             </div>
             <div class="tool-row">
-              <span class="tool-name">mcp_{server}_{tool}</span>
-              <span class="tool-desc">Any MCP server, auto-wired via registry</span>
+              <span class="tool-name">mcp__{server}__{tool}</span>
+              <span class="tool-desc">Any MCP server (stdio), auto-wired via registry</span>
               <span class="tool-badge badge-mcp">mcp</span>
             </div>
           </div>
@@ -1284,7 +1284,7 @@
         <div class="platform-card">
           <div class="platform-icon">⚡</div>
           <div class="platform-name">REST API</div>
-          <div class="platform-desc">POST /task · GET /status/{id} · POST /message/{id}</div>
+          <div class="platform-desc">POST /task · GET /status · WS /ws · /api/*</div>
         </div>
         <div class="platform-card">
           <div class="platform-icon">↔</div>

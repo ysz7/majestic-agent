@@ -16,10 +16,12 @@
 <tr><td><b>Foreground + background modes</b></td><td>Interactive CLI or background HTTP daemon. Same agent, same memory, different channel.</td></tr>
 <tr><td><b>Profile system</b></td><td>Each agent is a fully isolated profile — its own persona, model, keys, memory, skills, and workspace. Unlimited agents, each on its own port.</td></tr>
 <tr><td><b>Multi-agent</b></td><td>Background agents register in a shared registry. Any agent can delegate tasks to any other via HTTP using the <code>agent_client</code> tool.</td></tr>
-<tr><td><b>8 built-in tools</b></td><td>web_search (Brave → DDG fallback), web_fetch, http, files, python_exec, node_exec, file_parser, agent_client. Add tools with one file in <code>tools/</code>.</td></tr>
+<tr><td><b>Built-in tools</b></td><td>web_search (Brave → DDG fallback), web_fetch, http, files, python_exec, node_exec, research, plus script reuse and multi-agent delegation. Add tools with one file in <code>tools/</code>.</td></tr>
+<tr><td><b>Native tool use + MCP</b></td><td>Structured tool calling on capable models (Anthropic/OpenAI/paid OpenRouter), text-protocol fallback for the rest. Connect any MCP server over stdio — its tools join the loop as <code>mcp__server__tool</code>.</td></tr>
+<tr><td><b>Hooks + permissions</b></td><td>Lifecycle hooks (pre/post tool use, stop) can block or modify any tool call. Per-tool allow/deny/ask rules and modes (default/auto/plan/bypass) in <code>persona.yaml</code>.</td></tr>
 <tr><td><b>Self-improving</b></td><td>After complex tasks the agent writes YAML skill files from experience. Skills are hot-reloaded — no restart needed. Gets smarter over time, zero effort.</td></tr>
 <tr><td><b>6 memory types</b></td><td>Working, Episodic, Semantic (sqlite-vec), Procedural (skills), Lessons Learned, User Profile — all SQLite, all local.</td></tr>
-<tr><td><b>Cost control</b></td><td>Token and USD budgets per task. Warns at 80%, stops at 100%.</td></tr>
+<tr><td><b>Cost control</b></td><td>Token and USD budgets per task. Warns at 80%, stops at 100%. Unset → safe default cap (500k tokens / $2); set <code>0</code> for explicit unlimited.</td></tr>
 <tr><td><b>~100–150 MB RAM per agent</b></td><td>Runs comfortably in Docker, a VPS, or a Raspberry Pi.</td></tr>
 </table>
 
@@ -83,14 +85,18 @@ The setup wizard asks for your LLM provider, API key, model (fetched live for Op
 
 | Command | Description |
 |---------|-------------|
-| `/help` | Show available commands |
-| `/skills` | List loaded skills |
-| `/tools` | List all registered tools |
-| `/agents` | Show running background agents |
-| `/memory` | Memory stats |
-| `/budget` | Token / cost usage |
-| `/new` | Clear chat and reset session |
-| `/quit` | Exit |
+| `/research [days]` | Fetch curated news → summary + live market snapshot |
+| `/pains [days]` | Extract pain points (intensity, willingness-to-pay, domains) |
+| `/ideas [days]` | Generate startup ideas from the accumulated pains corpus |
+| `/products [days]` | TOP-10 sellable solo digital products + monetization audit |
+| `/predict [days]` | Single-section, cross-sector forecasts grounded in real data |
+| `/briefing [days]` | Daily intelligence briefing from the news corpus |
+| `/news [days]` | Show stored news (no re-fetch) |
+| `/ask <question>` | Answer against the research + pains corpus |
+| `/goodmorning` | Full pipeline: research → pains → briefing → ideas → predict |
+| `/skills` · `/tools` · `/agents` | List skills · tools · running agents |
+| `/memory` · `/budget` | Memory stats · token & cost usage |
+| `/help` · `/new` · `/quit` | Help · reset session · exit |
 
 ---
 
@@ -126,8 +132,9 @@ restrictions:
 context: |
   You work at Company X. You sell a SaaS platform for HR departments.
 limits:
-  max_tokens_per_task: 50000   # 0 = unlimited
-  max_cost_per_task: 0.10      # 0 = unlimited
+  # Unset → safe default cap (500k tokens / $2). 0 = explicit unlimited.
+  max_tokens_per_task: 50000
+  max_cost_per_task: 0.10
 ```
 
 ---
@@ -162,8 +169,11 @@ The wizard skips the API key prompt if you stay on the same provider. To revert 
 | `files` | Read / write / list workspace files |
 | `python_exec` | Write + run `.py` scripts in isolated `.venv` |
 | `node_exec` | Write + run `.js` scripts in isolated `node_modules` |
-| `file_parser` | PDF / DOCX / CSV / TXT / MD → text → memory index |
+| `research` | Query curated sources → ranked, summarized corpus |
+| `list_scripts` / `run_script` | Reuse scripts promoted to `workspace/tools/` |
 | `agent_client` | Delegate tasks to running background agents |
+
+File attachments are auto-parsed (PDF / DOCX / CSV / TXT / MD → text → semantic memory) by the gateway — no explicit tool call needed.
 
 Add a new tool: drop one `.py` file in `majestic/tools/` — auto-registered.
 
@@ -226,9 +236,10 @@ Example: ask the default agent *"do market research on X"* — it calls `list_ag
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /task` | Submit a delegated task |
-| `GET /status/{id}` | Check task status |
-| `POST /message/{id}` | Send a message to a running task |
+| `POST /task` | Submit a task → `{task_id}` |
+| `GET /status` | Health check (agent name + port) |
+| `WS /ws` | Live `token` / `step` / `done` / `error` events (results stream here) |
+| `/api/*` | Desktop/API routes — profiles, memory, skills, workspace, budget, cron, workflows, products, predict |
 
 ---
 
@@ -247,14 +258,19 @@ Single container, ~100–150 MB RAM per agent. Volumes: `./profiles`, `./data`.
 ## Architecture
 
 ```
-Layer 7  CLI          setup · new · list · config · rm · run · ps · stop
-Layer 6  Channels     CLI (foreground) · HTTP Server (background)
-Layer 5  Gateway      normalize · session · persona · file detection
-Layer 4  Planner      classify · decompose · cron · HITL · delegation
-Layer 3  Runtime      ReAct loop · tools · budget · compaction · retry
-Layer 2  Tools + MCP  http · files · web_search · web_fetch · exec · MCP
-Layer 1  Memory + LLM 6 memory types · LLM Router (4 providers)
+Layer 7  CLI                 setup · new · list · config · rm · run · ps · stop
+Layer 6  Channels + Server    CLI (foreground) · FastAPI server + /api (background)
+Layer 5  Gateway              normalize · session · persona · file detection
+Layer 4  Planner              classify · decompose · HITL · delegation
+Layer 3  Agent Runtime        ReAct loop · native tool use · hooks · permissions · budget
+Layer 2  Tools + MCP          web_search · web_fetch · http · files · exec · research · real MCP stdio
+Layer 1  Memory + LLM         6 memory types · LLM Router (4 providers)
 ```
+
+Package layout: `agent/` (runtime, gateway, planner, hooks, permissions) ·
+`server/` (HTTP + api) · `intelligence/` (research/products/predict/…) ·
+`evolution/` (self-improvement) · `orchestration/` (workflows + cron) ·
+`tools/ · llm/ · memory/ · mcp/ · channels/ · storage/ · config/`.
 
 ---
 

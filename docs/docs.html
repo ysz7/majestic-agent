@@ -609,7 +609,7 @@
                 ["Per-step LLM routing",  "Different models for reason / simple / code / reflection steps"],
                 ["4 LLM providers",       "Anthropic, OpenAI, OpenRouter, Ollama — automatic fallback chain"],
                 ["Dual-mode operation",   "CLI foreground (Rich) or background daemon + FastAPI server"],
-                ["REST API",              "POST /task · GET /status/{id} · POST /message/{id}"],
+                ["REST API",              "POST /task · GET /status · WS /ws · /api/*"],
                 ["Multi-agent",           "Agents discover each other via registry.json, delegate via agent_client — target auto-starts if not running"],
                 ["MCP integration",       "Any MCP server wired via mcp/registry.yaml — auto-prefixed tools"],
                 ["Gateway layer",         "Normalizes input, detects prompt injection, injects RAG context"],
@@ -626,9 +626,9 @@
 Layer 6  Channels      CLIChannel (foreground/Rich) · ServerChannel (background/queue)
 Layer 5  Gateway       normalize input, inject context, detect prompt injection
 Layer 4  Planner       classify task, decompose, HITL gating, agent delegation
-Layer 3  Agent Runtime ReAct loop (max 30 iter, 300s timeout), tools, budget
+Layer 3  Agent Runtime ReAct loop (30 iter, 300s) · native tool use · hooks · permissions · budget
 Layer 2  Tools + MCP   web_search · web_fetch · http · files · python_exec
-                       node_exec · file_parser · agent_client · mcp_{server}_{tool}
+                       node_exec · research · agent_client · mcp__{server}__{tool}
 Layer 1  Memory + LLM  6 SQLite memory systems · LLM Router`}</CodeBlock>
 
           <CodeBlock lang="text">{`profiles/<name>/
@@ -831,10 +831,11 @@ majestic run researcher
 # Check running agents
 majestic ps
 
-# Send a task via REST API
+# Send a task via REST API (results stream over the /ws WebSocket)
 curl -X POST http://localhost:8001/task \
   -H "Content-Type: application/json" \
-  -d '{"task": "Search for latest AI research papers on agents"}'
+  -H "X-Agent-Token: $(cat data/agent_token)" \
+  -d '{"text": "Search for latest AI research papers on agents"}'
 
 # Stop the agent
 majestic stop researcher`}</CodeBlock>
@@ -904,7 +905,8 @@ majestic stop researcher`}</CodeBlock>
                 ["/research",         "Fetch curated news → store → summary with a live Market Snapshot"],
                 ["/pains",            "Extract pain points (intensity, willingness-to-pay, trending domains)"],
                 ["/ideas",            "Generate startup ideas from the accumulated pains corpus"],
-                ["/predict",          "Forecasts grounded in live market data"],
+                ["/products",         "TOP-10 sellable solo digital products + monetization audit"],
+                ["/predict",          "Single-section, cross-sector forecasts grounded in real data"],
                 ["/briefing",         "Daily briefing from the news corpus + market snapshot"],
                 ["/news [days]",      "Show stored news from the last N days (no re-fetch)"],
                 ["/goodmorning [days]","Full pipeline: research → pains → briefing → ideas → predict"],
@@ -932,7 +934,7 @@ majestic stop researcher`}</CodeBlock>
                 ["④ Language",    "Response language: en, de, fr, es, ru, pt, zh, ja, other"],
                 ["⑤ Port",        "HTTP port for background mode (1024–65535)"],
                 ["⑥ Restrictions","Behavioral restrictions — add / remove / view list"],
-                ["⑦ Limits",      "max_tokens_per_task and max_cost_per_task (0 = unlimited)"],
+                ["⑦ Limits",      "max_tokens_per_task / max_cost_per_task (unset → safe cap; 0 = unlimited)"],
                 ["⑧ Context",     "Free-form system context block (opens $EDITOR if set)"],
               ].map(([cmd, desc]) => (
                 <tr key={cmd}><td><code>{cmd}</code></td><td>{desc}</td></tr>
@@ -997,9 +999,9 @@ majestic stop researcher`}</CodeBlock>
           <h2 className="section-title" id="tools-mcp">MCP tools</h2>
           <div className="prose">
             <p>
-              Any MCP server registered in <code>mcp/registry.yaml</code> is auto-wrapped as agent tools.
+              Any enabled MCP server in <code>majestic/mcp/registry.yaml</code> is auto-wrapped as agent tools.
               Tool names are prefixed: a tool <code>read_file</code> from server <code>filesystem</code>
-              becomes <code>mcp_filesystem_read_file</code>.
+              becomes <code>mcp__filesystem__read_file</code> (double underscores).
             </p>
           </div>
 
@@ -1233,8 +1235,20 @@ context: |
   knowledge, persona background, or special behaviors here.
 
 limits:
+  # Unset → safe default cap (500k tokens / $2). 0 = explicit unlimited.
   max_tokens_per_task: 0      # 0 = unlimited
-  max_cost_per_task: 0.0      # 0.0 = unlimited (USD)`}</CodeBlock>
+  max_cost_per_task: 0.0      # 0.0 = unlimited (USD)
+
+permissions:                  # per-tool gating (Phase K.5)
+  mode: default               # default | auto | plan | bypass
+  allow: ["web_search", "research", "file_read"]
+  ask:   ["python_exec", "node_exec", "http_*"]
+  deny:  ["delegate_to_agent"]
+
+hooks:                        # lifecycle command hooks (Phase K.4)
+  - event: pre_tool_use       # session_start | pre_tool_use | post_tool_use | stop
+    matcher: "python_exec"    # glob on tool name
+    command: ["python", "scripts/audit_hook.py"]`}</CodeBlock>
 
           <h2 className="section-title" id="config-fields">Field reference</h2>
           <div className="config-grid">
@@ -1246,8 +1260,10 @@ limits:
               { key: "port",         type: "integer",  desc: "TCP port for background HTTP server (1024–65535).", def: "8000" },
               { key: "restrictions", type: "string[]", desc: "Behavioral restrictions the agent must follow.", def: "[]" },
               { key: "context",      type: "string",   desc: "Free-form system context block (multiline).", def: '""' },
-              { key: "limits.max_tokens_per_task", type: "integer", desc: "Token budget per task (0 = unlimited).", def: "0" },
-              { key: "limits.max_cost_per_task",   type: "float",   desc: "Cost budget per task in USD (0.0 = unlimited).", def: "0.0" },
+              { key: "limits.max_tokens_per_task", type: "integer", desc: "Token budget per task. Unset → 500k default cap; 0 = unlimited.", def: "(500k cap)" },
+              { key: "limits.max_cost_per_task",   type: "float",   desc: "Cost budget per task in USD. Unset → $2 default cap; 0 = unlimited.", def: "(\$2 cap)" },
+              { key: "permissions",  type: "object",   desc: "mode (default/auto/plan/bypass) + allow/ask/deny tool-name globs.", def: "default mode" },
+              { key: "hooks",        type: "object[]", desc: "Lifecycle command hooks — can block or modify a tool call.", def: "[]" },
             ].map(c => (
               <div className="config-card" key={c.key}>
                 <div className="config-key">{c.key}</div>
@@ -1256,6 +1272,24 @@ limits:
                 {c.def && <div className="config-default">default: {c.def}</div>}
               </div>
             ))}
+          </div>
+
+          <h2 className="section-title" id="config-permissions">Permissions &amp; hooks</h2>
+          <div className="prose">
+            <p>
+              <strong>Permissions</strong> gate tool execution. Modes: <code>default</code> (rules apply),
+              <code>auto</code> (auto-approve "ask"), <code>plan</code> (block all tools — read-only),
+              <code>bypass</code> (allow all). Per-tool glob rules resolve with precedence
+              <code>deny &gt; ask &gt; allow</code>; an "ask" tool prompts for confirmation (and fails safe
+              to deny in non-interactive background mode).
+            </p>
+            <p>
+              <strong>Hooks</strong> fire on lifecycle events (<code>session_start</code>,
+              <code>pre_tool_use</code>, <code>post_tool_use</code>, <code>stop</code>). A
+              <code>pre_tool_use</code> hook receives the tool + args as JSON on stdin and may return a
+              JSON decision to <strong>deny</strong> (block) or <strong>modify</strong> the call. Both
+              permissions and the built-in confirmation prompt are implemented as hooks.
+            </p>
           </div>
 
           <h2 className="section-title" id="config-env">Settings priority</h2>
@@ -1390,6 +1424,14 @@ majestic run pain_hunter   # starts on port 8001 (set in persona.yaml)
 # Verify it's running
 majestic ps`}</CodeBlock>
 
+          <h2 className="section-title" id="api-auth">Authentication</h2>
+          <div className="prose">
+            <p>
+              Task endpoints require the agent token in an <code>X-Agent-Token</code> header. The token
+              is generated on first run and stored in <code>data/agent_token</code>.
+            </p>
+          </div>
+
           <h2 className="section-title" id="api-endpoints">Endpoints</h2>
 
           <div className="endpoint-card">
@@ -1398,54 +1440,54 @@ majestic ps`}</CodeBlock>
               <span className="endpoint-path">/task</span>
             </div>
             <div className="endpoint-desc">
-              Submit a task to the agent. Returns a task ID immediately; the agent runs the ReAct loop in the background.
+              Submit a task. Returns a task ID immediately; the agent runs the ReAct loop in the
+              background and streams progress + the result over the WebSocket.
             </div>
           </div>
           <CodeBlock lang="bash">{`curl -X POST http://localhost:8001/task \\
   -H "Content-Type: application/json" \\
-  -d '{"task": "Search for market pain points in B2B project management"}'`}</CodeBlock>
-          <CodeBlock lang="json">{`{
-  "task_id": "t_7f3a2c1b",
-  "status": "running"
-}`}</CodeBlock>
+  -H "X-Agent-Token: $(cat data/agent_token)" \\
+  -d '{"text": "Search for market pain points in B2B project management"}'`}</CodeBlock>
+          <CodeBlock lang="json">{`{ "status": "accepted", "task_id": "3f8c..." }`}</CodeBlock>
           <h3 className="subsection-title">Request body</h3>
           <table className="api-table">
             <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
             <tbody>
-              <tr><td><code>task</code></td><td><code>string</code></td><td><span className="badge req">required</span></td><td>The task description for the agent's ReAct loop.</td></tr>
+              <tr><td><code>text</code></td><td><code>string</code></td><td><span className="badge req">required</span></td><td>The task description for the agent's ReAct loop.</td></tr>
             </tbody>
           </table>
 
           <div className="endpoint-card">
             <div className="endpoint-header">
               <span className="badge get">GET</span>
-              <span className="endpoint-path">/status/{"{task_id}"}</span>
+              <span className="endpoint-path">/status</span>
             </div>
             <div className="endpoint-desc">
-              Poll task status and retrieve the result when complete.
+              Health check — returns the agent name and port. (No token required.)
             </div>
           </div>
-          <CodeBlock lang="bash">{`curl http://localhost:8001/status/t_7f3a2c1b`}</CodeBlock>
-          <CodeBlock lang="json">{`{
-  "task_id": "t_7f3a2c1b",
-  "status": "done",
-  "result": "Top 3 pain points identified: ...",
-  "steps": 5,
-  "cost_usd": 0.014
-}`}</CodeBlock>
+          <CodeBlock lang="json">{`{ "status": "running", "agent": "Writer", "port": 8001 }`}</CodeBlock>
 
           <div className="endpoint-card">
             <div className="endpoint-header">
-              <span className="badge post">POST</span>
-              <span className="endpoint-path">/message/{"{task_id}"}</span>
+              <span className="badge get">WS</span>
+              <span className="endpoint-path">/ws</span>
             </div>
             <div className="endpoint-desc">
-              Send a follow-up message to an in-progress task (HITL interaction).
+              WebSocket stream of live events — this is where results arrive (there is no status
+              polling endpoint). Connect with <code>?token=&lt;agent_token&gt;</code>.
             </div>
           </div>
-          <CodeBlock lang="bash">{`curl -X POST http://localhost:8001/message/t_7f3a2c1b \\
-  -H "Content-Type: application/json" \\
-  -d '{"message": "Focus only on Jira competitors"}'`}</CodeBlock>
+          <CodeBlock lang="json">{`// events pushed over /ws
+{ "type": "token", "content": "..." }                         // streamed output
+{ "type": "step",  "step": "TOOL_CALL", "content": "..." }    // ReAct step
+{ "type": "done",  "task_id": "3f8c...", "result": "...",
+  "tokens": 1234, "cost": 0.014 }                             // final result
+{ "type": "error", "message": "..." }`}</CodeBlock>
+
+          <Callout type="info">
+            <p>Desktop/API routes also live under <code>/api/*</code> (profiles, memory, skills, workspace, budget, cron, workflows, products, predict) — all token-gated.</p>
+          </Callout>
 
           <NavButtons current="rest-api" navigate={navigate} />
         </div>
@@ -1555,61 +1597,56 @@ majestic stop pain_hunter  # stop a background agent`}</CodeBlock>
           <div className="prose">
             <p>
               MCP is an open protocol for connecting AI models to external data sources and tools.
-              An MCP server exposes a list of tools over stdio or SSE; Majestic auto-wraps them
-              as native tools and makes them available to the agent.
+              Majestic ships a real <strong>stdio JSON-RPC client</strong>: it spawns each enabled
+              server as a subprocess, performs the <code>initialize</code> handshake, lists its tools,
+              and merges them into the agent loop. Their input schemas feed native tool use.
             </p>
           </div>
 
           <h2 className="section-title" id="mcp-config">Configuration</h2>
           <div className="prose">
             <p>
-              MCP servers are configured in <code>mcp/registry.yaml</code> in the project root.
-              All agents share this registry.
+              Servers live in <code>majestic/mcp/registry.yaml</code> as a map under <code>servers:</code>.
+              Only entries with <code>enabled: true</code> are spawned. <code>command</code> is optional —
+              when omitted it is derived from <code>runtime</code> + <code>package</code>
+              (python → the installed console script, node → <code>npx -y &lt;package&gt;</code>).
             </p>
           </div>
-          <CodeBlock lang="yaml" filename="mcp/registry.yaml">{`servers:
-  # stdio server (most common)
-  - name: filesystem
-    command: ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/home/user"]
+          <CodeBlock lang="yaml" filename="majestic/mcp/registry.yaml">{`servers:
+  git:
+    enabled: true
+    runtime: python
+    package: "mcp-server-git"
+    # command: ["uvx", "mcp-server-git"]   # optional explicit launch
+    # args: ["--repository", "."]
 
-  # stdio server with env vars
-  - name: github
-    command: ["npx", "-y", "@modelcontextprotocol/server-github"]
+  github:
+    enabled: false
+    runtime: node
+    package: "@modelcontextprotocol/server-github"
     env:
-      GITHUB_TOKEN: "\${GITHUB_TOKEN}"
+      GITHUB_PERSONAL_ACCESS_TOKEN: "ghp_..."`}</CodeBlock>
 
-  # SSE server
-  - name: my-service
-    url: "http://localhost:3000/sse"`}</CodeBlock>
-
-          <h2 className="section-title" id="mcp-bundle">Common MCP servers</h2>
-          <table className="api-table">
-            <thead><tr><th>Server</th><th>Provides</th><th>Env required</th></tr></thead>
-            <tbody>
-              <tr><td><code>filesystem</code></td><td>Read/write local files outside workspace</td><td>—</td></tr>
-              <tr><td><code>github</code></td><td>Repos, issues, PRs, code search</td><td><code>GITHUB_TOKEN</code></td></tr>
-              <tr><td><code>postgres</code></td><td>SQL queries to any PostgreSQL database</td><td><code>DATABASE_URL</code></td></tr>
-              <tr><td><code>playwright</code></td><td>Real browser with JS rendering, screenshots</td><td>—</td></tr>
-            </tbody>
-          </table>
+          <Callout type="info">
+            <p>Transport is <strong>stdio</strong>. SSE/HTTP transport is not implemented yet.</p>
+          </Callout>
 
           <h2 className="section-title" id="mcp-naming">Tool naming</h2>
           <div className="prose">
             <p>
-              MCP tools are prefixed to avoid naming collisions. A tool named <code>read_file</code>
-              from a server named <code>filesystem</code> becomes <code>mcp_filesystem_read_file</code>.
-              The agent sees and uses the prefixed name transparently.
+              Discovered tools are prefixed to avoid collisions: a tool <code>read_file</code> from a
+              server named <code>git</code> becomes <code>mcp__git__read_file</code> (double underscores).
+              The agent uses the prefixed name transparently; run <code>/tools</code> in the CLI to list them.
             </p>
           </div>
-          <CodeBlock lang="bash">{`# Example output of: majestic mcp list
+          <CodeBlock lang="bash">{`# Tools exposed by an enabled "git" server appear in /tools as:
 
-  filesystem  (npx -y @modelcontextprotocol/server-filesystem /home/user)
-    · mcp_filesystem_read_file
-    · mcp_filesystem_write_file
-    · mcp_filesystem_list_directory`}</CodeBlock>
+  · mcp__git__git_status
+  · mcp__git__git_log
+  · mcp__git__git_diff`}</CodeBlock>
 
           <Callout type="info">
-            <p>MCP servers start as subprocesses when the agent boots. If a server fails to start, its tools are silently omitted — the agent still works with the remaining tools.</p>
+            <p>Enabled MCP servers start as subprocesses when the background agent boots and are torn down on exit. If a server fails to start, its tools are silently omitted — the agent still works with the rest.</p>
           </Callout>
 
           <NavButtons current="mcp" navigate={navigate} />
