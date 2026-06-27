@@ -370,10 +370,16 @@ class AgentRuntime:
                 })
                 continue
 
-            # 1. Try tool_schema() on the owning object (e.g. PythonExecutor)
-            obj = getattr(fn, "__self__", None)
-            if obj is not None and hasattr(obj, "tool_schema"):
-                schemas.append(obj.tool_schema())
+            # 1. Look for a hand-written schema whose ``name`` matches THIS
+            #    registry key. A single owner object (or module) may back
+            #    several tools and expose several schemas — e.g. AgentClient
+            #    has both ``tool_schema()`` ("delegate_to_agent") and
+            #    ``list_agents_schema()`` ("list_agents"). Matching by name
+            #    prevents one tool from stealing another's schema (which would
+            #    produce duplicate tool names and a 400 from Anthropic).
+            declared = self._declared_schema(name, fn)
+            if declared is not None:
+                schemas.append(declared)
                 continue
 
             # 2. Build from docstring + signature
@@ -416,7 +422,56 @@ class AgentRuntime:
                     "required": required,
                 },
             })
-        return schemas
+
+        # Safety net: tool names MUST be unique or providers (Anthropic) reject
+        # the whole request with HTTP 400. Keep the first schema per name and
+        # warn loudly if a collision slips through — it signals a registry bug.
+        deduped: list[dict] = []
+        seen: set[str] = set()
+        for schema in schemas:
+            sname = schema.get("name")
+            if sname in seen:
+                logger.warning(
+                    "Duplicate tool schema dropped | name=%s — check tool registry",
+                    sname,
+                )
+                continue
+            seen.add(sname)
+            deduped.append(schema)
+        return deduped
+
+    @staticmethod
+    def _declared_schema(name: str, fn) -> dict | None:
+        """Return a hand-written schema named ``name`` from the tool's owner.
+
+        Searches, in order, the bound object's ``tool_schema()`` /
+        ``tool_schemas()`` and the function's defining module's
+        ``tool_schema()`` / ``tool_schemas()``. Only a schema whose ``name``
+        matches the registry key is returned, so an object backing several
+        tools can't hand one tool another tool's schema.
+        """
+        sources = []
+        obj = getattr(fn, "__self__", None)
+        if obj is not None:
+            sources.append(obj)
+        module = inspect.getmodule(fn)
+        if module is not None:
+            sources.append(module)
+
+        for src in sources:
+            for attr in ("tool_schema", "tool_schemas"):
+                provider = getattr(src, attr, None)
+                if not callable(provider):
+                    continue
+                try:
+                    produced = provider()
+                except Exception:
+                    continue
+                candidates = produced if isinstance(produced, list) else [produced]
+                for cand in candidates:
+                    if isinstance(cand, dict) and cand.get("name") == name:
+                        return cand
+        return None
 
     async def _reason(self, messages: list, steps: list) -> dict:
         """Call LLM for reasoning step."""
